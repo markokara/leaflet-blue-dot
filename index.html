@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leaflet Blue Dot (map.locate) Demo</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .info{position:absolute;left:10px;top:10px;z-index:1000;background:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .info b{display:block;margin-bottom:4px}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="info"><b>Blue Dot</b> Konum iznine “İzin ver” deyin. İlk sabitlemede harita size yakınlaşır.</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script>
+  // 1) Harita (Antalya civarı başlangıç)
+  const map = L.map('map', { center: [36.885, 30.705], zoom: 15 });
+
+  // 2) Baz katman: OSM
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // 3) Blue dot: map.locate ile canlı konum takibi
+  let dot, acc, firstFix = true;
+
+  function onLocationFound(e) {
+    const latlng = e.latlng;
+    const accuracy = e.accuracy || 0;
+
+    if (!dot) dot = L.circleMarker(latlng, { radius: 7, weight: 2 }).addTo(map);
+    else dot.setLatLng(latlng);
+
+    if (!acc) acc = L.circle(latlng, { radius: accuracy, weight: 1, fillOpacity: 0.07 }).addTo(map);
+    else acc.setLatLng(latlng).setRadius(accuracy);
+
+    if (firstFix) { map.setView(latlng, 18); firstFix = false; }
+    else { map.panTo(latlng, { animate: true }); }
+  }
+
+  function onLocationError(e) {
+    console.warn('Konum hatası:', e.message);
+    alert('Konum alınamadı: ' + e.message + '\nHTTPS/izinleri kontrol edin.');
+  }
+
+  map.on('locationfound', onLocationFound);
+  map.on('locationerror', onLocationError);
+
+  // Tarayıcı konumunu izle
+  map.locate({ setView: false, watch: true, enableHighAccuracy: true });
+</script>
+</body>
+</html>
