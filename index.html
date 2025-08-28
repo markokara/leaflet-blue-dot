@@ -28,7 +28,7 @@
   .toolbar button{padding:9px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer}
   .toolbar button[disabled]{opacity:.5;cursor:not-allowed}
 
-  /* Öneri listesi — tıklanabilirlik için önemli */
+  /* Öneri listesi */
   .results{
     position:absolute;z-index:2000;left:10px;top:54px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;
     box-shadow:0 4px 16px rgba(0,0,0,.12);width:320px;max-height:50vh;overflow:auto;display:none;pointer-events:auto
@@ -38,7 +38,7 @@
   .results .item small{color:#64748b}
   .badge{display:inline-block;padding:1px 6px;border-radius:999px;background:#eef;border:1px solid #c7d2fe;margin-left:6px;font-size:11px}
 
-  /* Sol üstte yalnız LRM; yer aç */
+  /* LRM için boşluk */
   .leaflet-control-container .leaflet-top.leaflet-left { margin-top:58px }
 
   /* Popup kartı */
@@ -49,7 +49,7 @@
   .poi-card .desc{font-size:13px;color:#333}
   .poi-card button{margin-top:6px;border:0;background:#0066ff;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
 
-  /* Marka/OSM atrib. */
+  /* Marka/atrib */
   .brand-attrib{background:#fff;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font:12px system-ui;box-shadow:0 1px 6px rgba(0,0,0,.1)}
   .brand-attrib a{color:#6b7280;text-decoration:none}
 
@@ -61,6 +61,10 @@
     70%{transform:scale(1);box-shadow:0 0 0 18px rgba(59,130,246,0)}
     100%{transform:scale(1);box-shadow:0 0 0 0 rgba(59,130,246,0)}
   }
+
+  /* Kalıcı hedef pini */
+  .target-pin{width:18px;height:18px;margin-left:-9px;margin-top:-9px;border-radius:50%;
+              background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.35)}
 </style>
 </head>
 <body>
@@ -78,7 +82,7 @@
 <div id="results" class="results"></div>
 
 <script>
-/* --------- 0) Otel poligonu --------- */
+/* ---------- 0) Otel poligonu ---------- */
 const HOTEL_GEOMETRY = {
   "type":"Polygon",
   "coordinates":[[
@@ -90,7 +94,7 @@ const HOTEL_GEOMETRY = {
   ]]
 };
 
-/* --------- 1) Harita + maske + marka atrib. --------- */
+/* ---------- 1) Harita + maske + marka atrib. ---------- */
 const map = L.map('map', { zoomControl:true, attributionControl:false });
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
 osm.setOpacity(0.55);
@@ -110,15 +114,19 @@ maskLayer.addTo(map);
 map.setMaxBounds(HOTEL_BOUNDS);
 map.options.maxBoundsViscosity = 1.0;
 
-const brand = L.control({position:'bottomright'});
-brand.onAdd = ()=>{ const d=L.DomUtil.create('div','brand-attrib'); d.innerHTML='LONG BEACH ALANYA • <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>'; return d; };
-brand.addTo(map);
+// Sağ alt yazı
+L.control({position:'bottomright'}).onAdd = () => {
+  const d=L.DomUtil.create('div','brand-attrib');
+  d.innerHTML='LONG BEACH ALANYA • AIHotelsTech contributors • <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>';
+  return d;
+}.addTo(map);
 
-/* --------- 2) Katmanlar & indeks --------- */
+/* ---------- 2) Katmanlar & indeks ---------- */
 const levelGroups = new Map();
 const outdoorGroup = L.layerGroup().addTo(map);
 const allIndoor=[], allOutdoor=[], index=[];
 const highlightLayer = L.layerGroup().addTo(map);
+let destMarker=null; // kalıcı hedef pini
 
 function currentLang(){ return document.getElementById('lang').value || 'tr'; }
 function getDisplayName(p,lang='tr'){ return (p.i18n && p.i18n[lang] && p.i18n[lang].name) || p.name || 'Nokta'; }
@@ -132,20 +140,24 @@ function poiPopupHTML(p, latlng, lang){
   const navBtn=`<button onclick="routeTo(${latlng.lat},${latlng.lng})">Yol Tarifi</button>`;
   return `<div class="poi-card">${img}<div class="name">${name}</div>${type}${hrs}${desc}${navBtn}</div>`;
 }
-
-// eş anlamlılar (kategori)
 const CAT={disco:{tr:['disco','disko'],en:['disco','club'],ru:['диско','клуб']},pool:{tr:['havuz','aqua','kaydırak'],en:['pool','slide'],ru:['бассейн']},spa:{tr:['spa','hamam','sauna'],en:['spa','hamam','sauna'],ru:['спа','хамам','сауна']},bar:{tr:['bar'],en:['bar'],ru:['бар']},restaurant:{tr:['restoran','restaurant'],en:['restaurant'],ru:['ресторан']},lobby:{tr:['lobi'],en:['lobby'],ru:['лобби']},gate:{tr:['giriş','kapı'],en:['gate','entrance'],ru:['вход']},room:{tr:['oda'],en:['room'],ru:['комната']}};
 function keywordsFor(p){ const arr=[]; const push=s=>{if(s)arr.push(s.toLowerCase());}; push(p.name); if(p.i18n)Object.values(p.i18n).forEach(o=>push(o.name)); if(p.category&&CAT[p.category])Object.values(CAT[p.category]).forEach(list=>list.forEach(push)); return arr; }
 
 function pulseAt(latlng){
   const m = L.marker(latlng,{icon:L.divIcon({className:'pulse'}),interactive:false,keyboard:false});
-  m.addTo(highlightLayer);
-  setTimeout(()=>highlightLayer.removeLayer(m), 1600);
+  m.addTo(highlightLayer); setTimeout(()=>highlightLayer.removeLayer(m), 1600);
 }
 function flashPolygon(layer){
   const prev = layer.options;
   layer.setStyle({color:'#ef4444',weight:3});
   setTimeout(()=>layer.setStyle({color:prev.color||'#2563eb',weight:1}), 1500);
+}
+function setDestination(latlng){
+  if(!destMarker){
+    destMarker = L.marker(latlng,{icon:L.divIcon({className:'target-pin'})}).addTo(map);
+  } else {
+    destMarker.setLatLng(latlng);
+  }
 }
 
 function addIndoor(fc){
@@ -175,7 +187,7 @@ function addOutdoor(fc){
   }).addTo(outdoorGroup);
 }
 
-/* DEMO veri (yer tutucu) */
+/* --- Demo veri (yer tutucu) --- */
 const center=HOTEL_BOUNDS.getCenter();
 const C=(dy,dx)=>[center.lng+dx, center.lat+dy];
 const INDOOR_DEMO={"type":"FeatureCollection","features":[
@@ -197,7 +209,7 @@ const OUTDOOR_DEMO={"type":"FeatureCollection","features":[
 addIndoor(INDOOR_DEMO);
 addOutdoor(OUTDOOR_DEMO);
 
-/* Layers: Level 1 / Level -1 / Outdoor / Tüm POI'ler */
+/* ---------- 3) Layers ---------- */
 const overlays={}; [...levelGroups.entries()].forEach(([lvl,grp])=>{ overlays[`Level ${lvl}`]=grp; if(lvl===1) grp.addTo(map); });
 overlays["Outdoor Alanlar"]=outdoorGroup;
 const allPoisToggle=L.layerGroup(); overlays["Tüm POI'leri Göster"]=allPoisToggle;
@@ -205,7 +217,7 @@ L.control.layers(null,overlays,{collapsed:false,position:'topright'}).addTo(map)
 map.on('overlayadd', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.addLayer(grp)); map.addLayer(outdoorGroup); }});
 map.on('overlayremove', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.removeLayer(grp)); map.removeLayer(outdoorGroup); }});
 
-/* --------- 3) Arama (öneri tıklanabilir + canlanma) --------- */
+/* ---------- 4) Arama (öneri tıklanır + kalıcı hedef) ---------- */
 const input=document.getElementById('searchInput');
 const resultsEl=document.getElementById('results');
 const goBtn=document.getElementById('goBtn');
@@ -227,17 +239,16 @@ function buildSuggestions(q){
   return [...starts,...contains].slice(0,50);
 }
 function chooseEntry(ent){
-  // NOT: input.value aynen kalır (kullanıcının yazdığı silinmez)
+  // Kullanıcının yazdığı metni SİLME – ama üstüne seçilen POI adını yaz: (istersen bu satırı kaldırırız)
+  input.value = ent.displayName();
   resultsEl.style.display='none';
   selectedTarget={latlng:ent.latlng, refLayer:ent.refLayer};
   goBtn.disabled=false;
+  setDestination(ent.latlng);       // kalıcı hedef pini
   map.flyTo(ent.latlng,19,{duration:.4});
   ent.refLayer.openPopup && ent.refLayer.openPopup();
-  // Canlandırma
   pulseAt(ent.latlng);
-  if (ent.refLayer.getBounds){ // polygon ise
-    try{ flashPolygon(ent.refLayer); }catch{}
-  }
+  if (ent.refLayer.getBounds){ try{ flashPolygon(ent.refLayer); }catch{} }
 }
 function renderResults(list){
   resultsEl.innerHTML='';
@@ -245,7 +256,6 @@ function renderResults(list){
   list.forEach(ent=>{
     const div=document.createElement('div'); div.className='item';
     div.innerHTML=`${ent.displayName()} <span class="badge">${ent.type||'poi'}${ent.level!==undefined?` • L${ent.level}`:''}</span>`;
-    // tıklama sağlam: pointerdown + mousedown + touchstart
     ['pointerdown','mousedown','touchstart'].forEach(evt=>{
       div.addEventListener(evt,(ev)=>{ ev.preventDefault(); ev.stopPropagation(); chooseEntry(ent); });
     });
@@ -275,7 +285,7 @@ document.getElementById('lang').addEventListener('change', ()=>{
   outdoorGroup.eachLayer(l=>l.bindPopup(poiPopupHTML(l.feature.properties, l.getLatLng(), currentLang())));
 });
 
-/* --------- 4) Blue dot & Rota --------- */
+/* ---------- 5) Mavi nokta & Rota ---------- */
 let dot=null, acc=null;
 function secureOrigin(){ return location.protocol==='https:' || location.hostname==='localhost'; }
 if(secureOrigin()){ map.locate({setView:false, watch:true, enableHighAccuracy:true}); }
@@ -290,13 +300,16 @@ let routing=L.Routing.control({ waypoints:[], routeWhileDragging:false, showAlte
 
 window.routeTo=function(lat,lng){
   if(!dot){ alert('Konum izni gerekli (sol üstteki konum butonu).'); return; }
-  routing.setWaypoints([ dot.getLatLng(), L.latLng(lat,lng) ]);
-  selectedTarget={latlng:L.latLng(lat,lng)}; goBtn.disabled=false;
+  const target=L.latLng(lat,lng);
+  routing.setWaypoints([ dot.getLatLng(), target ]);
+  setDestination(target); // kalıcı pin
+  selectedTarget={latlng:target}; goBtn.disabled=false;
 };
 document.getElementById('goBtn').addEventListener('click', ()=>{
   if(!selectedTarget){ alert('Lütfen bir POI seçin.'); return; }
   if(!dot){ alert('Konum izni gerekli.'); return; }
   routing.setWaypoints([ dot.getLatLng(), selectedTarget.latlng ]);
+  setDestination(selectedTarget.latlng);
 });
 </script>
 </body>
