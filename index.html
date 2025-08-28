@@ -5,13 +5,25 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Long Beach Hotels – Indoor</title>
 
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Search (Leaflet Control Geocoder - Nominatim) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+  <!-- Locate button (blue dot için kullanıcı kontrolü) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+  <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+
   <style>
     html,body,#map{height:100%;margin:0}
-    .ui{position:absolute;z-index:1000;left:10px;top:10px;background:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:14px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    .ui{position:absolute;z-index:1000;left:10px;top:10px;background:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:14px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;max-width:290px}
     .ui b{display:block;margin-bottom:4px}
+    .legend{margin-top:6px;font-size:12px;color:#444}
   </style>
 </head>
 <body>
@@ -19,88 +31,108 @@
 <div class="ui">
   <b>Long Beach Hotels – Indoor</b>
   Kat seç: sağ üstteki <b>Layers</b> paneli (Level 1 / Level 2).<br>
-  Mavi nokta: konuma izin ver.<br>
-  Dışarı kaydırma kilitli (sadece tesis görünür).
+  Arama: sol üstteki <b>Search</b> kutusu.<br>
+  Mavi nokta: <b>Locate</b> butonu.<br>
+  <div class="legend">Not: Otel sınırı gerçek poligon yüklendiğinde, harita yalnız tesise kilitlenecek.</div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-/* -----------------------------------------------------------
-   1) OTEL SINIRI (GeoJSON Polygon) — BURAYI GERÇEK POLİGONLA DEĞİŞTİR
-   -----------------------------------------------------------
+/* =========================================================================
+   0) KONFİG
+   ========================================================================= */
+const HOTEL_ADDRESS = "Long Beach Alanya, Türkler Mh. Akdeniz Bl No:26, 07407 Alanya/Antalya";
 
-   Nasıl bulurum?
-   - https://geojson.io sitesini aç → arama kutusuna “Long Beach Resort Hotel Alanya”
-   - OSM geometrisi çıkarsa tıkla/İçe aktar; yoksa arazi sınırını poligonla çiz
-   - Sağdan "Save → GeoJSON" de → "geometry" kısmını aşağıdaki gibi yapıştır
-*/
-
-const HOTEL_GEOMETRY = {
+/* =========================================================================
+   1) OTEL SINIRI — GERÇEK POLİGONU BURAYA KOY (GeoJSON geometry)
+   - Şimdilik boş bırakıyorum. Poligon eklenince mask + maxBounds otomatik açılır.
+   ========================================================================= */
+const HOTEL_GEOMETRY = null;
+/*
+Örnek yer tutucu format (kullanmıyoruz):
+{
   "type":"Polygon",
   "coordinates":[[
-    [31.71190,36.64040],[31.71250,36.64035],[31.71295,36.64015],
-    [31.71350,36.63985],[31.71355,36.63930],[31.71295,36.63895],
-    [31.71190,36.63905],[31.71150,36.63960],[31.71155,36.64010],
-    [31.71190,36.64040]
-  ]]}; // <— BU sadece örnek! Gerçek koordinatları geojson.io'dan kopyala.
+    [lng1,lat1],[lng2,lat2],...
+  ]]
+}
+*/
 
-/* -----------------------------------------------------------
-   2) BASİT İNDOOR KATLARI (GeoJSON)
-   - Kendi odalarını/alanlarını polygon olarak ekleyebilirsin.
-   - Şimdilik örnek 2 oda + 1 koridor gösteriyorum.
-   - Koordinatları HOTEL_GEOMETRY içine düşecek şekilde güncelle.
------------------------------------------------------------ */
-const LEVEL1 = {
+/* =========================================================================
+   2) BASİT İNDOOR KATLARI (GeoJSON) — örnek
+   ========================================================================= */
+const LEVELS_FC = {
   "type":"FeatureCollection",
   "features":[
-    {"type":"Feature","properties":{"name":"Lobi"}, "geometry":{"type":"Polygon","coordinates":[[
-      [31.71210,36.64020],[31.71240,36.64020],[31.71240,36.63998],[31.71210,36.63998]
+    // Level 1
+    {"type":"Feature","properties":{"name":"Lobi","level":1},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.71750,36.60890],[31.71780,36.60890],[31.71780,36.60870],[31.71750,36.60870]
     ]]}},
-    {"type":"Feature","properties":{"name":"Restoran"}, "geometry":{"type":"Polygon","coordinates":[[
-      [31.71245,36.63990],[31.71285,36.63990],[31.71285,36.63960],[31.71245,36.63960]
+    {"type":"Feature","properties":{"name":"Restoran","level":1},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.71785,36.60865],[31.71825,36.60865],[31.71825,36.60835],[31.71785,36.60835]
     ]]}},
-    {"type":"Feature","properties":{"name":"Koridor"}, "geometry":{"type":"Polygon","coordinates":[[
-      [31.71205,36.63995],[31.71290,36.63995],[31.71290,36.63990],[31.71205,36.63990]
+    // Level 2
+    {"type":"Feature","properties":{"name":"SPA","level":2},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.71740,36.60855],[31.71775,36.60855],[31.71775,36.60830],[31.71740,36.60830]
+    ]]}},
+    {"type":"Feature","properties":{"name":"Toplantı Salonu","level":2},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.71780,36.60850],[31.71820,36.60850],[31.71820,36.60825],[31.71780,36.60825]
     ]]}}
   ]
 };
-const LEVEL2 = {
-  "type":"FeatureCollection",
-  "features":[
-    {"type":"Feature","properties":{"name":"SPA"}, "geometry":{"type":"Polygon","coordinates":[[
-      [31.71195,36.63985],[31.71230,36.63985],[31.71230,36.63960],[31.71195,36.63960]
-    ]]}},
-    {"type":"Feature","properties":{"name":"Toplantı Salonu"}, "geometry":{"type":"Polygon","coordinates":[[
-      [31.71235,36.63980],[31.71275,36.63980],[31.71275,36.63955],[31.71235,36.63955]
-    ]]}}
-  ]
-};
+// Not: Bu koordinatlar sadece DEMO. Gerçek plana göre güncelle.
 
-/* -----------------------------------------------------------
-   3) HARİTA OLUŞTUR
------------------------------------------------------------ */
+/* =========================================================================
+   3) HARİTA
+   ========================================================================= */
 const map = L.map('map', { zoomControl:true });
 
-// Baz katman (çok soluk dursun ki indoor vurgulansın)
+// Baz katman: üretimde kendi tile sağlayıcını kullanmanı öneririm.
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom: 20, attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 osm.setOpacity(0.45);
 
-// Otel poligon katmanı
-const hotelOutline = L.geoJSON(HOTEL_GEOMETRY, {
-  style: { color:'#0078ff', weight:2, fillOpacity:0.05 }
-}).addTo(map);
+/* =========================================================================
+   4) KATMANLAR
+   ========================================================================= */
+function roomStyle(){ return { color:'#0066ff', weight:1, fillOpacity:0.25 }; }
+function onEachRoom(f,layer){
+  const name = f.properties?.name || 'Oda';
+  layer.bindPopup(name + (f.properties?.level ? ` (Level ${f.properties.level})` : ''));
+  layer.on({ mouseover:e=>e.target.setStyle({weight:2}), mouseout:e=>e.target.setStyle({weight:1}) });
+}
+// Level filtreleyici
+function levelFilter(targetLevel){
+  return function(f){ return +f.properties?.level === +targetLevel; }
+}
 
-// Otel bounding → haritayı kilitle
-const HOTEL_BOUNDS = hotelOutline.getBounds().pad(0.05);
-map.fitBounds(HOTEL_BOUNDS);
-map.setMaxBounds(HOTEL_BOUNDS);
-map.options.maxBoundsViscosity = 1.0; // dışarı çıkmayı engelle
+const level1 = L.layerGroup();
+const level2 = L.layerGroup();
+L.geoJSON(LEVELS_FC, { filter:levelFilter(1), style:roomStyle, onEachFeature:onEachRoom }).addTo(level1);
+L.geoJSON(LEVELS_FC, { filter:levelFilter(2), style:roomStyle, onEachFeature:onEachRoom }).addTo(level2);
 
-// Dış alanı karart (mask) → sadece tesis alanı parlak kalsın
+// Otel poligonu (varsa)
+let hotelOutline = null;
+if (HOTEL_GEOMETRY){
+  hotelOutline = L.geoJSON(HOTEL_GEOMETRY, { style: { color:'#0078ff', weight:2, fillOpacity:0.05 }});
+  hotelOutline.addTo(map);
+}
+
+// Layer control
+const overlays = { "Level 1":level1, "Level 2":level2 };
+if (hotelOutline) overlays["Otel Sınırı"] = hotelOutline;
+L.control.layers(null, overlays, { collapsed:false, position:'topright' }).addTo(map);
+
+/* =========================================================================
+   5) MASK (OTEL DIŞINI KARART) ve KİLİT
+   - Sadece HOTEL_GEOMETRY yüklüyse aktif.
+   ========================================================================= */
 function createMask(geom){
+  // Dünya poligonu (Leaflet lat,lng sırası bekler)
   const world = [[-90,-180],[-90,180],[90,180],[90,-180]];
   const toLatLngs = coords => coords.map(([lng,lat])=>[lat,lng]);
   const holes = [];
@@ -108,43 +140,102 @@ function createMask(geom){
   if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => holes.push(toLatLngs(poly[0]).slice().reverse()));
   return L.polygon([world].concat(holes), { stroke:false, fill:true, fillColor:'#000', fillOpacity:0.35, interactive:false });
 }
-createMask(HOTEL_GEOMETRY).addTo(map);
-
-/* -----------------------------------------------------------
-   4) İNDOOR KATMANLAR (Level 1 / Level 2) + Kat kontrolü
------------------------------------------------------------ */
-function roomStyle(){ return { color:'#0066ff', weight:1, fillOpacity:0.25 }; }
-function onEachRoom(f,layer){
-  const name = f.properties?.name || 'Oda';
-  layer.bindPopup(name);
-  layer.on({ mouseover:e=>e.target.setStyle({weight:2}), mouseout:e=>e.target.setStyle({weight:1}) });
+let maskLayer = null;
+if (hotelOutline){
+  maskLayer = createMask(HOTEL_GEOMETRY).addTo(map);
+  const HOTEL_BOUNDS = hotelOutline.getBounds().pad(0.05);
+  map.fitBounds(HOTEL_BOUNDS);
+  map.setMaxBounds(HOTEL_BOUNDS);
+  map.options.maxBoundsViscosity = 1.0;
+} else {
+  // Poligon yoksa: haritayı kilitleME, sadece adresi ortala (aşağıdaki geocode).
 }
 
-const level1 = L.layerGroup().addTo(map);
-const level2 = L.layerGroup();
-
-L.geoJSON(LEVEL1, { style:roomStyle, onEachFeature:onEachRoom }).addTo(level1);
-L.geoJSON(LEVEL2, { style:roomStyle, onEachFeature:onEachRoom }).addTo(level2);
-
-// Kat/layer kontrolü (sağ üst)
-L.control.layers(null, { "Level 1":level1, "Level 2":level2, "Otel Sınırı":hotelOutline }, { collapsed:false, position:'topright' }).addTo(map);
-
-/* -----------------------------------------------------------
-   5) BLUE DOT (kullanıcı konumu)
------------------------------------------------------------ */
+/* =========================================================================
+   6) BLUE DOT (otomatik takip) + LOCATE butonu
+   ========================================================================= */
 let dot=null, acc=null, firstFix=true;
 function onLocationFound(e){
   const ll=e.latlng, a=e.accuracy||0;
   dot?dot.setLatLng(ll):dot=L.circleMarker(ll,{radius:7,weight:2}).addTo(map);
   acc?acc.setLatLng(ll).setRadius(a):acc=L.circle(ll,{radius:a,weight:1,fillOpacity:.07}).addTo(map);
-  if(firstFix){ map.setView(ll,18); firstFix=false; } else { map.panTo(ll,{animate:true}); }
+  if(firstFix){ firstFix=false; }
 }
 function onLocationError(e){ console.warn(e.message); }
 map.on('locationfound', onLocationFound);
 map.on('locationerror', onLocationError);
 map.locate({ setView:false, watch:true, enableHighAccuracy:true });
 
+// Kullanıcı “Locate” butonu
+L.control.locate({
+  position: 'topleft',
+  setView: 'untilPanOrZoom',
+  initialZoomLevel: 18,
+  keepCurrentZoomLevel: false,
+  flyTo: true,
+  strings: { title: "Konumumu göster" }
+}).addTo(map);
+
+/* =========================================================================
+   7) SEARCH (adres/POI) — sol üstte
+   - Enter’a basınca haritayı oraya götürür, marker koyar.
+   ========================================================================= */
+const search = L.Control.geocoder({
+  defaultMarkGeocode: false,               // marker’ı kendimiz ekleyeceğiz
+  placeholder: "Ara (adres/POI)…",
+}).on('markgeocode', function(e) {
+  const center = e.geocode.center;
+  gotoAndMark(center, e.geocode.name);
+}).addTo(map);
+
+let searchMarker = null;
+function gotoAndMark(latlng, label="Seçim"){
+  if (searchMarker) map.removeLayer(searchMarker);
+  searchMarker = L.marker(latlng, {title: label}).addTo(map).bindPopup(label).openPopup();
+  map.flyTo(latlng, 18, {duration:0.6});
+}
+
+/* =========================================================================
+   8) OTEL ADRESİNİ GEOCODE ET (ilk açılışta doğru yere git)
+   - Gerçek poligon yoksa, adresi baz al.
+   ========================================================================= */
+(async function centerOnHotel(){
+  if (hotelOutline){
+    // Poligon varsa zaten fitBounds yaptık.
+    return;
+  }
+  try{
+    // Basit Nominatim çağrısı (JSONP değil; fetch ile). Demo amaçlıdır.
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("q", HOTEL_ADDRESS);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("addressdetails", "0");
+    const resp = await fetch(url.toString(), { headers: { "Accept": "application/json" }});
+    const data = await resp.json();
+    if (Array.isArray(data) && data.length){
+      const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+      const hotelLL = L.latLng(lat, lon);
+      gotoAndMark(hotelLL, "Hotel (adres)");
+      // Not: İstersen, burada küçük bir yarıçap setMaxBounds yapabilirsin:
+      // const bb = L.latLngBounds([hotelLL]).pad(0.01);
+      // map.setMaxBounds(bb); map.options.maxBoundsViscosity = 0.5;
+    } else {
+      map.setView([36.624,31.741], 13); // Alanya batısı fallback
+    }
+  } catch(err){
+    console.warn("Geocode hatası:", err);
+    map.setView([36.624,31.741], 13);
+  }
+})();
+
+/* =========================================================================
+   9) KÜÇÜK UX DÜZENLEMESİ
+   - Level 1’i varsayılan açık bırak, Level 2 kapalı olsun.
+   ========================================================================= */
+level1.addTo(map);
+// level2 eklenmedi — kullanıcı isterse açar.
+
 </script>
 </body>
 </html>
-
