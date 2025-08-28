@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Saha Çizim – Akıllı Map (Plug-insiz)</title>
+<title>Saha Çizim – Akıllı Map (Plug-insiz + Canlı Konum)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -25,22 +25,22 @@
 <div id="map"></div>
 
 <div class="toolbar">
+  <button id="locBtn" class="primary" title="Konum izle / merkeze al">Konum</button>
   <button id="modePoint">Nokta</button>
   <button id="modePoly">Poligon</button>
   <button id="finishBtn">Bitir</button>
   <button id="undoBtn">Geri Al</button>
   <button id="clearBtn">Sil (Seçili)</button>
-
-  <button id="exportOutdoor" class="primary">Dışa Aktar (outdoor.json)</button>
-  <button id="exportIndoor"  class="primary">Dışa Aktar (indoor.json)</button>
+  <button id="exportOutdoor">Dışa Aktar (outdoor.json)</button>
+  <button id="exportIndoor">Dışa Aktar (indoor.json)</button>
   <label>İçe Aktar<input id="importFile" type="file" accept=".json,.geojson"></label>
 </div>
 
-<div class="hint">Mod: <b id="modeLabel">Pasif</b> • İpucu: Poligon için haritaya tıklayarak köşeler ekleyin, <b>Bitir</b> ile kapatın. Nokta için bir kez tıklayın.</div>
+<div class="hint">Mod: <b id="modeLabel">Pasif</b> • Poligon için köşelere tıkla → <b>Bitir</b>. Nokta için bir kez tıkla. <b>Konum</b> ile mavi nokta görünür.</div>
 <div class="brand">LONG BEACH ALANYA • AIHotelsTech</div>
 
 <script>
-/* --- OTEL SINIRI (senin verdiğin polygon) --- */
+/* --- Otel sınırı (senin poligonun) --- */
 const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
   [31.80488563536983,36.60144809135009],
   [31.80141125277774,36.599560719072684],
@@ -49,46 +49,74 @@ const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
   [31.80488563536983,36.60144809135009]
 ]]};
 
-function toLatLngs(coords){ return coords.map(([lng,lat])=>L.latLng(lat,lng)); }
-
-/* --- HARİTA --- */
+/* ---------- Harita ---------- */
 const map = L.map('map',{zoomControl:true, attributionControl:false});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
 
-// Otel sınırı görseli + maske + kilit
-const hotelOutline = L.geoJSON(HOTEL_GEOMETRY,{style:{color:'#0066ff',weight:2,fillOpacity:0.05}}).addTo(map);
-const HOTEL_BOUNDS = hotelOutline.getBounds().pad(0.02);
+const hotelOutline=L.geoJSON(HOTEL_GEOMETRY,{style:{color:'#0066ff',weight:2,fillOpacity:0.05}}).addTo(map);
+const HOTEL_BOUNDS=hotelOutline.getBounds().pad(0.02);
 map.fitBounds(HOTEL_BOUNDS);
 map.setMaxBounds(HOTEL_BOUNDS);
 map.options.maxBoundsViscosity=1.0;
 
+// Maske
 (function createMask(geom){
   const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
   const holes=[]; if(geom.type==='Polygon') holes.push(geom.coordinates[0].map(([lng,lat])=>[lat,lng]).reverse());
   L.polygon([world].concat(holes),{stroke:false,fill:true,fillColor:'#000',fillOpacity:.35,interactive:false}).addTo(map);
 })(HOTEL_GEOMETRY);
 
-/* --- ÇİZİM DURUMU --- */
-let mode = 'idle'; // 'point' | 'poly' | 'idle'
-const modeLabel = document.getElementById('modeLabel');
-const modePoint = document.getElementById('modePoint');
-const modePoly  = document.getElementById('modePoly');
-const finishBtn = document.getElementById('finishBtn');
-const undoBtn   = document.getElementById('undoBtn');
-const clearBtn  = document.getElementById('clearBtn');
+/* ---------- Canlı Konum (mavi nokta) ---------- */
+const locBtn=document.getElementById('locBtn');
+let watchId=null, dot=null, acc=null, firstFix=true;
 
-const drawnOutdoor = L.featureGroup().addTo(map);
-const drawnIndoor  = L.featureGroup().addTo(map);
-let selectedLayer  = null;
+function secureOrigin(){ return location.protocol==='https:' || location.hostname==='localhost'; }
 
-// Aktif poligon çizimi için geçici yapılar
-let tempLatLngs = [];   // L.LatLng[]
-let tempLine    = null; // L.Polyline
-let tempVerts   = [];   // vertex marker listesi
+function startWatch(){
+  if(!secureOrigin()){ alert('Konum için HTTPS gerekir (GitHub Pages uygundur).'); return; }
+  if(watchId!=null){ // zaten izliyorsak tıklama: merkeze al
+    if(dot){ map.flyTo(dot.getLatLng(), 19, {duration:.35}); }
+    return;
+  }
+  watchId = navigator.geolocation.watchPosition(pos=>{
+    const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    const a  = pos.coords.accuracy || 0;
+    if(!dot){
+      dot = L.circleMarker(ll,{radius:9,weight:2,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:.95}).addTo(map);
+      acc = L.circle(ll,{radius:a,weight:1,color:'#3b82f6',fillOpacity:.07}).addTo(map);
+      if(firstFix){ map.flyTo(ll, 19, {duration:.35}); firstFix=false; }
+    }else{
+      dot.setLatLng(ll); acc.setLatLng(ll).setRadius(a);
+    }
+  }, err=>{
+    alert('Konum alınamadı: '+err.message);
+  }, { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+  locBtn.classList.add('active');
+}
+function stopWatch(){
+  if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; locBtn.classList.remove('active'); }
+}
+locBtn.addEventListener('click', startWatch);
+
+/* ---------- Çizim Durumu ---------- */
+let mode='idle'; // 'point' | 'poly' | 'idle'
+const modeLabel=document.getElementById('modeLabel');
+const modePoint=document.getElementById('modePoint');
+const modePoly =document.getElementById('modePoly');
+const finishBtn=document.getElementById('finishBtn');
+const undoBtn  =document.getElementById('undoBtn');
+const clearBtn =document.getElementById('clearBtn');
+
+const drawnOutdoor=L.featureGroup().addTo(map);
+const drawnIndoor =L.featureGroup().addTo(map);
+let selectedLayer=null;
+
+// Geçici poligon state
+let tempLatLngs=[], tempLine=null, tempVerts=[];
 
 function setMode(m){
-  mode = m;
-  modeLabel.textContent = (m==='point'?'Nokta':m==='poly'?'Poligon':'Pasif');
+  mode=m;
+  modeLabel.textContent=(m==='point'?'Nokta':m==='poly'?'Poligon':'Pasif');
   [modePoint,modePoly].forEach(b=>b.classList.remove('active'));
   if(m==='point') modePoint.classList.add('active');
   if(m==='poly')  modePoly.classList.add('active');
@@ -96,136 +124,100 @@ function setMode(m){
 modePoint.onclick=()=>setMode(mode==='point'?'idle':'point');
 modePoly.onclick =()=>setMode(mode==='poly' ?'idle':'poly' );
 
-function resetTemp(){
-  tempLatLngs=[]; if(tempLine){ map.removeLayer(tempLine); tempLine=null; }
-  tempVerts.forEach(v=>map.removeLayer(v)); tempVerts=[];
-}
+function resetTemp(){ tempLatLngs=[]; if(tempLine){map.removeLayer(tempLine);tempLine=null;} tempVerts.forEach(v=>map.removeLayer(v)); tempVerts=[]; }
 finishBtn.onclick=finishPolygon;
 undoBtn.onclick=()=>{ if(tempLatLngs.length){ tempLatLngs.pop(); redrawTemp(); } };
 clearBtn.onclick=()=>{ if(selectedLayer){ map.removeLayer(selectedLayer); selectedLayer=null; } };
 
-/* --- Harita tıklamaları --- */
+/* ---------- Harita tıklamaları ---------- */
 map.on('click', e=>{
   if(!HOTEL_BOUNDS.contains(e.latlng)) return alert('Otel sınırları dışına çizemezsiniz.');
-  if(mode==='point'){ createPointAt(e.latlng); }
-  else if(mode==='poly'){ addVertex(e.latlng); }
+  if(mode==='point')      createPointAt(e.latlng);
+  else if(mode==='poly')  addVertex(e.latlng);
 });
 
 function addVertex(ll){
   tempLatLngs.push(ll);
-  const v = L.circleMarker(ll,{radius:5,weight:2,color:'#2563eb',fillColor:'#2563eb',fillOpacity:1,className:'vertex'}).addTo(map);
+  const v=L.circleMarker(ll,{radius:5,weight:2,color:'#2563eb',fillColor:'#2563eb',fillOpacity:1,className:'vertex'}).addTo(map);
   tempVerts.push(v);
   redrawTemp();
 }
 function redrawTemp(){
   if(tempLine){ map.removeLayer(tempLine); tempLine=null; }
   if(tempLatLngs.length>1){
-    tempLine = L.polyline(tempLatLngs,{color:'#22c55e',weight:2,dashArray:'4,4'}).addTo(map);
+    tempLine=L.polyline(tempLatLngs,{color:'#22c55e',weight:2,dashArray:'4,4'}).addTo(map);
   }
 }
 function finishPolygon(){
   if(mode!=='poly') return;
   if(tempLatLngs.length<3){ alert('Poligon için en az 3 köşe gerekli.'); return; }
-  // kapalı halka üret
-  const ring = tempLatLngs.slice();
-  ring.push(tempLatLngs[0]);
-  const poly = L.polygon(ring,{color:'#22c55e',weight:1,fillOpacity:.25}).addTo(map);
-  askPropsAndAttach(poly, /*isPoint=*/false);
+  const ring=tempLatLngs.slice(); ring.push(tempLatLngs[0]);
+  const poly=L.polygon(ring,{color:'#22c55e',weight:1,fillOpacity:.25}).addTo(map);
+  askPropsAndAttach(poly,false);
   resetTemp();
 }
 
-/* --- Nokta oluşturma --- */
+/* ---------- Nokta ---------- */
 function createPointAt(ll){
-  const m = L.marker(ll, {draggable:false}).addTo(map);
-  askPropsAndAttach(m, /*isPoint=*/true);
+  const m=L.marker(ll,{draggable:false}).addTo(map);
+  askPropsAndAttach(m,true);
 }
 
-/* --- Özellikleri sor + katmana bağla --- */
-function askPropsAndAttach(layer, isPoint){
-  const p = layer.feature?.properties || {};
-  const name = prompt('Ad (ör. Terrazza Bar):', p.name||'') || '';
-  const cat  = prompt('Kategori (bar, restaurant, spa, pool, disco, gate, kids, sport, beach, pier, lobby, room):', p.category||'') || '';
-  const isIndoor = confirm('Indoor (kat içi) mi? Tamam=Evet / İptal=Hayır');
-  let level = undefined;
+/* ---------- Özellik sor + bağla ---------- */
+function askPropsAndAttach(layer,isPoint){
+  const p=layer.feature?.properties||{};
+  const name=prompt('Ad (ör. Terrazza Bar):', p.name||'') || '';
+  const cat =prompt('Kategori (bar, restaurant, spa, pool, disco, gate, kids, sport, beach, pier, lobby, room):', p.category||'') || '';
+  const isIndoor=confirm('Indoor (kat içi) mi? Tamam=Evet / İptal=Hayır');
+  let level=undefined;
   if(isIndoor){
-    const lv = parseInt(prompt('Kat (sayı, ör. -1, 0, 1):', p.level ?? 1),10);
-    if(!isNaN(lv)) level = lv;
+    const lv=parseInt(prompt('Kat (sayı, ör. -1, 0, 1):', p.level ?? 1),10);
+    if(!isNaN(lv)) level=lv;
   }
+  const id=(p.id)||(name?name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,''):'poi')+'-'+Date.now().toString(36);
+  const props={id,name,category:cat}; if(level!==undefined) props.level=level;
 
-  const id = (p.id) || (name?name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,''):'poi')+'-'+Date.now().toString(36);
-  const props = {id, name, category:cat};
-  if(level!==undefined) props.level = level;
-
-  // geometry bilgisi ve popup
-  const center = layer.getLatLng ? layer.getLatLng() : layer.getBounds().getCenter();
-  layer.feature = { type:'Feature', properties:props, geometry:null };
+  layer.feature={type:'Feature',properties:props,geometry:null};
   layer.bindPopup(`<b>${name||'POI'}</b><br>Kategori: ${cat||'-'}${level!==undefined?` • Kat ${level}`:''}`);
 
-  // indoor/outdoor gruplarına dağıt
   if(level!==undefined) drawnIndoor.addLayer(layer); else drawnOutdoor.addLayer(layer);
 
-  // seçili olarak işaretle
-  if(selectedLayer) selectedLayer.setStyle && selectedLayer.setStyle({weight:1});
-  selectedLayer = layer;
-  layer.setStyle && layer.setStyle({weight:2});
+  if(selectedLayer&&selectedLayer.setStyle) selectedLayer.setStyle({weight:1});
+  selectedLayer=layer; layer.setStyle&&layer.setStyle({weight:2});
 }
 
-/* --- Dışa Aktar / İçe Aktar --- */
-function groupToFeatureCollection(group){
+/* ---------- Dışa Aktar / İçe Aktar ---------- */
+function groupToFC(group){
   const features=[];
   group.eachLayer(l=>{
-    const f = l.feature || { type:'Feature', properties:{}, geometry:null };
-    let geom;
-    if(l.getLatLng){ const ll=l.getLatLng(); geom={type:'Point',coordinates:[ll.lng, ll.lat]}; }
-    else if(l.getLatLngs){ 
-      const rings = l.getLatLngs()[0] || l.getLatLngs();
-      const coords = rings.map(x=>[x.lng, x.lat]);
-      // ring kapat
-      if(coords.length && (coords[0][0]!==coords[coords.length-1][0] || coords[0][1]!==coords[coords.length-1][1])) coords.push(coords[0]);
-      geom={type:'Polygon',coordinates:[coords]};
-    }
-    f.geometry=geom;
-    features.push(f);
+    const f=l.feature||{type:'Feature',properties:{},geometry:null}; let geom;
+    if(l.getLatLng){ const ll=l.getLatLng(); geom={type:'Point',coordinates:[ll.lng,ll.lat]}; }
+    else if(l.getLatLngs){ const rings=l.getLatLngs()[0]||l.getLatLngs(); const coords=rings.map(x=>[x.lng,x.lat]); if(coords.length && (coords[0][0]!==coords.at(-1)[0] || coords[0][1]!==coords.at(-1)[1])) coords.push(coords[0]); geom={type:'Polygon',coordinates:[coords]}; }
+    f.geometry=geom; features.push(f);
   });
-  return { type:'FeatureCollection', features };
+  return {type:'FeatureCollection',features};
 }
-function downloadJSON(obj, filename){
+function downloadJSON(obj,filename){
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href);
 }
-document.getElementById('exportOutdoor').onclick=()=>{ 
-  const fc = groupToFeatureCollection(drawnOutdoor);
-  if(!fc.features.length) return alert('Outdoor çizim yok.');
-  downloadJSON(fc,'outdoor.json');
-};
-document.getElementById('exportIndoor').onclick=()=>{ 
-  const fc = groupToFeatureCollection(drawnIndoor);
-  if(!fc.features.length) return alert('Indoor çizim yok.');
-  downloadJSON(fc,'indoor.json');
-};
+document.getElementById('exportOutdoor').onclick=()=>{ const fc=groupToFC(drawnOutdoor); if(!fc.features.length) return alert('Outdoor çizim yok.'); downloadJSON(fc,'outdoor.json'); };
+document.getElementById('exportIndoor').onclick =()=>{ const fc=groupToFC(drawnIndoor ); if(!fc.features.length) return alert('Indoor çizim yok.');  downloadJSON(fc,'indoor.json');  };
 document.getElementById('importFile').onchange=async(e)=>{
   const f=e.target.files?.[0]; if(!f) return;
-  const text=await f.text(); let gj;
-  try{ gj=JSON.parse(text);}catch(_){ alert('Geçersiz JSON/GeoJSON'); return; }
-  L.geoJSON(gj, {
+  const text=await f.text(); let gj; try{ gj=JSON.parse(text);}catch(_){ alert('Geçersiz JSON/GeoJSON'); return; }
+  L.geoJSON(gj,{
     onEachFeature:(ft,lyr)=>{
-      // properties’i bağla
-      lyr.feature = ft;
+      lyr.feature=ft;
       lyr.bindPopup(`<b>${ft.properties?.name||'POI'}</b>${ft.properties?.category?('<br>Kategori: '+ft.properties.category):''}${ft.properties?.level!==undefined?(' • Kat '+ft.properties.level):''}`);
-      // indoor mu outdoor mu?
       if(ft.properties && ft.properties.level!==undefined) drawnIndoor.addLayer(lyr); else drawnOutdoor.addLayer(lyr);
-      lyr.on('click', ()=>{ if(selectedLayer && selectedLayer.setStyle) selectedLayer.setStyle({weight:1}); selectedLayer=lyr; lyr.setStyle && lyr.setStyle({weight:2}); });
+      lyr.on('click',()=>{ if(selectedLayer&&selectedLayer.setStyle) selectedLayer.setStyle({weight:1}); selectedLayer=lyr; lyr.setStyle&&lyr.setStyle({weight:2}); });
     },
     style:()=>({color:'#22c55e',weight:1,fillOpacity:.25})
   });
   try{ const b=L.featureGroup([drawnIndoor,drawnOutdoor]).getBounds(); if(b.isValid()) map.fitBounds(b.pad(.05)); }catch(_){}
   e.target.value='';
 };
-
-/* --- Seçim görselleştirme --- */
-drawnIndoor.on('click', e=>{ if(selectedLayer && selectedLayer.setStyle) selectedLayer.setStyle({weight:1}); selectedLayer=e.layer; e.layer.setStyle && e.layer.setStyle({weight:2}); });
-drawnOutdoor.on('click',e=>{ if(selectedLayer && selectedLayer.setStyle) selectedLayer.setStyle({weight:1}); selectedLayer=e.layer; e.layer.setStyle && e.layer.setStyle({weight:2}); });
-
 </script>
 </body>
 </html>
