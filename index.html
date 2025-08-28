@@ -163,14 +163,14 @@ map.on('overlayremove',e=>{if(e.name==="Tüm POI'leri Göster"){levelGroups.forE
 
 /* 3) Arama + öneriler */
 const input=document.getElementById('searchInput'), resultsEl=document.getElementById('results');
-const goBtn=document.getElementById('goBtn'), pickBtn=document.getElementById('pickBtn');
+const goBtn=document.getElementById('goBtn'), pickBtn=document.getElementById('pickBtn'); // <-- tek tanım (düzeltme)
 let selectedTarget=null;
 
 function dimNonMatches(set){allIndoor.forEach(l=>{const hit=set.has(l);l.setStyle({color:hit?'#2563eb':'#94a3b8',weight:1,opacity:hit?1:.5,fillOpacity:hit?.25:.08});});allOutdoor.forEach(l=>l.setOpacity(set.has(l)?1:.35));}
 function resetDim(){allIndoor.forEach(l=>l.setStyle({color:'#2563eb',weight:1,opacity:1,fillOpacity:.25}));allOutdoor.forEach(l=>l.setOpacity(1));}
 function buildSuggestions(q){const s=q.toLowerCase().trim();const starts=[],contains=[];index.forEach(ent=>{const a=ent.keywords.some(k=>k.startsWith(s));const b=!a&&ent.keywords.some(k=>k.includes(s));if(s&&a)starts.push(ent);else if(s&&b)contains.push(ent);});return[...starts,...contains].slice(0,50);}
 function chooseEntry(ent){
-  input.value = ent.displayName();                 // <-- seçilen metni search bar’a yaz
+  input.value = ent.displayName();                 // seçilen metni search bar’a yaz
   resultsEl.style.display='none';
   selectedTarget={latlng:ent.latlng,refLayer:ent.refLayer}; goBtn.disabled=false;
   setDestination(ent.latlng); map.flyTo(ent.latlng,19,{duration:.4});
@@ -207,13 +207,13 @@ map.on('locationfound',e=>{const ll=e.latlng,a=e.accuracy||0;if(!dot){dot=L.circ
 L.control.locate({position:'topleft',setView:'untilPanOrZoom',initialZoomLevel:19,strings:{title:"Konumumu göster"}}).addTo(map);
 
 let routing=L.Routing.control({waypoints:[],routeWhileDragging:false,showAlternatives:false,collapsible:true,addWaypoints:true,position:'topleft',router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'})}).addTo(map);
-if(routing.hide) routing.hide(); // <-- AÇILIŞTA KAPALI
+if(routing.hide) routing.hide(); // açılışta kapalı
 
 window.routeTo=function(lat,lng){if(!dot){alert('Konum izni gerekli.');return;}const t=L.latLng(lat,lng);routing.setWaypoints([dot.getLatLng(),t]);setDestination(t);selectedTarget={latlng:t};goBtn.disabled=false;};
 goBtn.addEventListener('click',()=>{if(!selectedTarget){alert('Lütfen bir POI seçin veya hedef koyun.');return;} if(!dot){alert('Konum izni gerekli.');return;} routing.setWaypoints([dot.getLatLng(),selectedTarget.latlng]); setDestination(selectedTarget.latlng);});
 
 /* 5) Hedef seç (haritadan) */
-let pickMode=false,longPressTimer=null; const pickBtn=document.getElementById('pickBtn');
+let pickMode=false,longPressTimer=null;
 function enablePick(){pickMode=true;pickBtn.classList.add('active');map.getContainer().classList.add('crosshair');}
 function disablePick(){pickMode=false;pickBtn.classList.remove('active');map.getContainer().classList.remove('crosshair');}
 pickBtn.addEventListener('click',()=>{pickMode?disablePick():enablePick();});
