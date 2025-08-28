@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Locate control (sol üstte rota paneli kalacak; locate yok ama mavi nokta aktif) -->
+<!-- Locate control -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
 
@@ -21,15 +21,18 @@
   html,body{margin:0;height:100%}
   #map{height:100vh;width:100vw}
 
-  /* Arama + dil seçici */
-  .searchbar{position:absolute;z-index:1001;left:10px;top:10px;display:flex;gap:6px;align-items:center}
-  .searchbar input{
+  /* Arama + dil + Git */
+  .toolbar{position:absolute;z-index:1001;left:10px;top:10px;display:flex;gap:6px;align-items:center}
+  .toolbar input{
     width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font:14px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     box-shadow:0 2px 8px rgba(0,0,0,.10)
   }
-  .searchbar select{
-    padding:9px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff
+  .toolbar select{padding:9px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+  .toolbar button{
+    padding:9px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer
   }
+  .toolbar button[disabled]{opacity:.5;cursor:not-allowed}
+
   .results{
     position:absolute;z-index:1001;left:10px;top:54px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);width:320px;max-height:50vh;overflow:auto;display:none
   }
@@ -38,7 +41,7 @@
   .results .item small{color:#64748b}
   .badge{display:inline-block;padding:1px 6px;border-radius:999px;background:#eef;border:1px solid #c7d2fe;margin-left:6px;font-size:11px}
 
-  /* Rota paneli solda kalsın, başka kontrol yok */
+  /* Sol panelde sadece LRM var; yer açmak için */
   .leaflet-control-container .leaflet-top.leaflet-left { margin-top:58px }
 
   /* Popup kartı */
@@ -53,19 +56,20 @@
 <body>
 <div id="map"></div>
 
-<!-- Arama + Dil -->
-<div class="searchbar">
+<!-- Arama + Dil + Git -->
+<div class="toolbar">
   <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
   <select id="lang">
     <option value="tr">TR</option>
     <option value="en">EN</option>
     <option value="ru">RU</option>
   </select>
+  <button id="goBtn" disabled>Git</button>
 </div>
 <div id="results" class="results"></div>
 
 <script>
-/* ====================== 0) OTEL POLİGONU (bounds için kullanılıyor; görünmez) ====================== */
+/* ================== 0) OTEL POLİGONU (mask & bounds) ================== */
 const HOTEL_GEOMETRY = {
   "type":"Polygon",
   "coordinates":[[
@@ -77,30 +81,37 @@ const HOTEL_GEOMETRY = {
   ]]
 };
 
-/* ====================== 1) HARİTA ====================== */
+/* ================== 1) HARİTA ================== */
 const map = L.map('map', { zoomControl:true });
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'}).addTo(map);
 osm.setOpacity(0.55);
 
-// Sınır görünmeden fitBounds yap
-const hotelBounds = (function(){
-  const tmp = L.geoJSON(HOTEL_GEOMETRY);
-  const b = tmp.getBounds().pad(0.03);
-  tmp.remove();
-  return b;
-})();
-map.fitBounds(hotelBounds);
+const hotelOutline = L.geoJSON(HOTEL_GEOMETRY, { style:{ color:'#0066ff', weight:2, fillOpacity:0.05 } }).addTo(map);
+const HOTEL_BOUNDS = hotelOutline.getBounds().pad(0.03);
+map.fitBounds(HOTEL_BOUNDS);
 setTimeout(()=>map.invalidateSize(),0);
 
-/* ====================== 2) KATMANLAR & İNDEKS ====================== */
+// MASK (varsayılan açık) + kilit
+const maskLayer = (function createMask(geom){
+  const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
+  const toLatLngs=a=>a.map(([lng,lat])=>[lat,lng]);
+  const holes=[]; if(geom.type==='Polygon') holes.push(toLatLngs(geom.coordinates[0]).slice().reverse());
+  return L.polygon([world].concat(holes),{stroke:false,fill:true,fillColor:'#000',fillOpacity:.35,interactive:false});
+})(HOTEL_GEOMETRY);
+maskLayer.addTo(map);
+map.setMaxBounds(HOTEL_BOUNDS);
+map.options.maxBoundsViscosity = 1.0;
+
+/* ================== 2) KATMANLAR & İNDEKS ================== */
 const levelGroups = new Map();     // level => LayerGroup
 const outdoorGroup = L.layerGroup().addTo(map);
 const allIndoor = [];              // ref listesi
 const allOutdoor = [];
 const index = [];                  // [{titleLower, keywords, displayName, latlng, refLayer, type, level}]
 
+function currentLang(){ return document.getElementById('lang').value || 'tr'; }
+
 function getDisplayName(p, lang='tr'){
-  // i18n: p.i18n?.[lang]?.name varsa onu, yoksa p.name
   return (p.i18n && p.i18n[lang] && p.i18n[lang].name) || p.name || 'Nokta';
 }
 function getDisplayDesc(p, lang='tr'){
@@ -116,7 +127,7 @@ function poiPopupHTML(p, latlng, lang){
   return `<div class="poi-card">${img}<div class="name">${name}</div>${type}${hrs}${desc}${navBtn}</div>`;
 }
 
-// kategori sözlüğü (TR/EN/RU) – aramada eş anlamlılar
+// kategori eş anlamlıları
 const CAT = {
   disco:  { tr:['disco','disko'], en:['disco','club'], ru:['диско','клуб'] },
   pool:   { tr:['havuz','aqua','kaydırak'], en:['pool','slide'], ru:['бассейн'] },
@@ -127,208 +138,119 @@ const CAT = {
   gate:   { tr:['giriş','kapı'], en:['gate','entrance'], ru:['вход'] },
   room:   { tr:['oda'], en:['room'], ru:['комната'] }
 };
-
 function keywordsFor(p){
-  const arr = [];
-  const push = s => { if (s) arr.push(s.toLowerCase()); };
-  push(p.name);
-  // i18n isimler
-  if (p.i18n){ Object.values(p.i18n).forEach(o=>push(o.name)); }
-  // kategori eş anlamlıları
-  if (p.category && CAT[p.category]){
-    Object.values(CAT[p.category]).forEach(list=>list.forEach(push));
-  }
+  const arr=[]; const push=s=>{ if(s) arr.push(s.toLowerCase()); };
+  push(p.name); if (p.i18n) Object.values(p.i18n).forEach(o=>push(o.name));
+  if (p.category && CAT[p.category]) Object.values(CAT[p.category]).forEach(list=>list.forEach(push));
   return arr;
 }
 
 function addIndoor(fc){
   fc.features.forEach(ft=>{
-    const p = ft.properties || {};
-    const lvl = +p.level || 0;
-    if (!levelGroups.has(lvl)) levelGroups.set(lvl, L.layerGroup());
+    const p=ft.properties||{}; const lvl=+p.level||0;
+    if(!levelGroups.has(lvl)) levelGroups.set(lvl,L.layerGroup());
   });
-  const added = L.geoJSON(fc, {
-    style:()=>({ color:'#0066ff', weight:1, fillOpacity:0.25 }),
+  const added=L.geoJSON(fc,{
+    style:()=>({color:'#2563eb',weight:1,fillOpacity:.25}),
     onEachFeature:(f,layer)=>{
-      const p = f.properties || {};
-      const c = layer.getBounds().getCenter();
-      layer.bindPopup(poiPopupHTML(p, c, currentLang()));
-      layer.on('mouseover', e=>e.target.setStyle({weight:2}));
-      layer.on('mouseout',  e=>e.target.setStyle({weight:1}));
-      const entry = {
-        titleLower: (p.name||'').toLowerCase(),
-        keywords: keywordsFor(p),
-        displayName: ()=>getDisplayName(p, currentLang()),
-        latlng: c, refLayer:layer, type: (p.category||'').toLowerCase(), level:p.level
-      };
-      index.push(entry);
+      const p=f.properties||{}; const c=layer.getBounds().getCenter();
+      layer.bindPopup(poiPopupHTML(p,c,currentLang()));
+      layer.on('mouseover',e=>e.target.setStyle({weight:2}));
+      layer.on('mouseout', e=>e.target.setStyle({weight:1}));
+      index.push({titleLower:(p.name||'').toLowerCase(),keywords:keywordsFor(p),displayName:()=>getDisplayName(p,currentLang()),latlng:c,refLayer:layer,type:(p.category||'').toLowerCase(),level:p.level});
       allIndoor.push(layer);
     }
   });
   added.eachLayer(l=>{
-    const lvl = +l.feature.properties.level || 0;
+    const lvl=+l.feature.properties.level||0;
     levelGroups.get(lvl).addLayer(l);
   });
 }
 function addOutdoor(fc){
-  L.geoJSON(fc, {
-    pointToLayer: (f,latlng)=>L.marker(latlng,{title:f.properties?.name||'POI'}),
+  L.geoJSON(fc,{
+    pointToLayer:(f,latlng)=>L.marker(latlng,{title:f.properties?.name||'POI'}),
     onEachFeature:(f,layer)=>{
-      const p = f.properties || {};
-      layer.bindPopup(poiPopupHTML(p, layer.getLatLng(), currentLang()));
-      layer.on('mouseover', ()=>layer.openPopup());
-      layer.on('mouseout', ()=>layer.closePopup());
-      const entry = {
-        titleLower:(p.name||'').toLowerCase(),
-        keywords: keywordsFor(p),
-        displayName: ()=>getDisplayName(p, currentLang()),
-        latlng: layer.getLatLng(), refLayer:layer, type:(p.category||'').toLowerCase(), level:undefined
-      };
-      index.push(entry);
+      const p=f.properties||{}; layer.bindPopup(poiPopupHTML(p,layer.getLatLng(),currentLang()));
+      layer.on('mouseover',()=>layer.openPopup()); layer.on('mouseout',()=>layer.closePopup());
+      index.push({titleLower:(p.name||'').toLowerCase(),keywords:keywordsFor(p),displayName:()=>getDisplayName(p,currentLang()),latlng:layer.getLatLng(),refLayer:layer,type:(p.category||'').toLowerCase(),level:undefined});
       allOutdoor.push(layer);
     }
   }).addTo(outdoorGroup);
 }
 
-/* ===== Demo veri (çok dilli örnek) — yer tutucu; kendi dataset’inle değiştirirsin ===== */
-const center = hotelBounds.getCenter();
+/* === DEMO veri (yer tutucu) === */
+const center = HOTEL_BOUNDS.getCenter();
 const C = (dy,dx)=>[center.lng+dx, center.lat+dy]; // [lng,lat]
-
-const INDOOR_DEMO = {"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{
-    "id":"lobi",
-    "name":"Lobi",
-    "i18n":{"en":{"name":"Lobby"},"ru":{"name":"Лобби"}},
-    "category":"lobby","level":1,"desc":"Check-in / misafir ilişkileri."
-  },
+const INDOOR_DEMO={"type":"FeatureCollection","features":[
+  {"type":"Feature","properties":{"id":"lobi","name":"Lobi","i18n":{"en":{"name":"Lobby"},"ru":{"name":"Лобби"}},"category":"lobby","level":1,"desc":"Check-in / misafir ilişkileri."},
    "geometry":{"type":"Polygon","coordinates":[[ C(+0.00022,0), C(+0.00022,+0.00035), C(0,+0.00035), C(0,0), C(+0.00022,0) ]]}},
-
-  {"type":"Feature","properties":{
-    "id":"resto",
-    "name":"Ana Restoran",
-    "i18n":{"en":{"name":"Main Restaurant"},"ru":{"name":"Главный ресторан"}},
-    "category":"restaurant","level":1,"hours":"07:00–10:30 / 12:30–14:30 / 19:00–21:30"
-  },
+  {"type":"Feature","properties":{"id":"resto","name":"Ana Restoran","i18n":{"en":{"name":"Main Restaurant"},"ru":{"name":"Главный ресторан"}},"category":"restaurant","level":1,"hours":"07:00–10:30 / 12:30–14:30 / 19:00–21:30"},
    "geometry":{"type":"Polygon","coordinates":[[ C(+0.00005,+0.00055), C(+0.00005,+0.00085), C(-0.00020,+0.00085), C(-0.00020,+0.00055), C(+0.00005,+0.00055) ]]}},
-
-  {"type":"Feature","properties":{
-    "id":"spa",
-    "name":"SPA",
-    "i18n":{"en":{"name":"Spa"},"ru":{"name":"Спа"}},
-    "category":"spa","level":-1,"hours":"09:00–22:00","desc":"Hamam • Sauna • Masaj",
-    "i18n_desc":{"en":"Hammam • Sauna • Massage","ru":"Хаммам • Сауна • Массаж"}
-  },
+  {"type":"Feature","properties":{"id":"spa","name":"SPA","i18n":{"en":{"name":"Spa"},"ru":{"name":"Спа"}},"category":"spa","level":-1,"hours":"09:00–22:00","desc":"Hamam • Sauna • Masaj"},
    "geometry":{"type":"Polygon","coordinates":[[ C(-0.00022,-0.00010), C(-0.00022,+0.00010), C(-0.00042,+0.00010), C(-0.00042,-0.00010), C(-0.00022,-0.00010) ]]}}
 ]};
-
-const OUTDOOR_DEMO = {"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{
-    "id":"beachbar","name":"Beach Bar",
-    "i18n":{"tr":{"name":"Sahil Bar"},"ru":{"name":"Пляжный бар"}},
-    "category":"bar","hours":"10:00–00:00","desc":"Kokteyller"
-  },
+const OUTDOOR_DEMO={"type":"FeatureCollection","features":[
+  {"type":"Feature","properties":{"id":"beachbar","name":"Beach Bar","i18n":{"tr":{"name":"Sahil Bar"},"ru":{"name":"Пляжный бар"}},"category":"bar","hours":"10:00–00:00","desc":"Kokteyller"},
    "geometry":{"type":"Point","coordinates":C(-0.00060,+0.00055)}},
-
-  {"type":"Feature","properties":{
-    "id":"mainpool","name":"Ana Havuz",
-    "i18n":{"en":{"name":"Main Pool"},"ru":{"name":"Главный бассейн"}},
-    "category":"pool","desc":"Kaydırak saatleri: 10-12 / 14-16"
-  },
+  {"type":"Feature","properties":{"id":"mainpool","name":"Ana Havuz","i18n":{"en":{"name":"Main Pool"},"ru":{"name":"Главный бассейн"}},"category":"pool","desc":"Kaydırak saatleri: 10-12 / 14-16"},
    "geometry":{"type":"Point","coordinates":C(-0.00045,+0.00025)}},
-
-  {"type":"Feature","properties":{
-    "id":"disco","name":"Disco",
-    "i18n":{"tr":{"name":"Disko"},"ru":{"name":"Диско"}},
-    "category":"disco","hours":"22:00–02:00"
-  },
+  {"type":"Feature","properties":{"id":"disco","name":"Disco","i18n":{"tr":{"name":"Disko"},"ru":{"name":"Диско"}},"category":"disco","hours":"22:00–02:00"},
    "geometry":{"type":"Point","coordinates":C(+0.00038,-0.00023)}}
 ]};
-
 addIndoor(INDOOR_DEMO);
 addOutdoor(OUTDOOR_DEMO);
 
-/* ====================== 3) Layers – SADECE istenenler ====================== */
-const overlays = {};
-// Indoor katlar
+/* ================== 3) Layers – SADECE istenenler ================== */
+const overlays={};
 [...levelGroups.entries()].forEach(([lvl,grp])=>{
-  overlays[`Level ${lvl}`] = grp;
-  if (lvl===1) grp.addTo(map);
+  overlays[`Level ${lvl}`]=grp;
+  if(lvl===1) grp.addTo(map);
 });
-// Outdoor
-overlays["Outdoor Alanlar"] = outdoorGroup;
-// Hepsini tek seferde göstermek için anahtar
-const allPoisToggle = L.layerGroup(); // dummy
-overlays["Tüm POI'leri Göster"] = allPoisToggle;
+overlays["Outdoor Alanlar"]=outdoorGroup;
+const allPoisToggle=L.layerGroup(); overlays["Tüm POI'leri Göster"]=allPoisToggle;
 
-// Panel
-const lc = L.control.layers(null, overlays, {collapsed:false, position:'topright'}).addTo(map);
-map.on('overlayadd', e=>{
-  if (e.name==="Tüm POI'leri Göster"){
-    levelGroups.forEach(grp=>map.addLayer(grp));
-    map.addLayer(outdoorGroup);
-  }
-});
-map.on('overlayremove', e=>{
-  if (e.name==="Tüm POI'leri Göster"){
-    levelGroups.forEach(grp=>map.removeLayer(grp));
-    map.removeLayer(outdoorGroup);
-  }
-});
+const lc=L.control.layers(null,overlays,{collapsed:false,position:'topright'}).addTo(map);
+map.on('overlayadd', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.addLayer(grp)); map.addLayer(outdoorGroup); }});
+map.on('overlayremove', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.removeLayer(grp)); map.removeLayer(outdoorGroup); }});
 
-/* ====================== 4) Arama: öneri listesi + filtreleme ====================== */
-const input = document.getElementById('searchInput');
-const resultsEl = document.getElementById('results');
-const langSel = document.getElementById('lang');
-function currentLang(){ return langSel.value || 'tr'; }
+/* ================== 4) Arama: öneri listesi + baş-harf filtresi + dil ================== */
+const input=document.getElementById('searchInput');
+const resultsEl=document.getElementById('results');
+const goBtn=document.getElementById('goBtn');
 
-// soluklaştırma / geri alma
-let dimmed = false;
+let selectedTarget=null; // {latlng, refLayer}
+
 function dimNonMatches(matches){
-  // matches: Set(layer)
-  // indoor polygonlar
-  allIndoor.forEach(l=>{
-    const hit = matches.has(l);
-    l.setStyle({ color: hit?'#2563eb':'#94a3b8', weight:1, opacity: hit?1:0.5, fillOpacity: hit?0.25:0.08 });
-  });
-  // outdoor markerlar
-  allOutdoor.forEach(l=>{
-    const hit = matches.has(l);
-    l.setOpacity(hit?1:0.35);
-  });
-  dimmed = true;
+  allIndoor.forEach(l=>{ const hit=matches.has(l); l.setStyle({color:hit?'#2563eb':'#94a3b8',weight:1,opacity:hit?1:.5,fillOpacity:hit?.25:.08}); });
+  allOutdoor.forEach(l=>l.setOpacity(matches.has(l)?1:.35));
 }
 function resetDim(){
-  if(!dimmed) return;
-  allIndoor.forEach(l=>l.setStyle({ color:'#0066ff', weight:1, opacity:1, fillOpacity:0.25 }));
+  allIndoor.forEach(l=>l.setStyle({color:'#2563eb',weight:1,opacity:1,fillOpacity:.25}));
   allOutdoor.forEach(l=>l.setOpacity(1));
-  dimmed = false;
 }
 
-function buildSuggestions(query){
-  const q = query.toLowerCase().trim();
-  const startsWith = [];
-  const contains = [];
+function buildSuggestions(q){
+  const s=q.toLowerCase().trim();
+  const startsWith=[], contains=[];
   index.forEach(ent=>{
-    // adlar çok dilli olduğu için keywords listesinde zaten var
-    const matchStart = ent.keywords.some(k=>k.startsWith(q));
-    const matchContain = !matchStart && ent.keywords.some(k=>k.includes(q));
-    if (q && matchStart) startsWith.push(ent);
-    else if (q && matchContain) contains.push(ent);
+    const matchStart=ent.keywords.some(k=>k.startsWith(s));
+    const matchContain=!matchStart && ent.keywords.some(k=>k.includes(s));
+    if(s && matchStart) startsWith.push(ent);
+    else if(s && matchContain) contains.push(ent);
   });
-  const arr = [...startsWith, ...contains].slice(0,50);
-  return arr;
+  return [...startsWith, ...contains].slice(0,50);
 }
 function renderResults(list){
   resultsEl.innerHTML='';
-  if (!list.length){ resultsEl.style.display='none'; return; }
+  if(!list.length){ resultsEl.style.display='none'; return; }
   list.forEach(ent=>{
-    const div=document.createElement('div');
-    div.className='item';
-    div.innerHTML = `${ent.displayName()} <span class="badge">${ent.type||'poi'}${ent.level!==undefined?` • L${ent.level}`:''}</span>`;
-    div.onclick = ()=>{
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML=`${ent.displayName()} <span class="badge">${ent.type||'poi'}${ent.level!==undefined?` • L${ent.level}`:''}</span>`;
+    div.onclick=()=>{
       resultsEl.style.display='none';
-      const target = ent.latlng;
-      map.flyTo(target, 19, {duration:0.4});
+      selectedTarget={latlng:ent.latlng, refLayer:ent.refLayer};
+      goBtn.disabled=false;
+      map.flyTo(ent.latlng,19,{duration:.4});
       ent.refLayer.openPopup && ent.refLayer.openPopup();
     };
     resultsEl.appendChild(div);
@@ -336,65 +258,64 @@ function renderResults(list){
   resultsEl.style.display='block';
 }
 function searchAndFilter(q){
-  if (!q){ resultsEl.style.display='none'; resetDim(); return; }
-  const list = buildSuggestions(q);
-  // Matched layer set
-  const set = new Set(list.map(e=>e.refLayer));
+  if(!q){ resultsEl.style.display='none'; resetDim(); goBtn.disabled=!selectedTarget; return; }
+  const list=buildSuggestions(q);
+  const set=new Set(list.map(e=>e.refLayer));
   dimNonMatches(set);
-  // fit bounds tüm eşleşenler
-  if (list.length>1){
-    const b = L.latLngBounds(list.map(e=>e.latlng)).pad(0.08);
-    map.fitBounds(b);
-  } else if (list.length===1){
-    map.flyTo(list[0].latlng, 19, {duration:0.4});
-  }
+  if(list.length>1){ const b=L.latLngBounds(list.map(e=>e.latlng)).pad(.08); map.fitBounds(b); }
+  else if(list.length===1){ map.flyTo(list[0].latlng,19,{duration:.4}); }
   renderResults(list);
 }
 
-// events
 input.addEventListener('focus', ()=>renderResults(buildSuggestions(input.value||'')));
-input.addEventListener('input', ()=>{ if (!input.value){ resetDim(); resultsEl.style.display='none'; } else { searchAndFilter(input.value); }});
-input.addEventListener('keydown', e=>{ if (e.key==='Enter') searchAndFilter(input.value); });
-document.addEventListener('click', (e)=>{ if (!resultsEl.contains(e.target) && e.target!==input) resultsEl.style.display='none'; });
-langSel.addEventListener('change', ()=>{
-  // popupları geçerli dile göre güncelle
+input.addEventListener('input', ()=>{ if(!input.value){ resetDim(); resultsEl.style.display='none'; } else { searchAndFilter(input.value); } });
+input.addEventListener('keydown', e=>{ if(e.key==='Enter') searchAndFilter(input.value); });
+document.addEventListener('click', e=>{ if(!resultsEl.contains(e.target) && e.target!==input) resultsEl.style.display='none'; });
+
+document.getElementById('lang').addEventListener('change', ()=>{
+  // popupları güncelle
   [...levelGroups.values()].forEach(grp=>grp.eachLayer(l=>l.bindPopup(poiPopupHTML(l.feature.properties, l.getBounds().getCenter(), currentLang()))));
   outdoorGroup.eachLayer(l=>l.bindPopup(poiPopupHTML(l.feature.properties, l.getLatLng(), currentLang())));
-  if (input.value) searchAndFilter(input.value);
 });
 
-/* ====================== 5) Blue Dot ====================== */
+/* ================== 5) Blue Dot + "Git" ================== */
 let dot=null, acc=null;
 function secureOrigin(){ return location.protocol==='https:' || location.hostname==='localhost'; }
-if (secureOrigin()){
-  map.locate({ setView:false, watch:true, enableHighAccuracy:true });
-}
-map.on('locationfound', (e)=>{
+if(secureOrigin()){ map.locate({setView:false, watch:true, enableHighAccuracy:true}); }
+map.on('locationfound', e=>{
   const ll=e.latlng, a=e.accuracy||0;
   if(!dot){
-    dot=L.circleMarker(ll,{radius:9,weight:2,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:0.95}).addTo(map);
+    dot=L.circleMarker(ll,{radius:9,weight:2,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:.95}).addTo(map);
     acc=L.circle(ll,{radius:a,weight:1,color:'#3b82f6',fillOpacity:.07}).addTo(map);
   } else { dot.setLatLng(ll); acc.setLatLng(ll).setRadius(a); }
 });
+map.on('locationerror', ()=>{ /* sessiz */ });
+// locate butonu (isteğe bağlı; rota için konum izni gerekli)
+L.control.locate({position:'topleft', setView:'untilPanOrZoom', initialZoomLevel:19, strings:{title:"Konumumu göster"}}).addTo(map);
 
-/* ====================== 6) Navigasyon (sol panel) ====================== */
-let routing = L.Routing.control({
+/* Routing kontrolü (sol) */
+let routing=L.Routing.control({
   waypoints: [],
-  routeWhileDragging: false,
-  showAlternatives: false,
-  collapsible: true,
-  addWaypoints: true,
-  position: 'topleft',
-  router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' })
+  routeWhileDragging:false, showAlternatives:false, collapsible:true, addWaypoints:true,
+  position:'topleft',
+  router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1' })
 }).addTo(map);
 
-// Popuptan çağrılır: A = mavi nokta, B = hedef
-window.routeTo = function(lat, lng){
-  if (!dot){ alert('Lütfen tarayıcı konumuna izin verin (mavi nokta görünmeli).'); return; }
-  const from = dot.getLatLng();
-  const to   = L.latLng(lat,lng);
-  routing.setWaypoints([from, to]);
+// Popup’lardaki “Yol Tarifi” düğmesi için:
+window.routeTo=function(lat,lng){
+  if(!dot){ alert('Lütfen konum izni verin (sol üstteki konum butonu).'); return; }
+  routing.setWaypoints([ dot.getLatLng(), L.latLng(lat,lng) ]);
+  // aynı hedefi "Git" butonuna da set edelim
+  selectedTarget={ latlng:L.latLng(lat,lng) };
+  goBtn.disabled=false;
 };
+
+// Sol üstteki "Git" butonu
+goBtn.addEventListener('click', ()=>{
+  if(!selectedTarget){ alert('Lütfen bir POI seçin.'); return; }
+  if(!dot){ alert('Konum izni gerekli.'); return; }
+  routing.setWaypoints([ dot.getLatLng(), selectedTarget.latlng ]);
+});
 </script>
 </body>
 </html>
