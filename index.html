@@ -198,4 +198,147 @@ addIndoor(demo.INDOOR);
 addOutdoor(demo.OUTDOOR);
 
 /* Layers panel */
-const overlays = { "Outdoor POI": outdoorGroup, "Tesis Maskesi": maskGroup, "Otel Sınırı": hotelOu
+const overlays = { "Outdoor POI": outdoorGroup, "Tesis Maskesi": maskGroup, "Otel Sınırı": hotelOutline };
+[...levelGroups.entries()].forEach(([lvl,grp])=>{
+  if (lvl===1) grp.addTo(map); // varsayılan açık
+  overlays[`Level ${lvl}`] = grp;
+});
+const layersControl = L.control.layers(null, overlays, {collapsed:false, position:'topright'}).addTo(map);
+
+/* =========================================================================
+   5) SADECE OTEL İÇİ ARAMA
+   ========================================================================= */
+const searchCtrl = new L.Control.Search({
+  layer: indexLayer,
+  propertyName: 'title',
+  initial: false,
+  textPlaceholder: 'Otel içinde ara (SPA, Lobi, Havuz...)',
+  zoom: 19,
+  marker: false
+});
+searchCtrl.on('search:locationfound', e=>{
+  if (e.layer && e.layer.getLatLng){
+    map.flyTo(e.layer.getLatLng(), 19, {duration:0.5});
+  }
+});
+map.addControl(searchCtrl);
+
+/* =========================================================================
+   6) BLUE DOT (canlı) + LOCATE butonu
+   ========================================================================= */
+let dot=null, acc=null, firstFix=true;
+function onLocationFound(e){
+  const ll=e.latlng, a=e.accuracy||0;
+  if(!dot){
+    dot=L.circleMarker(ll,{radius:9,weight:2,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:0.9}).addTo(map);
+    acc=L.circle(ll,{radius:a,weight:1,color:'#3b82f6',fillOpacity:.07}).addTo(map);
+  } else {
+    dot.setLatLng(ll);
+    acc.setLatLng(ll).setRadius(a);
+  }
+  if(firstFix){ firstFix=false; }
+}
+function onLocationError(e){ console.warn(e.message); }
+map.on('locationfound', onLocationFound);
+map.on('locationerror', onLocationError);
+map.locate({ setView:false, watch:true, enableHighAccuracy:true });
+
+L.control.locate({
+  position:'topleft',
+  setView: 'untilPanOrZoom',
+  initialZoomLevel: 19,
+  strings:{ title:"Konumumu göster" }
+}).addTo(map);
+
+/* =========================================================================
+   7) DÜĞMELER: Otele Odaklan / Dışa Aktar / İçe Aktar + Çizim
+   ========================================================================= */
+document.getElementById('fitBtn').onclick = ()=> map.fitBounds(hotelBounds);
+
+document.getElementById('exportBtn').onclick = ()=>{
+  const indoor = [], outdoor = [];
+  levelGroups.forEach(grp=>grp.eachLayer(l=>indoor.push(l.toGeoJSON())));
+  outdoorGroup.eachLayer(l=>outdoor.push(l.toGeoJSON()));
+  const payload = { hotel_geometry: HOTEL_GEOMETRY, indoor, outdoor };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'hotel_poi_indoor.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
+
+document.getElementById('importBtn').onclick = ()=>{
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json';
+  inp.onchange = (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const obj = JSON.parse(reader.result);
+        // temizle
+        levelGroups.forEach(grp=>grp.clearLayers());
+        outdoorGroup.clearLayers(); indexLayer.clearLayers();
+        // otel poligonu (varsa değiştir)
+        if (obj.hotel_geometry){
+          if (hotelOutline){ map.removeLayer(hotelOutline); }
+          hotelOutline = L.geoJSON(obj.hotel_geometry, { style:{ color:'#0078ff', weight:2, fillOpacity:0.05 } }).addTo(map);
+        }
+        // indoor
+        if (obj.indoor){
+          const fc = {type:'FeatureCollection', features: obj.indoor};
+          addIndoor(fc);
+        }
+        // outdoor
+        if (obj.outdoor){
+          const fc = {type:'FeatureCollection', features: obj.outdoor};
+          addOutdoor(fc);
+        }
+        // layer paneli tazele
+        layersControl.remove();
+        const newOverlays = { "Outdoor POI": outdoorGroup, "Tesis Maskesi": maskGroup, "Otel Sınırı": hotelOutline };
+        levelGroups.forEach((grp, lvl)=>{ newOverlays[`Level ${lvl}`] = grp; });
+        L.control.layers(null, newOverlays, {collapsed:false, position:'topright'}).addTo(map);
+        map.fitBounds(hotelOutline.getBounds().pad(0.03));
+        alert('İçe aktarıldı.');
+      } catch(err){ alert('JSON okunamadı: '+err); }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+};
+
+/* Geoman kontrolleri (çizim/düzenleme) */
+map.pm.addControls({
+  position: 'topleft',
+  drawMarker: true, drawPolygon: true,
+  drawRectangle: false, drawCircle: false, drawPolyline: false,
+  cutPolygon: false, dragMode:false, editMode:true, removalMode:true
+});
+map.on('pm:create', e=>{
+  // yeni geometri meta bilgisi
+  const name = prompt("İsim (ör. Ana Restoran, Beach Bar, SPA, Disco)", "");
+  if (name===null){ e.layer.remove(); return; }
+  const type = prompt("Tür (restaurant, bar, spa, disco, pool, room, gate vb.)", "room") || "room";
+  const levelStr = prompt("Kat (ör: -1, 0, 1, 2). Outdoor için boş bırak", "");
+  const level = levelStr==="" ? undefined : +levelStr;
+
+  e.layer.feature = e.layer.feature || {type:'Feature', properties:{}};
+  Object.assign(e.layer.feature.properties, { id:`u-${Date.now()}`, name, type });
+  if (e.layer.getLatLng){ // marker -> outdoor
+    outdoorGroup.addLayer(e.layer);
+    e.layer.bindPopup(name);
+    const idx = L.marker(e.layer.getLatLng(),{title:name});
+    idx.on('click',()=>{ map.flyTo(e.layer.getLatLng(),19); e.layer.openPopup(); });
+    indexLayer.addLayer(idx);
+  } else { // polygon -> indoor
+    e.layer.feature.properties.level = level ?? 0;
+    const lvl = level ?? 0;
+    if (!levelGroups.has(lvl)) levelGroups.set(lvl, L.layerGroup());
+    levelGroups.get(lvl).addLayer(e.layer);
+    e.layer.setStyle(roomStyle());
+    onEachRoom(e.layer.feature, e.layer); // popup + index marker
+  }
+});
+</script>
+</body>
+</html>
+
