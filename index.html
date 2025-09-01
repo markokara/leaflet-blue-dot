@@ -27,18 +27,8 @@
   <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
 </div>
 
-<script type="module">
-import Map from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/Map.js";
-import View from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/View.js";
-import TileLayer from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/layer/Tile.js";
-import OSM from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/source/OSM.js";
-import {fromLonLat} from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/proj.js";
-import VectorSource from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/source/Vector.js";
-import VectorLayer from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/layer/Vector.js";
-import GeoJSON from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/format/GeoJSON.js";
-import {Fill, Stroke, Style, Circle as CircleStyle} from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/style.js";
-
-/* --- 1) Otel Alanı --- */
+<script>
+/* ------------------ 1) Otel Polygonu ------------------ */
 const hotelGeoJSON = {
   "type":"FeatureCollection",
   "features":[
@@ -57,20 +47,8 @@ const hotelGeoJSON = {
     }
   ]
 };
-const hotelSource = new VectorSource({
-  features: new GeoJSON().readFeatures(hotelGeoJSON, {
-    featureProjection: "EPSG:3857"
-  })
-});
-const hotelLayer = new VectorLayer({
-  source: hotelSource,
-  style: new Style({
-    stroke: new Stroke({color:"blue",width:2}),
-    fill: new Fill({color:"rgba(0,0,255,0.05)"})
-  })
-});
 
-/* --- 2) Indoor & Outdoor DEMO (sen indoor.json / outdoor.json’dan yükleyebilirsin) --- */
+/* ------------------ 2) Indoor & Outdoor DEMO ------------------ */
 const demoIndoor = {
   "type":"FeatureCollection",
   "features":[
@@ -96,43 +74,62 @@ const demoOutdoor = {
     }
   ]
 };
-const indoorLayer = new VectorLayer({
-  source: new VectorSource({
-    features: new GeoJSON().readFeatures(demoIndoor,{featureProjection:"EPSG:3857"})
+
+/* ------------------ 3) Katmanlar ------------------ */
+const hotelLayer = new ol.layer.Vector({
+  source: new ol.source.Vector({
+    features: new ol.format.GeoJSON().readFeatures(hotelGeoJSON,{
+      featureProjection:"EPSG:3857"
+    })
   }),
-  style: new Style({
-    stroke: new Stroke({color:"green",width:2}),
-    fill: new Fill({color:"rgba(0,255,0,0.3)"})
+  style: new ol.style.Style({
+    stroke: new ol.style.Stroke({color:"blue",width:2}),
+    fill: new ol.style.Fill({color:"rgba(0,0,255,0.05)"})
   })
 });
-const outdoorLayer = new VectorLayer({
-  source: new VectorSource({
-    features: new GeoJSON().readFeatures(demoOutdoor,{featureProjection:"EPSG:3857"})
+
+const indoorLayer = new ol.layer.Vector({
+  source: new ol.source.Vector({
+    features: new ol.format.GeoJSON().readFeatures(demoIndoor,{
+      featureProjection:"EPSG:3857"
+    })
   }),
-  style: new Style({
-    image: new CircleStyle({
+  style: new ol.style.Style({
+    stroke: new ol.style.Stroke({color:"green",width:2}),
+    fill: new ol.style.Fill({color:"rgba(0,255,0,0.3)"})
+  })
+});
+
+const outdoorLayer = new ol.layer.Vector({
+  source: new ol.source.Vector({
+    features: new ol.format.GeoJSON().readFeatures(demoOutdoor,{
+      featureProjection:"EPSG:3857"
+    })
+  }),
+  style: new ol.style.Style({
+    image: new ol.style.Circle({
       radius:6,
-      fill: new Fill({color:"red"}),
-      stroke: new Stroke({color:"#fff",width:2})
+      fill: new ol.style.Fill({color:"red"}),
+      stroke: new ol.style.Stroke({color:"#fff",width:2})
     })
   })
 });
 
-/* --- 3) Map & View --- */
-const map = new Map({
+/* ------------------ 4) Map ve View ------------------ */
+const map = new ol.Map({
   target: "map",
   layers: [
-    new TileLayer({source: new OSM()}),
+    new ol.layer.Tile({source: new ol.source.OSM()}),
     hotelLayer, indoorLayer, outdoorLayer
   ],
-  view: new View({
-    center: fromLonLat([31.805,36.600]),
+  view: new ol.View({
+    center: ol.proj.fromLonLat([31.805,36.600]),
     zoom: 17,
     rotation: 0 // buradan rotate başlatılır
   })
 });
 
-/* --- 4) Search (çok basit demo) --- */
+/* ------------------ 5) Search ------------------ */
 document.getElementById("searchInput").addEventListener("keydown", e=>{
   if(e.key==="Enter"){
     const val = e.target.value.toLowerCase();
@@ -146,9 +143,9 @@ document.getElementById("searchInput").addEventListener("keydown", e=>{
   }
 });
 
-/* --- 5) Rotate notu --- */
-// 🔹 Mobilde: iki parmak ile döndürebilirsin
-// 🔹 Desktop: ALT tuşuna basılı tutarak fare ile sürükle
+/* ------------------ 6) Rotate Notu ------------------ */
+// 🔹 Mobilde: İki parmak ile döndür
+// 🔹 Masaüstü: ALT + Sol Fare tuşu ile döndür
 </script>
 </body>
 </html>
