@@ -40,7 +40,7 @@
 <div id="results" class="results"></div>
 
 <script>
-/* --- Otel Alanı --- */
+/* --- 1) Otel Alanı --- */
 const HOTEL_GEOMETRY = {
   "type":"Polygon","coordinates":[[
     [31.80488563536983,36.60144809135009],
@@ -51,18 +51,21 @@ const HOTEL_GEOMETRY = {
   ]]
 };
 
-/* --- Demo Indoor/Outdoor --- */
+/* --- 2) DEMO Indoor/Outdoor --- */
 const DEMO_INDOOR = {"type":"FeatureCollection","features":[
   {"type":"Feature","properties":{"name":"Lobi","category":"lobby"},"geometry":{"type":"Polygon","coordinates":[[
     [31.8050,36.6005],[31.8052,36.6005],[31.8052,36.6007],[31.8050,36.6007],[31.8050,36.6005]
-  ]]} }
+  ]]} },
+  {"type":"Feature","properties":{"name":"Ana Restoran","category":"restaurant"},"geometry":{"type":"Polygon","coordinates":[[
+    [31.8053,36.6006],[31.8056,36.6006],[31.8056,36.6009],[31.8053,36.6009],[31.8053,36.6006]
+  ]]}}
 ]};
 const DEMO_OUTDOOR = {"type":"FeatureCollection","features":[
   {"type":"Feature","properties":{"name":"Disco","category":"disco"},"geometry":{"type":"Point","coordinates":[31.8053,36.6002]}},
   {"type":"Feature","properties":{"name":"Ana Havuz","category":"pool"},"geometry":{"type":"Point","coordinates":[31.8055,36.6004]}}
 ]};
 
-/* --- Layer helper --- */
+/* --- 3) Layer Helper --- */
 function makeVectorLayer(geojson, color){
   return new ol.layer.Vector({
     source: new ol.source.Vector({
@@ -70,28 +73,25 @@ function makeVectorLayer(geojson, color){
     }),
     style: new ol.style.Style({
       stroke: new ol.style.Stroke({color:color,width:2}),
-      fill: new ol.style.Fill({color:color.replace("1)", "0.3)")}),
-      image: new ol.style.Circle({radius:6, fill: new ol.style.Fill({color:color})})
+      fill: new ol.style.Fill({color:color.replace("1)", "0.2)")}),
+      image: new ol.style.Circle({radius:5, fill: new ol.style.Fill({color:color}), stroke: new ol.style.Stroke({color:"#fff",width:1})})
     })
   });
 }
 
-/* --- Layers --- */
-const hotelLayer = makeVectorLayer(
-  {"type":"FeatureCollection","features":[{"type":"Feature","geometry":HOTEL_GEOMETRY}]},
-  "rgba(0,0,255,1)"
-);
+/* --- 4) Layers --- */
+const hotelLayer = makeVectorLayer({"type":"FeatureCollection","features":[{"type":"Feature","geometry":HOTEL_GEOMETRY}]},"rgba(0,0,255,1)");
 const indoorLayer = makeVectorLayer(DEMO_INDOOR,"rgba(0,200,0,1)");
 const outdoorLayer = makeVectorLayer(DEMO_OUTDOOR,"rgba(200,0,0,1)");
 
-/* --- Map --- */
+/* --- 5) Map --- */
 const map = new ol.Map({
   target:"map",
   layers:[new ol.layer.Tile({source:new ol.source.OSM()}), hotelLayer, indoorLayer, outdoorLayer],
   view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17, rotation:0})
 });
 
-/* --- Search --- */
+/* --- 6) Search --- */
 const searchInput=document.getElementById("searchInput");
 const resultsEl=document.getElementById("results");
 let selectedFeature=null;
@@ -106,6 +106,7 @@ function showResults(list){
     div.textContent=f.get("name")+" ("+(f.get("category")||"")+")";
     div.onclick=()=>{
       selectedFeature=f;
+      searchInput.value=f.get("name"); // seçilen isim inputta kalsın
       map.getView().fit(f.getGeometry().getExtent(),{maxZoom:19});
       resultsEl.style.display="none";
       document.getElementById("goBtn").disabled=false;
@@ -122,17 +123,17 @@ searchInput.addEventListener("input",()=>{
   showResults(matches);
 });
 
-/* --- Blue Dot (Konum) --- */
+/* --- 7) Blue Dot (Konum) --- */
 let userMarker=null, accCircle=null;
 navigator.geolocation.watchPosition(pos=>{
   const coords=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
   if(!userMarker){
     userMarker=new ol.Feature(new ol.geom.Point(coords));
     userMarker.setStyle(new ol.style.Style({
-      image:new ol.style.Circle({radius:8,fill:new ol.style.Fill({color:"blue"}),stroke:new ol.style.Stroke({color:"#fff",width:2})})
+      image:new ol.style.Circle({radius:5,fill:new ol.style.Fill({color:"#007bff"}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})})
     }));
     accCircle=new ol.Feature(new ol.geom.Circle(coords,pos.coords.accuracy));
-    accCircle.setStyle(new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:1}),fill:new ol.style.Fill({color:"rgba(0,0,255,0.1)"})}));
+    accCircle.setStyle(new ol.style.Style({stroke:new ol.style.Stroke({color:"#007bff",width:1}),fill:new ol.style.Fill({color:"rgba(0,123,255,0.05)"})}));
     const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[accCircle,userMarker]})});
     map.addLayer(layer);
   }else{
@@ -140,21 +141,30 @@ navigator.geolocation.watchPosition(pos=>{
     accCircle.getGeometry().setCenter(coords);
     accCircle.getGeometry().setRadius(pos.coords.accuracy);
   }
+},{
+  enableHighAccuracy:true, // GPS'i zorlar
+  maximumAge:0,
+  timeout:10000
 });
 
-/* --- Hedef seç (haritadan tıklama) --- */
+/* --- 8) Hedef seç (map click) --- */
 let destMarker=null;
 function setDestination(coords){
   if(!destMarker){
     destMarker=new ol.Feature(new ol.geom.Point(coords));
     destMarker.setStyle(new ol.style.Style({
-      image:new ol.style.Circle({radius:8,fill:new ol.style.Fill({color:"red"}),stroke:new ol.style.Stroke({color:"#fff",width:2})})
+      image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:"red"}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})})
     }));
     const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[destMarker]})});
     map.addLayer(layer);
   }else destMarker.getGeometry().setCoordinates(coords);
   document.getElementById("goBtn").disabled=false;
 }
+let pickMode=false;
+document.getElementById("pickBtn").onclick=()=>{
+  pickMode=!pickMode;
+  document.getElementById("pickBtn").classList.toggle("active",pickMode);
+};
 map.on("click",evt=>{
   if(pickMode){
     setDestination(evt.coordinate);
@@ -163,16 +173,9 @@ map.on("click",evt=>{
   }
 });
 
-/* --- Pick Mode --- */
-let pickMode=false;
-document.getElementById("pickBtn").onclick=()=>{
-  pickMode=!pickMode;
-  document.getElementById("pickBtn").classList.toggle("active",pickMode);
-};
-
-/* --- Routing (user → hedef) --- */
+/* --- 9) Routing --- */
 document.getElementById("goBtn").onclick=()=>{
-  if(!userMarker || !destMarker) return alert("Önce hedef ve konum seçilmeli");
+  if(!userMarker || !destMarker) return alert("Konum ve hedef seçilmeli");
   const userLonLat=ol.proj.toLonLat(userMarker.getGeometry().getCoordinates());
   const destLonLat=ol.proj.toLonLat(destMarker.getGeometry().getCoordinates());
   const url=`https://router.project-osrm.org/route/v1/foot/${userLonLat[0]},${userLonLat[1]};${destLonLat[0]},${destLonLat[1]}?overview=full&geometries=geojson`;
@@ -189,6 +192,10 @@ document.getElementById("goBtn").onclick=()=>{
     }
   });
 };
+
+/* --- 10) Rotate --- */
+// Mobilde: 2 parmak ile çevir
+// Desktop: Alt + Drag
 </script>
 </body>
 </html>
