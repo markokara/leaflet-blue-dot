@@ -5,19 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Akıllı Map – Indoor & Outdoor</title>
 
-<!-- Leaflet ve eklentiler -->
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Locate control -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
+
+<!-- Routing -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+
+<!-- 🔹 Rotate Plugin -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-rotate/dist/leaflet-rotate.css" />
+<script src="https://unpkg.com/leaflet-rotate/dist/leaflet-rotate.js"></script>
 
 <style>
   html,body{margin:0;height:100%}
   #map{height:100vh;width:100vw}
 
-  /* Üstteki toolbar */
   .toolbar{position:absolute;z-index:1002;left:10px;top:10px;display:flex;gap:6px;align-items:center}
   .toolbar input{width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font:14px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.10)}
   .toolbar select{padding:9px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
@@ -25,46 +32,22 @@
   .toolbar button.secondary{background:#f8fafc;color:#111;border:1px solid #cbd5e1}
   .toolbar button[disabled]{opacity:.5;cursor:not-allowed}
   .toolbar button.active{outline:2px solid #2563eb}
-
-  /* Arama sonuç listesi */
   .results{position:absolute;z-index:2000;left:10px;top:54px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;
            box-shadow:0 4px 16px rgba(0,0,0,.12);width:320px;max-height:50vh;overflow:auto;display:none;pointer-events:auto}
-  .results .item{padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer}
-  .results .item:last-child{border-bottom:none}
-  .badge{display:inline-block;padding:1px 6px;border-radius:999px;background:#eef;border:1px solid #c7d2fe;margin-left:6px;font-size:11px}
 
-  .leaflet-control-container .leaflet-top.leaflet-left { margin-top:58px }
-
-  /* POI kartları */
   .poi-card{max-width:260px}
   .poi-card img{width:100%;height:140px;object-fit:cover;border-radius:6px;margin-bottom:6px}
   .poi-card .name{font-weight:600;margin:2px 0}
   .poi-card .meta{font-size:12px;color:#555;margin:2px 0}
   .poi-card .desc{font-size:13px;color:#333}
-  .poi-card button{margin-top:6px;border:0;background:#0066ff;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
 
-  /* Marka bilgisi */
   .brand-attrib{background:#fff;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font:12px system-ui;box-shadow:0 1px 6px rgba(0,0,0,.1)}
   .brand-attrib a{color:#6b7280;text-decoration:none}
-
-  /* Efektler */
-  .pulse{width:18px;height:18px;margin-left:-9px;margin-top:-9px;border-radius:50%;background:rgba(59,130,246,.8);
-         box-shadow:0 0 0 rgba(59,130,246,.7);animation:pulse 1.5s ease-out 3}
-  @keyframes pulse{0%{transform:scale(.6);box-shadow:0 0 0 0 rgba(59,130,246,.7)}
-                   70%{transform:scale(1);box-shadow:0 0 0 18px rgba(59,130,246,0)}
-                   100%{transform:scale(1);box-shadow:0 0 0 0 rgba(59,130,246,0)}}
-  .target-pin{width:18px;height:18px;margin-left:-9px;margin-top:-9px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.35)}
-  .crosshair{cursor:crosshair !important}
-
-  /* Emoji tabanlı ikonlar */
-  .emicon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid #fff;
-          box-shadow:0 0 0 2px rgba(0,0,0,.08);font-size:14px;line-height:1}
 </style>
 </head>
 <body>
 <div id="map"></div>
 
-<!-- Toolbar -->
 <div class="toolbar">
   <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
   <select id="lang"><option value="tr">TR</option><option value="en">EN</option><option value="ru">RU</option></select>
@@ -74,12 +57,7 @@
 <div id="results" class="results"></div>
 
 <script>
-/* ------------------ AYARLAR ------------------ */
-const INDOOR_URL  = 'indoor.json';
-const OUTDOOR_URL = 'outdoor.json';
-const HOTEL_TZ = 'Europe/Istanbul';
-
-/* ------------------ 0) Otel polygonu ------------------ */
+/* ------------------ Otel sınırı ------------------ */
 const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
   [31.80488563536983,36.60144809135009],
   [31.80141125277774,36.599560719072684],
@@ -88,17 +66,15 @@ const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
   [31.80488563536983,36.60144809135009]
 ]]};
 
-/* ------------------ 1) Harita ------------------ */
+/* ------------------ Harita ------------------ */
 const map=L.map('map',{zoomControl:true,attributionControl:false});
-const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
-osm.setOpacity(0.55);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
 
-// Otel sınırları
 const hotelOutline=L.geoJSON(HOTEL_GEOMETRY,{style:{color:'#0066ff',weight:2,fillOpacity:0.05}}).addTo(map);
 const HOTEL_BOUNDS=hotelOutline.getBounds().pad(0.03);
-map.fitBounds(HOTEL_BOUNDS); setTimeout(()=>map.invalidateSize(),0);
+map.fitBounds(HOTEL_BOUNDS);
 
-// Mask: otel dışını tamamen kapat
+/* ------------------ Mask (otel dışı siyah) ------------------ */
 const maskLayer=(function(geom){
   const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
   const toLatLngs=a=>a.map(([lng,lat])=>[lat,lng]);const holes=[];
@@ -109,17 +85,13 @@ const maskLayer=(function(geom){
 })(HOTEL_GEOMETRY);
 maskLayer.addTo(map);
 
-// Pan kilitle
+// Haritayı otel sınırında kilitle
 map.setMaxBounds(HOTEL_BOUNDS);
 map.options.maxBoundsViscosity=1.0;
 
-// minimalist atrib
-const brand=L.control({position:'bottomright'});
-brand.onAdd=function(){const d=L.DomUtil.create('div','brand-attrib');
-  d.innerHTML='LONG BEACH ALANYA • AIHotelsTech contributors &nbsp;<a title="© OpenStreetMap contributors" href="https://www.openstreetmap.org/copyright" target="_blank">ⓘ</a>';
-  return d;}; brand.addTo(map);
-
-/* ------------------ geri kalan kod (indoor, outdoor, arama, rota vb.) senin verdiğinle aynı ------------------ */
+/* ------------------ 🔹 Rotate kontrolü ------------------ */
+L.control.rotate({ position: "topleft" }).addTo(map);
+map.setBearing(0); // başlangıçta kuzey yukarı
 </script>
 </body>
 </html>
