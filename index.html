@@ -3,46 +3,21 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Akıllı Map – Indoor & Outdoor</title>
+<title>OpenLayers – Indoor & Outdoor</title>
 
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Locate control -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
-
-<!-- Routing -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
-
-<!-- 🔹 Rotate Plugin -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet-rotate/dist/leaflet-rotate.css" />
-<script src="https://unpkg.com/leaflet-rotate/dist/leaflet-rotate.js"></script>
+<!-- OpenLayers CSS & JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
 <style>
-  html,body{margin:0;height:100%}
-  #map{height:100vh;width:100vw}
-
-  .toolbar{position:absolute;z-index:1002;left:10px;top:10px;display:flex;gap:6px;align-items:center}
-  .toolbar input{width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font:14px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.10)}
-  .toolbar select{padding:9px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
-  .toolbar button{padding:9px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer}
-  .toolbar button.secondary{background:#f8fafc;color:#111;border:1px solid #cbd5e1}
-  .toolbar button[disabled]{opacity:.5;cursor:not-allowed}
-  .toolbar button.active{outline:2px solid #2563eb}
-  .results{position:absolute;z-index:2000;left:10px;top:54px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;
-           box-shadow:0 4px 16px rgba(0,0,0,.12);width:320px;max-height:50vh;overflow:auto;display:none;pointer-events:auto}
-
-  .poi-card{max-width:260px}
-  .poi-card img{width:100%;height:140px;object-fit:cover;border-radius:6px;margin-bottom:6px}
-  .poi-card .name{font-weight:600;margin:2px 0}
-  .poi-card .meta{font-size:12px;color:#555;margin:2px 0}
-  .poi-card .desc{font-size:13px;color:#333}
-
-  .brand-attrib{background:#fff;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font:12px system-ui;box-shadow:0 1px 6px rgba(0,0,0,.1)}
-  .brand-attrib a{color:#6b7280;text-decoration:none}
+  html, body {margin:0; padding:0; height:100%;}
+  #map {width:100%; height:100%;}
+  .toolbar {
+    position:absolute; top:10px; left:10px; z-index:1000;
+    background:#fff; padding:6px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,.2); display:flex; gap:6px;
+  }
+  .toolbar input {padding:6px; width:220px;}
 </style>
 </head>
 <body>
@@ -50,48 +25,130 @@
 
 <div class="toolbar">
   <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
-  <select id="lang"><option value="tr">TR</option><option value="en">EN</option><option value="ru">RU</option></select>
-  <button id="goBtn" disabled>Git</button>
-  <button id="pickBtn" class="secondary" title="Haritadan hedef seç">Hedef Seç</button>
 </div>
-<div id="results" class="results"></div>
 
-<script>
-/* ------------------ Otel sınırı ------------------ */
-const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
-  [31.80488563536983,36.60144809135009],
-  [31.80141125277774,36.599560719072684],
-  [31.806994242514662,36.59688713533359],
-  [31.80828178115803,36.59899633325935],
-  [31.80488563536983,36.60144809135009]
-]]};
+<script type="module">
+import Map from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/Map.js";
+import View from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/View.js";
+import TileLayer from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/layer/Tile.js";
+import OSM from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/source/OSM.js";
+import {fromLonLat} from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/proj.js";
+import VectorSource from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/source/Vector.js";
+import VectorLayer from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/layer/Vector.js";
+import GeoJSON from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/format/GeoJSON.js";
+import {Fill, Stroke, Style, Circle as CircleStyle} from "https://cdn.jsdelivr.net/npm/ol@v9.2.4/style.js";
 
-/* ------------------ Harita ------------------ */
-const map=L.map('map',{zoomControl:true,attributionControl:false});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
+/* --- 1) Otel Alanı --- */
+const hotelGeoJSON = {
+  "type":"FeatureCollection",
+  "features":[
+    {
+      "type":"Feature",
+      "geometry":{
+        "type":"Polygon",
+        "coordinates":[[ 
+          [31.80488563536983,36.60144809135009],
+          [31.80141125277774,36.599560719072684],
+          [31.806994242514662,36.59688713533359],
+          [31.80828178115803,36.59899633325935],
+          [31.80488563536983,36.60144809135009]
+        ]]
+      }
+    }
+  ]
+};
+const hotelSource = new VectorSource({
+  features: new GeoJSON().readFeatures(hotelGeoJSON, {
+    featureProjection: "EPSG:3857"
+  })
+});
+const hotelLayer = new VectorLayer({
+  source: hotelSource,
+  style: new Style({
+    stroke: new Stroke({color:"blue",width:2}),
+    fill: new Fill({color:"rgba(0,0,255,0.05)"})
+  })
+});
 
-const hotelOutline=L.geoJSON(HOTEL_GEOMETRY,{style:{color:'#0066ff',weight:2,fillOpacity:0.05}}).addTo(map);
-const HOTEL_BOUNDS=hotelOutline.getBounds().pad(0.03);
-map.fitBounds(HOTEL_BOUNDS);
+/* --- 2) Indoor & Outdoor DEMO (sen indoor.json / outdoor.json’dan yükleyebilirsin) --- */
+const demoIndoor = {
+  "type":"FeatureCollection",
+  "features":[
+    {
+      "type":"Feature",
+      "properties":{"name":"Lobi","category":"lobby"},
+      "geometry":{
+        "type":"Polygon",
+        "coordinates":[[
+          [31.8050,36.6005],[31.8052,36.6005],[31.8052,36.6007],[31.8050,36.6007],[31.8050,36.6005]
+        ]]
+      }
+    }
+  ]
+};
+const demoOutdoor = {
+  "type":"FeatureCollection",
+  "features":[
+    {
+      "type":"Feature",
+      "properties":{"name":"Disco","category":"disco"},
+      "geometry":{"type":"Point","coordinates":[31.8053,36.6002]}
+    }
+  ]
+};
+const indoorLayer = new VectorLayer({
+  source: new VectorSource({
+    features: new GeoJSON().readFeatures(demoIndoor,{featureProjection:"EPSG:3857"})
+  }),
+  style: new Style({
+    stroke: new Stroke({color:"green",width:2}),
+    fill: new Fill({color:"rgba(0,255,0,0.3)"})
+  })
+});
+const outdoorLayer = new VectorLayer({
+  source: new VectorSource({
+    features: new GeoJSON().readFeatures(demoOutdoor,{featureProjection:"EPSG:3857"})
+  }),
+  style: new Style({
+    image: new CircleStyle({
+      radius:6,
+      fill: new Fill({color:"red"}),
+      stroke: new Stroke({color:"#fff",width:2})
+    })
+  })
+});
 
-/* ------------------ Mask (otel dışı siyah) ------------------ */
-const maskLayer=(function(geom){
-  const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
-  const toLatLngs=a=>a.map(([lng,lat])=>[lat,lng]);const holes=[];
-  if(geom.type==='Polygon') holes.push(toLatLngs(geom.coordinates[0]).slice().reverse());
-  return L.polygon([world].concat(holes),{
-    stroke:false,fill:true,fillColor:'#000',fillOpacity:1.0,interactive:false
-  });
-})(HOTEL_GEOMETRY);
-maskLayer.addTo(map);
+/* --- 3) Map & View --- */
+const map = new Map({
+  target: "map",
+  layers: [
+    new TileLayer({source: new OSM()}),
+    hotelLayer, indoorLayer, outdoorLayer
+  ],
+  view: new View({
+    center: fromLonLat([31.805,36.600]),
+    zoom: 17,
+    rotation: 0 // buradan rotate başlatılır
+  })
+});
 
-// Haritayı otel sınırında kilitle
-map.setMaxBounds(HOTEL_BOUNDS);
-map.options.maxBoundsViscosity=1.0;
+/* --- 4) Search (çok basit demo) --- */
+document.getElementById("searchInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){
+    const val = e.target.value.toLowerCase();
+    let found=null;
+    outdoorLayer.getSource().forEachFeature(f=>{
+      if(f.get("name") && f.get("name").toLowerCase().includes(val)){found=f;}
+    });
+    if(found){
+      map.getView().fit(found.getGeometry().getExtent(), {maxZoom:19});
+    }
+  }
+});
 
-/* ------------------ 🔹 Rotate kontrolü ------------------ */
-L.control.rotate({ position: "topleft" }).addTo(map);
-map.setBearing(0); // başlangıçta kuzey yukarı
+/* --- 5) Rotate notu --- */
+// 🔹 Mobilde: iki parmak ile döndürebilirsin
+// 🔹 Desktop: ALT tuşuna basılı tutarak fare ile sürükle
 </script>
 </body>
 </html>
