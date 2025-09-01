@@ -3,167 +3,72 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>OpenLayers – Indoor/Outdoor | Misafir & Yönetici</title>
-
+<title>Admin – Indoor/Outdoor Veri Editörü</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-
 <style>
-  html, body {margin:0; padding:0; height:100%; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial;}
-  #map {width:100%; height:100%;}
-
-  /* Üst araç çubuğu (misafir) */
-  .toolbar {
-    position:absolute; top:10px; left:10px; z-index:1000;
-    background:#fff; padding:6px; border-radius:8px;
-    box-shadow:0 2px 8px rgba(0,0,0,.2); display:flex; gap:6px; align-items:center;
-  }
-  .toolbar input {padding:10px; width:220px; border:1px solid #ddd; border-radius:6px;}
-  .toolbar select, .toolbar button {padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;}
-  .toolbar button:disabled {opacity:.6;}
-
-  /* Arama sonuçları */
-  .results {
-    position:absolute; top:56px; left:10px; z-index:1001;
-    background:#fff; border:1px solid #ccc; border-radius:8px;
-    width:220px; max-height:40vh; overflow:auto; display:none; box-shadow:0 8px 20px rgba(0,0,0,.15);
-  }
-  .results .item {padding:8px 10px; cursor:pointer;}
-  .results .item:hover {background:#f5f5f5;}
-
-  /* Yönetici kilidi */
-  .admin-lock {
-    position:absolute; top:10px; right:10px; z-index:1000;
-    background:#fff; border:1px solid #ddd; border-radius:50px; padding:8px 10px; cursor:pointer;
-    box-shadow:0 2px 8px rgba(0,0,0,.2);
-  }
-
-  /* Yönetici paneli */
-  .admin {
-    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-    z-index:1000; background:#fff; padding:10px; border-radius:12px; width:calc(100% - 20px);
-    box-shadow:0 10px 24px rgba(0,0,0,.25);
-    display:none;
-  }
-  .admin h3{margin:0 0 8px 0; font-size:16px}
-  .admin .row {display:flex; flex-wrap:wrap; gap:8px; align-items:center}
-  .admin .row > * {flex:1 1 auto}
-  .admin .row button, .admin .row select, .admin .row input[type="file"] {
-    padding:12px; border:1px solid #ddd; border-radius:10px; background:#fff;
-    min-width:120px;
-  }
-  .admin .row .danger {border-color:#ffb3b3; background:#fff0f0;}
-  .admin .row .primary {border-color:#b3d7ff; background:#f0f7ff;}
-
-  /* Popup (özellik kartı) */
-  #popup {
-    position:absolute; background:#fff; padding:10px; border-radius:10px; min-width:240px;
-    box-shadow:0 8px 20px rgba(0,0,0,.2); display:none;
-  }
-  #popup img {width:100%; height:140px; object-fit:cover; border-radius:8px; margin:6px 0;}
-  #popup .ttl {font-weight:700; font-size:16px; margin-bottom:4px;}
-  #popup .muted {color:#666; font-size:12px;}
-
-  /* Özellik formu (modal) */
-  .modal {
-    position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:2000;
-  }
-  .modal .panel {
-    background:#fff; width:min(520px, 92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35);
-  }
-  .modal .panel h3 {margin:0 0 10px 0;}
-  .modal .grid {display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .modal .grid label {font-size:12px; color:#555}
-  .modal input, .modal textarea, .modal select {
-    width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px;
-  }
-  .modal textarea {min-height:72px; resize:vertical}
-  .modal .actions {display:flex; gap:8px; justify-content:flex-end; margin-top:10px}
-  .modal .actions button {padding:10px 14px; border:1px solid #ddd; border-radius:8px; background:#fff}
-  .modal .actions .save {border-color:#b3d7ff; background:#f0f7ff}
-  .modal .actions .cancel {border-color:#eee; background:#fafafa}
-
-  /* Mobil ergonomi */
-  @media (max-width:600px){
-    .toolbar input{width:170px}
-    .admin .row {gap:6px}
-    .admin .row > * {min-width:110px}
-  }
+  html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial}
+  #map{position:fixed; inset:0; height:auto; width:auto; touch-action:none;}
+  .panel{position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:10;
+    background:#fff; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.25);
+    padding:10px; width:calc(100% - 20px); max-width:980px; pointer-events:auto;}
+  .row{display:flex; flex-wrap:wrap; gap:8px}
+  .row>*{flex:1 1 auto; min-width:120px}
+  button,select,input[type="file"]{padding:12px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer}
+  .primary{border-color:#b3d7ff; background:#f0f7ff}
+  .danger{border-color:#ffb3b3; background:#fff0f0}
+  .active{outline:2px solid #3b82f6; background:#eaf2ff}
+  #status{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:11; background:#111; color:#fff; padding:6px 10px; border-radius:8px; display:none; font-size:13px}
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:12}
+  .panel2{background:#fff; width:min(520px,92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .grid label{font-size:12px; color:#555}
+  .grid input,.grid textarea{width:100%; padding:10px; border:1px solid #ddd; border-radius:8px}
+  textarea{min-height:72px}
+  .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:10px}
+  .actions button{padding:10px 14px; border:1px solid #ddd; border-radius:8px; background:#fff}
+  .save{border-color:#b3d7ff; background:#f0f7ff}
+  .cancel{background:#fafafa}
 </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="status"></div>
 
-<!-- Misafir araç çubuğu -->
-<div class="toolbar">
-  <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
-  <select id="lang"><option value="tr">TR</option><option value="en">EN</option><option value="ru">RU</option></select>
-  <button id="goBtn" disabled>Git</button>
-  <button id="pickBtn">Hedef Seç</button>
-</div>
-<div id="results" class="results"></div>
-
-<!-- Yönetici kilidi -->
-<button id="adminLock" class="admin-lock" title="Yönetici modu">🔒</button>
-
-<!-- Yönetici paneli -->
-<div id="adminPanel" class="admin">
-  <h3>Yönetici – Çizim & Veri</h3>
+<div class="panel">
   <div class="row" style="margin-bottom:8px">
-    <select id="targetLayer">
-      <option value="outdoor">Hedef Katman: OUTDOOR</option>
-      <option value="indoor">Hedef Katman: INDOOR</option>
+    <select id="layerSel">
+      <option value="outdoor">Hedef: OUTDOOR</option>
+      <option value="indoor">Hedef: INDOOR</option>
     </select>
-    <button id="myPosBtn" class="primary">📍 Benim Konumum</button>
-    <button id="addPointBtn" class="primary">➕ Nokta</button>
-    <button id="addPolyBtn" class="primary">⬛ Poligon</button>
-    <button id="modifyBtn">✎ Düzenle</button>
+    <button id="myPos" class="primary">📍 Benim Konumum</button>
+    <button id="addPoint" class="primary">➕ Nokta</button>
+    <button id="addPoly" class="primary">⬛ Poligon</button>
+    <button id="modify">✎ Düzenle</button>
     <button id="selectBtn">☑ Seç / Özellik</button>
-    <button id="deleteBtn" class="danger">🗑 Sil</button>
+    <button id="del" class="danger">🗑 Sil</button>
   </div>
   <div class="row">
-    <button id="exportIndoor">⤓ indoor.json</button>
-    <button id="exportOutdoor">⤓ outdoor.json</button>
-    <label style="display:flex; align-items:center; gap:6px">
-      ⤒ JSON Yükle
-      <input id="importFile" type="file" accept=".json,application/json">
+    <button id="expIndoor">⤓ indoor.json</button>
+    <button id="expOutdoor">⤓ outdoor.json</button>
+    <label style="display:flex;align-items:center;gap:6px">⤒ JSON Yükle
+      <input id="imp" type="file" accept=".json,application/json">
     </label>
     <button id="clearLocal" class="danger">🧹 Yerel Veriyi Temizle</button>
   </div>
 </div>
 
-<!-- Popup -->
-<div id="popup"></div>
-
 <!-- Özellik Formu -->
 <div id="propModal" class="modal">
-  <div class="panel">
+  <div class="panel2">
     <h3>Özellikler</h3>
     <div class="grid">
-      <div>
-        <label>İsim</label>
-        <input id="f_name" placeholder="Örn: Ana Restoran">
-      </div>
-      <div>
-        <label>Kategori</label>
-        <input id="f_category" placeholder="Örn: restaurant, spa, bar">
-      </div>
-      <div>
-        <label>Saatler</label>
-        <input id="f_hours" placeholder="Örn: 09:00-22:00">
-      </div>
-      <div>
-        <label>Seviye/Kat (ops.)</label>
-        <input id="f_level" placeholder="Örn: 1">
-      </div>
-      <div style="grid-column:1/-1">
-        <label>Açıklama</label>
-        <textarea id="f_desc" placeholder="Kısa açıklama"></textarea>
-      </div>
-      <div style="grid-column:1/-1">
-        <label>Fotoğraf URL</label>
-        <input id="f_image" placeholder="https://.../spa.jpg">
-      </div>
+      <div><label>İsim</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
+      <div><label>Kategori</label><input id="f_category" placeholder="restaurant, spa, bar"></div>
+      <div><label>Saatler</label><input id="f_hours" placeholder="09:00-22:00"></div>
+      <div><label>Seviye/Kat</label><input id="f_level" placeholder="1"></div>
+      <div style="grid-column:1/-1"><label>Açıklama</label><textarea id="f_desc" placeholder="Kısa açıklama"></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf URL</label><input id="f_image" placeholder="https://.../foto.jpg"></div>
     </div>
     <div class="actions">
       <button class="cancel" id="propCancel">Vazgeç</button>
@@ -173,390 +78,181 @@
 </div>
 
 <script>
-/* ========= 0) Yardımcılar ========= */
-const ADMIN_PIN = "8426"; // 🔐 PIN'i değiştirin
-const qs = new URLSearchParams(location.search);
-const $ = sel => document.querySelector(sel);
-function downloadJSON(obj, filename){
-  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+/* === Yardımcılar === */
+const $ = id => document.getElementById(id);
+const fmt = new ol.format.GeoJSON();
+const statusEl = $("status");
+const setStatus = msg => { statusEl.textContent = msg || ""; statusEl.style.display = msg ? "block" : "none"; };
+const layerKey = () => $("layerSel").value;
+const toGJ = layer => JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(), {featureProjection:"EPSG:3857", dataProjection:"EPSG:4326"}));
+const saveLocal = (key, layer) => localStorage.setItem(key, JSON.stringify(toGJ(layer)));
+const loadLocal = key => { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; };
+const loadGJ = (layer, gj) => { const fs = fmt.readFeatures(gj, {featureProjection:"EPSG:3857"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
+async function tryFetch(url){ try{ const r=await fetch(url,{cache:"no-cache"}); if(!r.ok) throw 0; return await r.json(); }catch{return null;} }
+
+/* === Stil & Katmanlar === */
+function styleFor(f){
+  const t=f.getGeometry().getType();
+  const stroke=new ol.style.Stroke({color:"rgba(0,0,0,0.6)",width:2});
+  const fill=new ol.style.Fill({color:"rgba(0,150,0,0.18)"});
+  const circle=new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:"rgba(200,0,0,1)"}),stroke:new ol.style.Stroke({color:"#fff",width:1})});
+  return t==="Point" ? new ol.style.Style({image:circle}) : new ol.style.Style({stroke,fill});
 }
-function geojsonFromLayer(layer){
-  const fmt = new ol.format.GeoJSON();
-  return JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(), {featureProjection:"EPSG:3857", dataProjection:"EPSG:4326"}));
-}
-function loadGeoJSONToLayer(layer, geojson){
-  const fmt = new ol.format.GeoJSON();
-  const feats = fmt.readFeatures(geojson, {featureProjection:"EPSG:3857"});
-  layer.getSource().clear();
-  layer.getSource().addFeatures(feats);
-}
-function saveLocal(key, layer){ localStorage.setItem(key, JSON.stringify(geojsonFromLayer(layer))); }
-function loadLocal(key){ const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; }
-
-/* ========= 1) Otel alanı (örnek) ========= */
-const HOTEL_GEOMETRY = {
-  "type":"Polygon","coordinates":[[
-    [31.80488563536983,36.60144809135009],
-    [31.80141125277774,36.599560719072684],
-    [31.806994242514662,36.59688713533359],
-    [31.80828178115803,36.59899633325935],
-    [31.80488563536983,36.60144809135009]
-  ]]
-};
-
-/* ========= 2) DEMO Indoor/Outdoor ========= */
-const DEMO_INDOOR = {"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{"name":"Lobi","category":"lobby", "level":1},"geometry":{"type":"Polygon","coordinates":[[
-    [31.8050,36.6005],[31.8052,36.6005],[31.8052,36.6007],[31.8050,36.6007],[31.8050,36.6005]
-  ]]}}
-]};
-const DEMO_OUTDOOR = {"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{"name":"Ana Havuz","category":"pool","hours":"08:00-19:00"},"geometry":{"type":"Point","coordinates":[31.8055,36.6004]}},
-  {"type":"Feature","properties":{"name":"Disco","category":"disco","hours":"22:00-02:00"},"geometry":{"type":"Point","coordinates":[31.8053,36.6002]}}
-]};
-
-/* ========= 3) Layer Helper ========= */
-function makeVectorLayer(geojson, color){
-  return new ol.layer.Vector({
-    source: new ol.source.Vector({
-      features: new ol.format.GeoJSON().readFeatures(geojson,{featureProjection:"EPSG:3857"})
-    }),
-    style: feat => {
-      const geomType = feat.getGeometry().getType();
-      const stroke = new ol.style.Stroke({color:color,width:2});
-      const fill = new ol.style.Fill({color: color.replace("1)", "0.18)")});
-      const circle = new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:color}), stroke:new ol.style.Stroke({color:"#fff",width:1})});
-      if(geomType === "Point"){
-        return new ol.style.Style({image: circle});
-      }else{
-        return new ol.style.Style({stroke, fill});
-      }
-    }
-  });
-}
-
-/* ========= 4) Katmanlar ========= */
-const hotelLayer   = makeVectorLayer({"type":"FeatureCollection","features":[{"type":"Feature","geometry":HOTEL_GEOMETRY}]}, "rgba(0,0,255,1)");
-const indoorLayer  = makeVectorLayer({"type":"FeatureCollection","features":[]}, "rgba(0,200,0,1)");
-const outdoorLayer = makeVectorLayer({"type":"FeatureCollection","features":[]}, "rgba(200,0,0,1)");
-
-/* ========= 5) Harita ========= */
+const indoorLayer  = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
+const outdoorLayer = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
 const map = new ol.Map({
   target:"map",
-  layers:[new ol.layer.Tile({source:new ol.source.OSM()}), hotelLayer, indoorLayer, outdoorLayer],
+  layers:[ new ol.layer.Tile({source:new ol.source.OSM()}), indoorLayer, outdoorLayer ],
   view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17})
 });
+const tgtLayer = ()=> layerKey()==="indoor" ? indoorLayer : outdoorLayer;
 
-/* ========= 6) indoor/outdoor yükleme (dosya varsa al; yoksa local; o da yoksa DEMO) ========= */
-async function safeFetchJSON(url){
-  try{
-    const r = await fetch(url, {cache:"no-cache"});
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    return await r.json();
-  }catch(e){ return null; }
-}
-(async function initData(){
-  const indoorFromFile  = await safeFetchJSON("indoor.json");
-  const outdoorFromFile = await safeFetchJSON("outdoor.json");
-
-  const indoorLocal  = loadLocal("indoor");
-  const outdoorLocal = loadLocal("outdoor");
-
-  loadGeoJSONToLayer(indoorLayer,  indoorFromFile  || indoorLocal  || DEMO_INDOOR);
-  loadGeoJSONToLayer(outdoorLayer, outdoorFromFile || outdoorLocal || DEMO_OUTDOOR);
+/* === Veri yükleme (local → dosya → boş) === */
+(async ()=>{
+  loadGJ(indoorLayer,  loadLocal("indoor")  || (await tryFetch("indoor.json"))  || {"type":"FeatureCollection","features":[]});
+  loadGJ(outdoorLayer, loadLocal("outdoor") || (await tryFetch("outdoor.json")) || {"type":"FeatureCollection","features":[]});
 })();
 
-/* ========= 7) Arama ========= */
-const searchInput=$("#searchInput");
-const resultsEl=$("#results");
-let selectedFeature=null;
-function allFeatures(){
-  return indoorLayer.getSource().getFeatures().concat(outdoorLayer.getSource().getFeatures());
+/* === Konum (kritik düzeltme burada) === */
+let lastPos=null;
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(
+    p => { lastPos = p; },
+    () => {},  // <-- boş hata callback'i EKLENDİ
+    { enableHighAccuracy:true, maximumAge:0, timeout:10000 }
+  );
 }
-function showResults(list){
-  resultsEl.innerHTML="";
-  if(!list.length){resultsEl.style.display="none";return;}
-  list.forEach(f=>{
-    const div=document.createElement("div");
-    const name=f.get("name")||"(isimsiz)";
-    const cat=f.get("category")||"";
-    div.className="item";
-    div.textContent = cat ? `${name} (${cat})` : name;
-    div.onclick=()=>{
-      selectedFeature=f;
-      searchInput.value=name;
-      map.getView().fit(f.getGeometry().getExtent(),{maxZoom:19});
-      resultsEl.style.display="none";
-      $("#goBtn").disabled=false;
-      const first = f.getGeometry().getFirstCoordinate ? f.getGeometry().getFirstCoordinate() : ol.extent.getCenter(f.getGeometry().getExtent());
-      setDestination(first);
-    };
-    resultsEl.appendChild(div);
-  });
-  resultsEl.style.display="block";
+
+/* === Etkileşim durumları === */
+let mode = null; // 'point' | 'polygon' | 'modify' | 'select' | null
+let draw = null, modify = null, select = null, selected = null;
+function resetInteractions(){
+  if(draw){ map.removeInteraction(draw); draw=null; }
+  if(modify){ map.removeInteraction(modify); modify=null; }
+  if(select){ map.removeInteraction(select); select=null; }
+  selected=null; mode=null;
+  ["addPoint","addPoly","modify","selectBtn"].forEach(id=>$(id).classList.remove("active"));
+  setStatus(""); map.getTargetElement().style.cursor="";
 }
-searchInput.addEventListener("input",()=>{
-  const val=searchInput.value.toLowerCase().trim();
-  if(!val){resultsEl.style.display="none";return;}
-  const matches=allFeatures().filter(f=>((f.get("name")||"") + " " + (f.get("category")||"")).toLowerCase().includes(val));
-  showResults(matches);
+function withDCZoomDisabled(fn){
+  const dc = map.getInteractions().getArray().find(i=>i instanceof ol.interaction.DoubleClickZoom);
+  const prev = dc ? dc.getActive() : null;
+  if(dc) dc.setActive(false);
+  try{ fn(); } finally { if(dc && prev!==null) dc.setActive(prev); }
+}
+
+/* Map click yalnızca 'point' modunda nokta ekler */
+map.on("singleclick", (evt)=>{
+  if(mode!=="point") return;
+  const layer = tgtLayer();
+  const f = new ol.Feature(new ol.geom.Point(evt.coordinate));
+  layer.getSource().addFeature(f);
+  openForm(f);
+  saveLocal(layerKey(), layer);
 });
 
-/* ========= 8) Konum (Blue Dot) ========= */
-let userMarker=null, accCircle=null, lastPos=null;
-const locationLayer = new ol.layer.Vector({source:new ol.source.Vector()});
-map.addLayer(locationLayer);
-
-navigator.geolocation.watchPosition(pos=>{
-  lastPos = pos;
-  const coords=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
-  if(!userMarker){
-    userMarker=new ol.Feature(new ol.geom.Point(coords));
-    userMarker.setStyle(new ol.style.Style({
-      image:new ol.style.Circle({radius:5,fill:new ol.style.Fill({color:"#007bff"}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})})
-    }));
-    accCircle=new ol.Feature(new ol.geom.Circle(coords,pos.coords.accuracy));
-    accCircle.setStyle(new ol.style.Style({stroke:new ol.style.Stroke({color:"#007bff",width:1}),fill:new ol.style.Fill({color:"rgba(0,123,255,0.05)"})}));
-    locationLayer.getSource().addFeatures([accCircle,userMarker]);
-  }else{
-    userMarker.getGeometry().setCoordinates(coords);
-    accCircle.getGeometry().setCenter(coords);
-    accCircle.getGeometry().setRadius(pos.coords.accuracy);
-  }
-},{
-  enableHighAccuracy:true, maximumAge:0, timeout:10000
-});
-
-/* ========= 9) Hedef seç & navigasyon ========= */
-let destMarker=null, routeLayer=null;
-function setDestination(coords){
-  if(!destMarker){
-    destMarker=new ol.Feature(new ol.geom.Point(coords));
-    destMarker.setStyle(new ol.style.Style({
-      image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:"red"}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})})
-    }));
-    const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[destMarker]})});
-    map.addLayer(layer);
-  }else destMarker.getGeometry().setCoordinates(coords);
-  $("#goBtn").disabled=false;
-}
-let pickMode=false;
-$("#pickBtn").onclick=()=>{
-  pickMode=!pickMode;
-  $("#pickBtn").classList.toggle("active",pickMode);
-};
-map.on("click",evt=>{
-  if(pickMode){ setDestination(evt.coordinate); pickMode=false; $("#pickBtn").classList.remove("active"); }
-});
-$("#goBtn").onclick=()=>{
-  if(!userMarker || !destMarker) return alert("Konum ve hedef seçilmeli");
-  const userLonLat=ol.proj.toLonLat(userMarker.getGeometry().getCoordinates());
-  const destLonLat=ol.proj.toLonLat(destMarker.getGeometry().getCoordinates());
-  const url=`https://router.project-osrm.org/route/v1/foot/${userLonLat[0]},${userLonLat[1]};${destLonLat[0]},${destLonLat[1]}?overview=full&geometries=geojson`;
-  fetch(url).then(r=>r.json()).then(data=>{
-    if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-    if(data.routes && data.routes.length){
-      const line=new ol.geom.LineString(data.routes[0].geometry.coordinates).transform("EPSG:4326","EPSG:3857");
-      const route=new ol.Feature({geometry:line});
-      routeLayer=new ol.layer.Vector({
-        source:new ol.source.Vector({features:[route]}),
-        style:new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:4})})
-      });
-      map.addLayer(routeLayer);
-      const dist=(data.routes[0].distance/1000).toFixed(2);
-      const time=Math.round(data.routes[0].duration/60);
-      alert(`Mesafe: ${dist} km\nSüre: ${time} dk`);
-    }else alert("Rota bulunamadı");
-  }).catch(()=>alert("Rota hesaplanamadı"));
-};
-
-/* ========= 10) Popup (özellik gösterimi) ========= */
-const popupEl = $("#popup");
-const overlay = new ol.Overlay({element: popupEl, autoPan:true, offset:[0,-12]});
-map.addOverlay(overlay);
-
-map.on("singleclick", evt=>{
-  let hit=false;
-  map.forEachFeatureAtPixel(evt.pixel, (feature, layer)=>{
-    const p = feature.getProperties();
-    if(p && (p.name || p.category || p.hours || p.desc || p.image)){
-      hit=true;
-      popupEl.innerHTML = `
-        <div class="ttl">${p.name || "(isimsiz)"}</div>
-        ${p.image ? `<img src="${p.image}" alt="">` : ""}
-        ${p.category ? `<div class="muted">Kategori: ${p.category}</div>` : ""}
-        ${p.hours ? `<div class="muted">Saatler: ${p.hours}</div>` : ""}
-        ${p.level ? `<div class="muted">Seviye: ${p.level}</div>` : ""}
-        ${p.desc ? `<div style="margin-top:6px">${p.desc}</div>` : ""}
-      `;
-      popupEl.style.display="block";
-      overlay.setPosition(evt.coordinate);
-    }
-  }, {layerFilter: l => (l===indoorLayer || l===outdoorLayer)});
-  if(!hit){ popupEl.style.display="none"; }
-});
-
-/* ========= 11) Yönetici modu & çizim ========= */
-let isAdmin = false;
-let draw=null, modify=null, select=null, snap=null;
-let selectedForEdit=null;
-function setAdminMode(on){
-  isAdmin = !!on;
-  $("#adminPanel").style.display = isAdmin ? "block" : "none";
-  $("#adminLock").textContent = isAdmin ? "🔓" : "🔒";
-  // etkileşimleri kapat
-  disableInteractions();
-}
-function disableInteractions(){
-  [draw, modify, select, snap].forEach(i => { if(i){ map.removeInteraction(i); } });
-  draw=modify=select=snap=null;
-  selectedForEdit=null;
-}
-function targetLayer(){
-  return $("#targetLayer").value === "indoor" ? indoorLayer : outdoorLayer;
-}
-function openPropModal(feature){
-  const p = feature.getProperties();
-  $("#f_name").value = p.name || "";
-  $("#f_category").value = p.category || "";
-  $("#f_hours").value = p.hours || "";
-  $("#f_level").value = p.level || "";
-  $("#f_desc").value = p.desc || "";
-  $("#f_image").value = p.image || "";
-  $("#propModal").style.display="flex";
-  $("#propSave").onclick = ()=>{
-    feature.setProperties({
-      name: $("#f_name").value.trim(),
-      category: $("#f_category").value.trim(),
-      hours: $("#f_hours").value.trim(),
-      level: $("#f_level").value.trim(),
-      desc: $("#f_desc").value.trim(),
-      image: $("#f_image").value.trim()
+/* Özellik Formu */
+function openForm(f){
+  const p=f.getProperties();
+  $("f_name").value=p.name||""; $("f_category").value=p.category||"";
+  $("f_hours").value=p.hours||""; $("f_level").value=p.level||"";
+  $("f_desc").value=p.desc||""; $("f_image").value=p.image||"";
+  $("propModal").style.display="flex";
+  $("propSave").onclick=()=>{
+    f.setProperties({
+      name:$("f_name").value.trim(),
+      category:$("f_category").value.trim(),
+      hours:$("f_hours").value.trim(),
+      level:$("f_level").value.trim(),
+      desc:$("f_desc").value.trim(),
+      image:$("f_image").value.trim()
     });
-    // Kaynağa göre yerel kaydet
-    if(targetLayer()===indoorLayer) saveLocal("indoor", indoorLayer);
-    else saveLocal("outdoor", outdoorLayer);
-    $("#propModal").style.display="none";
+    saveLocal(layerKey(), tgtLayer());
+    $("propModal").style.display="none";
+    resetInteractions();
   };
-  $("#propCancel").onclick = ()=>{
-    // yeni çizildiyse ve boşsa istersen silme; burada sadece kapatıyoruz
-    $("#propModal").style.display="none";
-  };
+  $("propCancel").onclick=()=>{ $("propModal").style.display="none"; resetInteractions(); };
 }
 
-$("#adminLock").onclick = ()=>{
-  if(isAdmin){ setAdminMode(false); return; }
-  const pin = prompt("Yönetici PIN");
-  if(pin===ADMIN_PIN){ setAdminMode(true); localStorage.setItem("isAdmin","1"); }
-  else alert("Hatalı PIN");
+/* Butonlar */
+$("addPoint").onclick = (e)=>{
+  e.preventDefault(); resetInteractions();
+  mode="point"; $("addPoint").classList.add("active");
+  setStatus("NOKTA: haritaya dokun/tıkla"); map.getTargetElement().style.cursor="crosshair";
 };
-if(localStorage.getItem("isAdmin")==="1"){ setAdminMode(true); }
-
-$("#addPointBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  disableInteractions();
-  const layer = targetLayer();
-  draw = new ol.interaction.Draw({source: layer.getSource(), type:"Point"});
-  map.addInteraction(draw);
-  snap = new ol.interaction.Snap({source: layer.getSource()}); map.addInteraction(snap);
-  draw.once("drawend", e=>{
-    const f = e.feature;
-    // Varsayılan stil nokta için zaten var
-    openPropModal(f);
-    // otomatik kaydet
-    if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
+$("addPoly").onclick = (e)=>{
+  e.preventDefault(); resetInteractions();
+  mode="polygon"; $("addPoly").classList.add("active");
+  setStatus("POLİGON: noktaları yerleştir; bitirmek için çift tık/çift dokun");
+  map.getTargetElement().style.cursor="crosshair";
+  const layer=tgtLayer();
+  withDCZoomDisabled(()=>{
+    draw = new ol.interaction.Draw({
+      source: layer.getSource(),
+      type: "Polygon",
+      finishCondition: (evt)=> evt && evt.originalEvent && evt.originalEvent.type === "dblclick"
+    });
+    map.addInteraction(draw);
+  });
+  draw.once("drawend", (ev)=>{
+    openForm(ev.feature);
+    saveLocal(layerKey(), layer);
   });
 };
-
-$("#addPolyBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  disableInteractions();
-  const layer = targetLayer();
-  draw = new ol.interaction.Draw({source: layer.getSource(), type:"Polygon", finishCondition: ol.events.condition.doubleClick});
-  map.addInteraction(draw);
-  snap = new ol.interaction.Snap({source: layer.getSource()}); map.addInteraction(snap);
-  alert("Poligon: noktalara dokunarak çiz, **çift dokunuş** ile bitir.");
-  draw.once("drawend", e=>{
-    const f = e.feature;
-    openPropModal(f);
-    if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
-  });
-};
-
-$("#modifyBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  disableInteractions();
-  const layer = targetLayer();
+$("modify").onclick = (e)=>{
+  e.preventDefault(); resetInteractions();
+  mode="modify"; $("modify").classList.add("active");
+  setStatus("DÜZENLE: köşeleri sürükle");
+  const layer=tgtLayer();
   modify = new ol.interaction.Modify({source: layer.getSource()});
   map.addInteraction(modify);
-  snap = new ol.interaction.Snap({source: layer.getSource()}); map.addInteraction(snap);
-  modify.on("modifyend", ()=>{
-    if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
-  });
+  modify.on("modifyend", ()=> saveLocal(layerKey(), layer));
 };
-
-$("#selectBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  disableInteractions();
-  const layer = targetLayer();
+$("selectBtn").onclick = (e)=>{
+  e.preventDefault(); resetInteractions();
+  mode="select"; $("selectBtn").classList.add("active");
+  setStatus("SEÇİM: öğeye dokun → form açılır");
+  const layer=tgtLayer();
   select = new ol.interaction.Select({layers:[layer]});
+  if(select.setHitTolerance) select.setHitTolerance(6);
   map.addInteraction(select);
-  select.on("select", e=>{
-    selectedForEdit = e.selected[0] || null;
-    if(selectedForEdit) openPropModal(selectedForEdit);
+  select.on("select", ev=>{
+    selected = ev.selected[0] || null;
+    if(selected) openForm(selected);
   });
 };
-
-$("#deleteBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  const layer = targetLayer();
-  if(!selectedForEdit){
-    alert("Silmek için önce 'Seç / Özellik' ile bir öge seçin.");
-    return;
-  }
-  layer.getSource().removeFeature(selectedForEdit);
-  selectedForEdit=null;
-  if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
-  alert("Silindi.");
+$("del").onclick = (e)=>{
+  e.preventDefault();
+  const layer=tgtLayer();
+  if(!selected){ alert("Silmek için önce 'Seç / Özellik' ile öğe seçin."); return; }
+  layer.getSource().removeFeature(selected); selected=null;
+  saveLocal(layerKey(), layer);
+  resetInteractions();
 };
-
-$("#myPosBtn").onclick = ()=>{
-  if(!isAdmin) return;
-  const layer = targetLayer();
-  if(!lastPos){ alert("Konum okunamadı."); return; }
-  const coord = ol.proj.fromLonLat([lastPos.coords.longitude, lastPos.coords.latitude]);
-  const f = new ol.Feature(new ol.geom.Point(coord));
+$("myPos").onclick = (e)=>{
+  e.preventDefault();
+  const layer=tgtLayer();
+  if(!lastPos){ alert("Konum alınamadı."); return; }
+  const c = ol.proj.fromLonLat([lastPos.coords.longitude, lastPos.coords.latitude]);
+  const f = new ol.Feature(new ol.geom.Point(c));
   layer.getSource().addFeature(f);
-  openPropModal(f);
-  if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
+  openForm(f);
+  saveLocal(layerKey(), layer);
 };
 
-$("#exportIndoor").onclick = ()=> downloadJSON(geojsonFromLayer(indoorLayer), "indoor.json");
-$("#exportOutdoor").onclick = ()=> downloadJSON(geojsonFromLayer(outdoorLayer), "outdoor.json");
-
-$("#importFile").addEventListener("change", async (e)=>{
-  if(!isAdmin) return;
-  const file = e.target.files[0]; if(!file) return;
-  try{
-    const txt = await file.text();
-    const json = JSON.parse(txt);
-    const layer = targetLayer();
-    loadGeoJSONToLayer(layer, json);
-    if(layer===indoorLayer) saveLocal("indoor", indoorLayer); else saveLocal("outdoor", outdoorLayer);
-    alert("JSON yüklendi.");
-  }catch(err){ alert("Geçersiz JSON."); }
-  e.target.value = "";
+/* İndir / Yükle / Temizle */
+$("expIndoor").onclick = ()=>{ const data=toGJ(indoorLayer); const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download="indoor.json"; a.click(); URL.revokeObjectURL(u); };
+$("expOutdoor").onclick = ()=>{ const data=toGJ(outdoorLayer); const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download="outdoor.json"; a.click(); URL.revokeObjectURL(u); };
+$("imp").addEventListener("change", async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  try{ const txt=await file.text(); const json=JSON.parse(txt); const layer=tgtLayer(); loadGJ(layer,json); saveLocal(layerKey(), layer); alert("JSON yüklendi."); }
+  catch{ alert("Geçersiz JSON."); }
+  e.target.value="";
 });
-
-$("#clearLocal").onclick = ()=>{
-  if(confirm("Yerel (tarayıcı) veriler temizlenecek. Devam?")){
-    localStorage.removeItem("indoor");
-    localStorage.removeItem("outdoor");
-    alert("Yerel veriler temizlendi. Sayfayı yenileyin.");
+$("clearLocal").onclick = ()=>{
+  if(confirm("Tarayıcı yerel verisi silinsin mi?")){
+    localStorage.removeItem("indoor"); localStorage.removeItem("outdoor");
+    alert("Yerel veri temizlendi. Sayfayı yenileyin.");
   }
 };
 </script>
