@@ -196,23 +196,41 @@ map.on("click",evt=>{
   }
 });
 
-/* --- 9) Routing --- */
+/* --- Routing (navigasyon) --- */
 document.getElementById("goBtn").onclick=()=>{
   if(!userMarker || !destMarker) return alert("Konum ve hedef seçilmeli");
+
   const userLonLat=ol.proj.toLonLat(userMarker.getGeometry().getCoordinates());
   const destLonLat=ol.proj.toLonLat(destMarker.getGeometry().getCoordinates());
+
+  // OSRM API (yaya yönlendirme)
   const url=`https://router.project-osrm.org/route/v1/foot/${userLonLat[0]},${userLonLat[1]};${destLonLat[0]},${destLonLat[1]}?overview=full&geometries=geojson`;
+
   fetch(url).then(r=>r.json()).then(data=>{
     if(data.routes.length){
-      const coords=data.routes[0].geometry.coordinates;
+      const routeData=data.routes[0];
+      const coords=routeData.geometry.coordinates;
+
+      // Rota çizgisi
       const line=new ol.geom.LineString(coords).transform("EPSG:4326","EPSG:3857");
       const route=new ol.Feature({geometry:line});
+      route.setStyle(new ol.style.Style({
+        stroke:new ol.style.Stroke({color:"blue",width:4})
+      }));
+
       const routeLayer=new ol.layer.Vector({
-        source:new ol.source.Vector({features:[route]}),
-        style:new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:3})})
+        source:new ol.source.Vector({features:[route]})
       });
       map.addLayer(routeLayer);
+
+      // Mesafe & süre bilgisi
+      const dist=(routeData.distance/1000).toFixed(2); // km
+      const time=Math.round(routeData.duration/60);    // dakika
+      alert(`Mesafe: ${dist} km\nSüre: ${time} dk`);
     }
+  }).catch(err=>{
+    console.error("Rota alınamadı:",err);
+    alert("Rota hesaplanamadı!");
   });
 };
 
@@ -222,4 +240,5 @@ document.getElementById("goBtn").onclick=()=>{
 </script>
 </body>
 </html>
+
 
