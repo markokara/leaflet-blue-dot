@@ -97,10 +97,23 @@
 </div>
 
 <script>
-/* Helpers */
+/* ===================== Yardımcılar ===================== */
 const $ = s => document.querySelector(s);
 const fmt = new ol.format.GeoJSON();
-const toast = (t)=>{ const el=$("#toast"); el.textContent=t; el.style.display="block"; setTimeout(()=>el.style.display="none",1800); }
+const toast = (t)=>{ const el=$("#toast"); el.textContent=t; el.style.display="block"; setTimeout(()=>el.style.display="none",1800); };
+
+// Güvenli çift tık/çift dokunuş bitirme
+const safeDoubleClick = (e) => e && e.originalEvent && e.originalEvent.type === 'dblclick';
+
+// DoubleClickZoom'u geçici devre dışı bırak/aç
+function withDoubleClickZoomDisabled(map, fn){
+  const dcZoom = map.getInteractions().getArray().find(i => i instanceof ol.interaction.DoubleClickZoom);
+  const prev = dcZoom ? dcZoom.getActive() : null;
+  if (dcZoom) dcZoom.setActive(false);
+  try { fn(); } finally { if (dcZoom && prev !== null) dcZoom.setActive(prev); }
+}
+
+// JSON araçları
 function gjFromLayer(layer){
   return JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(),{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}));
 }
@@ -116,18 +129,16 @@ function dl(obj, name){
 function saveLocal(key, layer){ localStorage.setItem(key, JSON.stringify(gjFromLayer(layer))); }
 function loadLocal(key){ const s=localStorage.getItem(key); return s?JSON.parse(s):null; }
 
-/* Basemap + layers */
-const indoorLayer  = new ol.layer.Vector({source:new ol.source.Vector()});
-const outdoorLayer = new ol.layer.Vector({source:new ol.source.Vector()});
-[indoorLayer,outdoorLayer].forEach(l=>{
-  l.setStyle(f=>{
-    const t=f.getGeometry().getType();
-    const stroke=new ol.style.Stroke({color:"rgba(0,0,0,0.6)",width:2});
-    const fill=new ol.style.Fill({color:"rgba(0,150,0,0.18)"});
-    const circle=new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:"rgba(200,0,0,1)"}),stroke:new ol.style.Stroke({color:"#fff",width:1})});
-    return t==="Point" ? new ol.style.Style({image:circle}) : new ol.style.Style({stroke,fill});
-  });
-});
+/* ===================== Harita & Katmanlar ===================== */
+function styleFor(f){
+  const t=f.getGeometry().getType();
+  const stroke=new ol.style.Stroke({color:"rgba(0,0,0,0.6)",width:2});
+  const fill=new ol.style.Fill({color:"rgba(0,150,0,0.18)"});
+  const circle=new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:"rgba(200,0,0,1)"}),stroke:new ol.style.Stroke({color:"#fff",width:1})});
+  return t==="Point" ? new ol.style.Style({image:circle}) : new ol.style.Style({stroke,fill});
+}
+const indoorLayer  = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
+const outdoorLayer = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
 
 const map = new ol.Map({
   target:"map",
@@ -135,7 +146,8 @@ const map = new ol.Map({
   view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17})
 });
 
-/* Veri yükle (önce localStorage; sonra dosya; yoksa boş) */
+/* ===================== Veri yükleme sırası =====================
+   1) localStorage  2) indoor.json/outdoor.json  3) boş    */
 async function tryFetch(url){
   try{const r=await fetch(url,{cache:"no-cache"}); if(!r.ok) throw 0; return await r.json();}catch(e){return null;}
 }
@@ -144,74 +156,112 @@ async function tryFetch(url){
   loadGJ(outdoorLayer, loadLocal("outdoor") || (await tryFetch("outdoor.json")) || {"type":"FeatureCollection","features":[]});
 })();
 
-/* Konum (yardım için) */
+/* ===================== Konum (isteğe bağlı) ===================== */
 let lastPos=null;
-navigator.geolocation.watchPosition(p=>{
-  lastPos=p; 
-},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+navigator.geolocation.watchPosition(p=>{ lastPos=p; },{enableHighAccuracy:true,maximumAge:0,timeout:10000});
 
-/* Hedef katman seçici */
+/* ===================== Hedef katman seçici ===================== */
 function tgt(){ return $("#layerSel").value==="indoor" ? indoorLayer : outdoorLayer; }
 
-/* Çizim/düzenleme etkileşimleri */
+/* ===================== Etkileşimler ===================== */
 let draw=null, modify=null, select=null, snap=null, selected=null;
-function clearInts(){ [draw,modify,select,snap].forEach(i=>{ if(i) map.removeInteraction(i); }); draw=modify=select=snap=null; selected=null; }
+function clearInteractions(){
+  [draw, modify, select, snap].forEach(i=>{ if(i) map.removeInteraction(i); });
+  draw=modify=select=snap=null; selected=null;
+}
 
-$("#addPoint").onclick=()=>{
-  clearInts();
-  const layer=tgt();
-  draw=new ol.interaction.Draw({source:layer.getSource(),type:"Point"});
+/* ➕ Nokta */
+$("#addPoint").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  clearInteractions();
+  const layer = tgt();
+
+  draw = new ol.interaction.Draw({ source: layer.getSource(), type: "Point" });
   map.addInteraction(draw);
-  snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap);
-  draw.once("drawend",e=>{ openForm(e.feature); saveLocal($("#layerSel").value, layer); toast("Nokta eklendi"); });
-};
+  snap = new ol.interaction.Snap({ source: layer.getSource() });
+  map.addInteraction(snap);
 
-$("#addPoly").onclick=()=>{
-  clearInts();
-  const layer=tgt();
-  draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon",finishCondition: ol.events.condition.doubleClick});
-  map.addInteraction(draw);
-  snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap);
-  toast("Poligon: dokunarak çiz, çift dokunuşla bitir");
-  draw.once("drawend",e=>{ openForm(e.feature); saveLocal($("#layerSel").value, layer); });
-};
-
-$("#modify").onclick=()=>{
-  clearInts();
-  const layer=tgt();
-  modify=new ol.interaction.Modify({source:layer.getSource()});
-  map.addInteraction(modify);
-  snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap);
-  modify.on("modifyend",()=>{ saveLocal($("#layerSel").value, layer); toast("Geometri güncellendi"); });
-};
-
-$("#selectBtn").onclick=()=>{
-  clearInts();
-  const layer=tgt();
-  select=new ol.interaction.Select({layers:[layer]});
-  map.addInteraction(select);
-  select.on("select",e=>{
-    selected=e.selected[0]||null;
-    if(selected) openForm(selected);
+  draw.once("drawend", (e)=>{
+    openForm(e.feature);
+    saveLocal($("#layerSel").value, layer);
+    toast("Nokta eklendi");
+    clearInteractions();
   });
-};
+});
 
-$("#del").onclick=()=>{
-  const layer=tgt();
-  if(!selected){ alert("Silmek için önce Seç / Özellik ile öge seç."); return; }
+/* ⬛ Poligon */
+$("#addPoly").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  clearInteractions();
+  const layer = tgt();
+
+  withDoubleClickZoomDisabled(map, ()=>{
+    draw = new ol.interaction.Draw({
+      source: layer.getSource(),
+      type: "Polygon",
+      finishCondition: safeDoubleClick
+    });
+    map.addInteraction(draw);
+  });
+
+  snap = new ol.interaction.Snap({ source: layer.getSource() });
+  map.addInteraction(snap);
+
+  toast("Poligon: noktaları dokunarak yerleştir, bitirmek için çift dokun/çift tıkla");
+  draw.once("drawend", (e)=>{
+    openForm(e.feature);
+    saveLocal($("#layerSel").value, layer);
+    clearInteractions();
+  });
+});
+
+/* ✎ Düzenle */
+$("#modify").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  clearInteractions();
+  const layer = tgt();
+  modify = new ol.interaction.Modify({ source: layer.getSource() });
+  map.addInteraction(modify);
+  snap = new ol.interaction.Snap({ source: layer.getSource() }); map.addInteraction(snap);
+  modify.on("modifyend", ()=>{ saveLocal($("#layerSel").value, layer); toast("Geometri güncellendi"); });
+});
+
+/* ☑ Seç / Özellik */
+$("#selectBtn").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  clearInteractions();
+  const layer = tgt();
+  select = new ol.interaction.Select({ layers:[layer] });
+  if (select.setHitTolerance) select.setHitTolerance(5); // mobilde daha rahat seçim
+  map.addInteraction(select);
+  select.on("select", (e)=>{
+    selected = e.selected[0] || null;
+    if (selected) openForm(selected);
+  });
+});
+
+/* 🗑 Sil */
+$("#del").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  const layer = tgt();
+  if(!selected){ alert("Silmek için önce 'Seç / Özellik' ile bir öğe seç."); return; }
   layer.getSource().removeFeature(selected); selected=null;
   saveLocal($("#layerSel").value, layer); toast("Silindi");
-};
+});
 
-$("#myPos").onclick=()=>{
-  const layer=tgt();
+/* 📍 Benim Konumum */
+$("#myPos").addEventListener("click", (ev)=>{
+  ev.preventDefault(); ev.stopPropagation();
+  const layer = tgt();
   if(!lastPos){ alert("Konum alınamadı."); return; }
-  const c=ol.proj.fromLonLat([lastPos.coords.longitude,lastPos.coords.latitude]);
-  const f=new ol.Feature(new ol.geom.Point(c)); layer.getSource().addFeature(f);
-  openForm(f); saveLocal($("#layerSel").value, layer);
-};
+  const c = ol.proj.fromLonLat([lastPos.coords.longitude, lastPos.coords.latitude]);
+  const f = new ol.Feature(new ol.geom.Point(c));
+  layer.getSource().addFeature(f);
+  openForm(f);
+  saveLocal($("#layerSel").value, layer);
+});
 
-/* Özellik formu */
+/* ===================== Özellik formu ===================== */
 function openForm(feat){
   const p=feat.getProperties();
   $("#f_name").value=p.name||"";
@@ -221,6 +271,7 @@ function openForm(feat){
   $("#f_desc").value=p.desc||"";
   $("#f_image").value=p.image||"";
   $("#propModal").style.display="flex";
+
   $("#propSave").onclick=()=>{
     feat.setProperties({
       name: $("#f_name").value.trim(),
@@ -232,12 +283,16 @@ function openForm(feat){
     });
     saveLocal($("#layerSel").value, tgt());
     $("#propModal").style.display="none";
+    clearInteractions(); // form kapanınca etkileşimleri kapat
     toast("Özellikler kaydedildi");
   };
-  $("#propCancel").onclick=()=> $("#propModal").style.display="none";
+  $("#propCancel").onclick=()=>{
+    $("#propModal").style.display="none";
+    clearInteractions();
+  };
 }
 
-/* İndir/Yükle/Temizle */
+/* ===================== İndir / Yükle / Temizle ===================== */
 $("#expIndoor").onclick = ()=> dl(gjFromLayer(indoorLayer),"indoor.json");
 $("#expOutdoor").onclick = ()=> dl(gjFromLayer(outdoorLayer),"outdoor.json");
 
@@ -252,7 +307,10 @@ $("#imp").addEventListener("change", async e=>{
 });
 
 $("#clearLocal").onclick=()=>{
-  if(confirm("Tarayıcı yerel verisi silinsin mi?")){ localStorage.removeItem("indoor"); localStorage.removeItem("outdoor"); toast("Yerel veri temizlendi"); }
+  if(confirm("Tarayıcı yerel verisi silinsin mi?")){
+    localStorage.removeItem("indoor"); localStorage.removeItem("outdoor");
+    toast("Yerel veri temizlendi");
+  }
 };
 </script>
 </body>
