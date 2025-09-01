@@ -122,30 +122,53 @@ searchInput.addEventListener("input",()=>{
   const matches=allFeatures.filter(f=>(f.get("name")||"").toLowerCase().includes(val));
   showResults(matches);
 });
-
-/* --- 7) Blue Dot (Konum) --- */
+/* --- Blue Dot (Konum) --- */
 let userMarker=null, accCircle=null;
+const locationLayer = new ol.layer.Vector({source:new ol.source.Vector()});
+map.addLayer(locationLayer);
+
 navigator.geolocation.watchPosition(pos=>{
   const coords=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+
   if(!userMarker){
+    // Mavi nokta
     userMarker=new ol.Feature(new ol.geom.Point(coords));
     userMarker.setStyle(new ol.style.Style({
-      image:new ol.style.Circle({radius:5,fill:new ol.style.Fill({color:"#007bff"}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})})
+      image:new ol.style.Circle({
+        radius:5,
+        fill:new ol.style.Fill({color:"#007bff"}),
+        stroke:new ol.style.Stroke({color:"#fff",width:1.5})
+      })
     }));
+
+    // Accuracy circle
     accCircle=new ol.Feature(new ol.geom.Circle(coords,pos.coords.accuracy));
-    accCircle.setStyle(new ol.style.Style({stroke:new ol.style.Stroke({color:"#007bff",width:1}),fill:new ol.style.Fill({color:"rgba(0,123,255,0.05)"})}));
-    const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[accCircle,userMarker]})});
-    map.addLayer(layer);
+    accCircle.setStyle(new ol.style.Style({
+      stroke:new ol.style.Stroke({color:"#007bff",width:1}),
+      fill:new ol.style.Fill({color:"rgba(0,123,255,0.05)"})
+    }));
+
+    locationLayer.getSource().addFeatures([accCircle,userMarker]);
+    // Haritayı ilk konuma götür
+    map.getView().setCenter(coords);
+
   }else{
     userMarker.getGeometry().setCoordinates(coords);
     accCircle.getGeometry().setCenter(coords);
     accCircle.getGeometry().setRadius(pos.coords.accuracy);
   }
+
+  console.log("Konum:", pos.coords.latitude, pos.coords.longitude, "Hata Payı:", pos.coords.accuracy,"m");
+
+}, err=>{
+  console.error("Konum alınamadı:", err);
+  alert("Konum bilgisi alınamadı. Lütfen tarayıcıdan izin verin.");
 },{
-  enableHighAccuracy:true, // GPS'i zorlar
+  enableHighAccuracy:true,
   maximumAge:0,
   timeout:10000
 });
+
 
 /* --- 8) Hedef seç (map click) --- */
 let destMarker=null;
@@ -199,3 +222,4 @@ document.getElementById("goBtn").onclick=()=>{
 </script>
 </body>
 </html>
+
