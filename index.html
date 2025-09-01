@@ -92,7 +92,7 @@ map.fitBounds(HOTEL_BOUNDS); setTimeout(()=>map.invalidateSize(),0);
 const maskLayer=(function(geom){const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
   const toLatLngs=a=>a.map(([lng,lat])=>[lat,lng]);const holes=[];
   if(geom.type==='Polygon') holes.push(toLatLngs(geom.coordinates[0]).slice().reverse());
-  return L.polygon([world].concat(holes),{stroke:false,fill:true,fillColor:'#000',fillOpacity:.35,interactive:false});
+  return L.polygon([world].concat(holes),{stroke:false,fill:true,fillColor:'#000',fillOpacity:.1.0interactive:false});
 })(HOTEL_GEOMETRY);
 maskLayer.addTo(map);
 
@@ -108,3 +108,4 @@ brand.onAdd=function(){const d=L.DomUtil.create('div','brand-attrib');
 </script>
 </body>
 </html>
+
