@@ -12,8 +12,6 @@
 <style>
   html, body {margin:0; padding:0; height:100%;}
   #map {width:100%; height:100%;}
-
-  /* Toolbar */
   .toolbar {
     position:absolute; top:10px; left:10px; z-index:1000;
     background:#fff; padding:6px; border-radius:6px;
@@ -21,8 +19,6 @@
   }
   .toolbar input {padding:6px; width:220px;}
   .toolbar select, .toolbar button {padding:6px;}
-
-  /* Search sonuç kutusu */
   .results {
     position:absolute; top:50px; left:10px; z-index:1001;
     background:#fff; border:1px solid #ccc; border-radius:6px;
@@ -35,7 +31,6 @@
 <body>
 <div id="map"></div>
 
-<!-- Toolbar -->
 <div class="toolbar">
   <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
   <select id="lang"><option value="tr">TR</option><option value="en">EN</option><option value="ru">RU</option></select>
@@ -45,10 +40,9 @@
 <div id="results" class="results"></div>
 
 <script>
-/* ------------------ 1) Hotel Polygon ------------------ */
+/* --- Otel Alanı --- */
 const HOTEL_GEOMETRY = {
-  "type":"Polygon",
-  "coordinates":[[ 
+  "type":"Polygon","coordinates":[[
     [31.80488563536983,36.60144809135009],
     [31.80141125277774,36.599560719072684],
     [31.806994242514662,36.59688713533359],
@@ -57,31 +51,18 @@ const HOTEL_GEOMETRY = {
   ]]
 };
 
-/* ------------------ 2) Indoor & Outdoor DEMO ------------------ */
-const DEMO_INDOOR = {
-  "type":"FeatureCollection",
-  "features":[
-    {"type":"Feature","properties":{"id":"lobi","name":"Lobi","category":"lobby","level":1},
-     "geometry":{"type":"Polygon","coordinates":[[
-       [31.8050,36.6005],[31.8052,36.6005],[31.8052,36.6007],[31.8050,36.6007],[31.8050,36.6005]
-     ]]}},
-    {"type":"Feature","properties":{"id":"resto","name":"Ana Restoran","category":"restaurant","level":1},
-     "geometry":{"type":"Polygon","coordinates":[[
-       [31.8053,36.6006],[31.8056,36.6006],[31.8056,36.6009],[31.8053,36.6009],[31.8053,36.6006]
-     ]]} }
-  ]
-};
-const DEMO_OUTDOOR = {
-  "type":"FeatureCollection",
-  "features":[
-    {"type":"Feature","properties":{"id":"disco","name":"Disco","category":"disco"},
-     "geometry":{"type":"Point","coordinates":[31.8053,36.6002]}},
-    {"type":"Feature","properties":{"id":"pool","name":"Ana Havuz","category":"pool"},
-     "geometry":{"type":"Point","coordinates":[31.8055,36.6004]}}
-  ]
-};
+/* --- Demo Indoor/Outdoor --- */
+const DEMO_INDOOR = {"type":"FeatureCollection","features":[
+  {"type":"Feature","properties":{"name":"Lobi","category":"lobby"},"geometry":{"type":"Polygon","coordinates":[[
+    [31.8050,36.6005],[31.8052,36.6005],[31.8052,36.6007],[31.8050,36.6007],[31.8050,36.6005]
+  ]]} }
+]};
+const DEMO_OUTDOOR = {"type":"FeatureCollection","features":[
+  {"type":"Feature","properties":{"name":"Disco","category":"disco"},"geometry":{"type":"Point","coordinates":[31.8053,36.6002]}},
+  {"type":"Feature","properties":{"name":"Ana Havuz","category":"pool"},"geometry":{"type":"Point","coordinates":[31.8055,36.6004]}}
+]};
 
-/* ------------------ 3) Vector Layers ------------------ */
+/* --- Layer helper --- */
 function makeVectorLayer(geojson, color){
   return new ol.layer.Vector({
     source: new ol.source.Vector({
@@ -89,37 +70,32 @@ function makeVectorLayer(geojson, color){
     }),
     style: new ol.style.Style({
       stroke: new ol.style.Stroke({color:color,width:2}),
-      fill: new ol.style.Fill({color:color.replace('1)', '0.3)')}),
+      fill: new ol.style.Fill({color:color.replace("1)", "0.3)")}),
       image: new ol.style.Circle({radius:6, fill: new ol.style.Fill({color:color})})
     })
   });
 }
 
+/* --- Layers --- */
 const hotelLayer = makeVectorLayer(
   {"type":"FeatureCollection","features":[{"type":"Feature","geometry":HOTEL_GEOMETRY}]},
   "rgba(0,0,255,1)"
 );
-const indoorLayer = makeVectorLayer(DEMO_INDOOR, "rgba(0,200,0,1)");
-const outdoorLayer = makeVectorLayer(DEMO_OUTDOOR, "rgba(200,0,0,1)");
+const indoorLayer = makeVectorLayer(DEMO_INDOOR,"rgba(0,200,0,1)");
+const outdoorLayer = makeVectorLayer(DEMO_OUTDOOR,"rgba(200,0,0,1)");
 
-/* ------------------ 4) Map ------------------ */
+/* --- Map --- */
 const map = new ol.Map({
-  target: "map",
-  layers: [new ol.layer.Tile({source: new ol.source.OSM()}), hotelLayer, indoorLayer, outdoorLayer],
-  view: new ol.View({
-    center: ol.proj.fromLonLat([31.805,36.600]),
-    zoom: 17,
-    rotation: 0
-  })
+  target:"map",
+  layers:[new ol.layer.Tile({source:new ol.source.OSM()}), hotelLayer, indoorLayer, outdoorLayer],
+  view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17, rotation:0})
 });
 
-/* ------------------ 5) Search + Autocomplete ------------------ */
-const searchInput = document.getElementById("searchInput");
-const resultsEl = document.getElementById("results");
-let selectedFeature = null;
-
-// tüm indoor & outdoor özelliklerini arama için indexle
-const allFeatures = indoorLayer.getSource().getFeatures().concat(outdoorLayer.getSource().getFeatures());
+/* --- Search --- */
+const searchInput=document.getElementById("searchInput");
+const resultsEl=document.getElementById("results");
+let selectedFeature=null;
+const allFeatures=indoorLayer.getSource().getFeatures().concat(outdoorLayer.getSource().getFeatures());
 
 function showResults(list){
   resultsEl.innerHTML="";
@@ -130,50 +106,89 @@ function showResults(list){
     div.textContent=f.get("name")+" ("+(f.get("category")||"")+")";
     div.onclick=()=>{
       selectedFeature=f;
-      const extent=f.getGeometry().getExtent();
-      map.getView().fit(extent,{maxZoom:19});
+      map.getView().fit(f.getGeometry().getExtent(),{maxZoom:19});
       resultsEl.style.display="none";
       document.getElementById("goBtn").disabled=false;
+      setDestination(f.getGeometry().getFirstCoordinate());
     };
     resultsEl.appendChild(div);
   });
   resultsEl.style.display="block";
 }
-
-searchInput.addEventListener("input", ()=>{
+searchInput.addEventListener("input",()=>{
   const val=searchInput.value.toLowerCase().trim();
   if(!val){resultsEl.style.display="none";return;}
   const matches=allFeatures.filter(f=>(f.get("name")||"").toLowerCase().includes(val));
   showResults(matches);
 });
 
-/* ------------------ 6) Routing (OSRM demo) ------------------ */
-const goBtn=document.getElementById("goBtn");
-goBtn.addEventListener("click", ()=>{
-  if(!selectedFeature) return alert("Bir hedef seçin!");
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const user=[pos.coords.longitude,pos.coords.latitude];
-    const target=ol.proj.toLonLat(selectedFeature.getGeometry().getFirstCoordinate());
-    // OSRM api ile rota
-    const url=`https://router.project-osrm.org/route/v1/foot/${user[0]},${user[1]};${target[0]},${target[1]}?overview=full&geometries=geojson`;
-    fetch(url).then(r=>r.json()).then(data=>{
-      if(data.routes.length){
-        const coords=data.routes[0].geometry.coordinates;
-        const line=new ol.geom.LineString(coords).transform("EPSG:4326","EPSG:3857");
-        const route=new ol.Feature({geometry:line});
-        const routeLayer=new ol.layer.Vector({
-          source:new ol.source.Vector({features:[route]}),
-          style:new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:3})})
-        });
-        map.addLayer(routeLayer);
-      }
-    });
-  },()=>alert("Konum alınamadı"));
+/* --- Blue Dot (Konum) --- */
+let userMarker=null, accCircle=null;
+navigator.geolocation.watchPosition(pos=>{
+  const coords=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+  if(!userMarker){
+    userMarker=new ol.Feature(new ol.geom.Point(coords));
+    userMarker.setStyle(new ol.style.Style({
+      image:new ol.style.Circle({radius:8,fill:new ol.style.Fill({color:"blue"}),stroke:new ol.style.Stroke({color:"#fff",width:2})})
+    }));
+    accCircle=new ol.Feature(new ol.geom.Circle(coords,pos.coords.accuracy));
+    accCircle.setStyle(new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:1}),fill:new ol.style.Fill({color:"rgba(0,0,255,0.1)"})}));
+    const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[accCircle,userMarker]})});
+    map.addLayer(layer);
+  }else{
+    userMarker.getGeometry().setCoordinates(coords);
+    accCircle.getGeometry().setCenter(coords);
+    accCircle.getGeometry().setRadius(pos.coords.accuracy);
+  }
 });
 
-/* ------------------ 7) Rotate ------------------ */
-// Mobilde 2 parmak → rotate
-// Desktop: ALT + Drag
+/* --- Hedef seç (haritadan tıklama) --- */
+let destMarker=null;
+function setDestination(coords){
+  if(!destMarker){
+    destMarker=new ol.Feature(new ol.geom.Point(coords));
+    destMarker.setStyle(new ol.style.Style({
+      image:new ol.style.Circle({radius:8,fill:new ol.style.Fill({color:"red"}),stroke:new ol.style.Stroke({color:"#fff",width:2})})
+    }));
+    const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[destMarker]})});
+    map.addLayer(layer);
+  }else destMarker.getGeometry().setCoordinates(coords);
+  document.getElementById("goBtn").disabled=false;
+}
+map.on("click",evt=>{
+  if(pickMode){
+    setDestination(evt.coordinate);
+    pickMode=false;
+    document.getElementById("pickBtn").classList.remove("active");
+  }
+});
+
+/* --- Pick Mode --- */
+let pickMode=false;
+document.getElementById("pickBtn").onclick=()=>{
+  pickMode=!pickMode;
+  document.getElementById("pickBtn").classList.toggle("active",pickMode);
+};
+
+/* --- Routing (user → hedef) --- */
+document.getElementById("goBtn").onclick=()=>{
+  if(!userMarker || !destMarker) return alert("Önce hedef ve konum seçilmeli");
+  const userLonLat=ol.proj.toLonLat(userMarker.getGeometry().getCoordinates());
+  const destLonLat=ol.proj.toLonLat(destMarker.getGeometry().getCoordinates());
+  const url=`https://router.project-osrm.org/route/v1/foot/${userLonLat[0]},${userLonLat[1]};${destLonLat[0]},${destLonLat[1]}?overview=full&geometries=geojson`;
+  fetch(url).then(r=>r.json()).then(data=>{
+    if(data.routes.length){
+      const coords=data.routes[0].geometry.coordinates;
+      const line=new ol.geom.LineString(coords).transform("EPSG:4326","EPSG:3857");
+      const route=new ol.Feature({geometry:line});
+      const routeLayer=new ol.layer.Vector({
+        source:new ol.source.Vector({features:[route]}),
+        style:new ol.style.Style({stroke:new ol.style.Stroke({color:"blue",width:3})})
+      });
+      map.addLayer(routeLayer);
+    }
+  });
+};
 </script>
 </body>
 </html>
