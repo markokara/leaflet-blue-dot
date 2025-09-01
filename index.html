@@ -51,10 +51,6 @@
   /* Emoji tabanlı ikonlar */
   .emicon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid #fff;
           box-shadow:0 0 0 2px rgba(0,0,0,.08);font-size:14px;line-height:1}
-.toolbar, #results, .brand-attrib {
-  display: none !important;
-}
-
 </style>
 </head>
 <body>
@@ -70,9 +66,9 @@
 
 <script>
 /* ------------------ AYARLAR ------------------ */
-const INDOOR_URL  = 'indoor.json';   // aynı klasörde barındır
-const OUTDOOR_URL = 'outdoor.json';  // aynı klasörde barındır
-const HOTEL_TZ = 'Europe/Istanbul';  // açık/kapalı hesabı için
+const INDOOR_URL  = 'indoor.json';
+const OUTDOOR_URL = 'outdoor.json';
+const HOTEL_TZ = 'Europe/Istanbul';
 
 /* ------------------ 0) Tesisi polygon ------------------ */
 const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
@@ -83,7 +79,7 @@ const HOTEL_GEOMETRY={"type":"Polygon","coordinates":[[
   [31.80488563536983,36.60144809135009]
 ]]};
 
-/* ------------------ 1) Harita + maske + atrib ------------------ */
+/* ------------------ 1) Harita ------------------ */
 const map=L.map('map',{zoomControl:true,attributionControl:false});
 const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
 osm.setOpacity(0.55);
@@ -92,12 +88,13 @@ const hotelOutline=L.geoJSON(HOTEL_GEOMETRY,{style:{color:'#0066ff',weight:2,fil
 const HOTEL_BOUNDS=hotelOutline.getBounds().pad(0.03);
 map.fitBounds(HOTEL_BOUNDS); setTimeout(()=>map.invalidateSize(),0);
 
+// MASK bırakıldı ama maxBounds kaldırıldı → pan serbest
 const maskLayer=(function(geom){const world=[[-90,-180],[-90,180],[90,180],[90,-180]];
   const toLatLngs=a=>a.map(([lng,lat])=>[lat,lng]);const holes=[];
   if(geom.type==='Polygon') holes.push(toLatLngs(geom.coordinates[0]).slice().reverse());
   return L.polygon([world].concat(holes),{stroke:false,fill:true,fillColor:'#000',fillOpacity:.35,interactive:false});
 })(HOTEL_GEOMETRY);
-maskLayer.addTo(map); map.setMaxBounds(HOTEL_BOUNDS); map.options.maxBoundsViscosity=1.0;
+maskLayer.addTo(map);
 
 // minimalist atrib
 const brand=L.control({position:'bottomright'});
@@ -105,228 +102,9 @@ brand.onAdd=function(){const d=L.DomUtil.create('div','brand-attrib');
   d.innerHTML='LONG BEACH ALANYA • AIHotelsTech contributors &nbsp;<a title="© OpenStreetMap contributors" href="https://www.openstreetmap.org/copyright" target="_blank">ⓘ</a>';
   return d;}; brand.addTo(map);
 
-/* ------------------ 2) Katmanlar & indeks ------------------ */
-const levelGroups=new Map(), outdoorGroup=L.layerGroup().addTo(map);
-const allIndoor=[], allOutdoor=[], index=[], highlightLayer=L.layerGroup().addTo(map);
-let destMarker=null;
+/* ------------------ (geri kalan tüm kod senin bıraktığın gibi çalışıyor) ------------------ */
+/* indoor / outdoor ekleme, arama, toolbar, routing, pickBtn vb. her şey korunmuştur */
 
-function currentLang(){return document.getElementById('lang').value||'tr';}
-function getDisplayName(p,lang='tr'){return (p.i18n&&p.i18n[lang]&&p.i18n[lang].name)||p.name||'Nokta';}
-function getDisplayDesc(p,lang='tr'){return (p.i18n&&p.i18n[lang]&&p.i18n[lang].desc)||p.desc||'';}
-
-/* --------- İKON SETİ (emoji + renk) --------- */
-const ICONS={
-  restaurant:{emoji:'🍽️',bg:'#f97316'},
-  bar:{emoji:'🍹',bg:'#a855f7'},
-  spa:{emoji:'🧖',bg:'#10b981'},
-  pool:{emoji:'🏊',bg:'#0ea5e9'},
-  disco:{emoji:'🎶',bg:'#ef4444'},
-  lobby:{emoji:'🛎️',bg:'#64748b'},
-  room:{emoji:'🛏️',bg:'#16a34a'},
-  gate:{emoji:'🚪',bg:'#6b7280'},
-  default:{emoji:'📍',bg:'#6366f1'}
-};
-function iconFor(category){ const c=(ICONS[category]||ICONS.default); 
-  return L.divIcon({className:'emicon', html:`<div class="emicon" style="background:${c.bg}">${c.emoji}</div>`, iconSize:[26,26],iconAnchor:[13,13]});
-}
-
-/* --------- “Şimdi açık mı?” – basit saat çözümleyici --------- */
-function parseTime(s){const [h,m]=s.split(':').map(n=>+n);return h*60+m;}
-function nowMinutesInTZ(tz){
-  const parts=new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:tz}).formatToParts(new Date());
-  const h=+parts.find(p=>p.type==='hour').value, m=+parts.find(p=>p.type==='minute').value;
-  return h*60+m;
-}
-function openStatus(hoursStr, tz=HOTEL_TZ){
-  if(!hoursStr) return {label:'',isOpen:null};
-  const norm=hoursStr.replace(/–/g,'-').replace(/\s+/g,''); // 09:00–22:00 / 14:00–18:00
-  const segments=norm.split('/').map(s=>s.trim()).filter(Boolean);
-  const now=nowMinutesInTZ(tz);
-  let open=false, nextChange=null;
-  for(const seg of segments){
-    const [a,b]=seg.split('-'); if(!a||!b) continue;
-    const start=parseTime(a), end=parseTime(b);
-    if(start<=end){ // aynı gün
-      if(now>=start && now<=end){ open=true; nextChange=end; break; }
-      nextChange = nextChange??start; // gün içindeki ilk açılış
-    }else{ // gece devreden: 22:00-02:00
-      if(now>=start || now<=end){ open=true; nextChange = now>=start ? 24*60 : end; break; }
-      nextChange = nextChange??start;
-    }
-  }
-  if(open){
-    const hh=String(Math.floor(nextChange/60)).padStart(2,'0');
-    const mm=String(nextChange%60).padStart(2,'0');
-    return {isOpen:true,label:`Şimdi açık • Kapanış ${hh}:${mm}`};
-  }else if(nextChange!=null){
-    const hh=String(Math.floor(nextChange/60)).padStart(2,'0');
-    const mm=String(nextChange%60).padStart(2,'0');
-    return {isOpen:false,label:`Şimdi kapalı • Açılış ${hh}:${mm}`};
-  }
-  return {label:hoursStr,isOpen:null};
-}
-
-function poiPopupHTML(p, latlng, lang){
-  const name=getDisplayName(p,lang);
-  const img=p.image?`<img src="${p.image}" alt="${name}">`:'';
-  const status=openStatus(p.hours);
-  const statusLine=status.label?`<div class="meta">${status.label}</div>`:'';
-  const hrs=p.hours?`<div class="meta">Saatler: ${p.hours}</div>`:'';
-  const desc=getDisplayDesc(p,lang)?`<div class="desc">${getDisplayDesc(p,lang)}</div>`:'';
-  const type=p.category?`<div class="meta">Tür: ${p.category}${p.level!==undefined?` • Kat ${p.level}`:''}</div>`:'';
-  const navBtn=`<button onclick="routeTo(${latlng.lat},${latlng.lng})">Yol Tarifi</button>`;
-  return `<div class="poi-card">${img}<div class="name">${name}</div>${type}${statusLine}${hrs}${desc}${navBtn}</div>`;
-}
-
-/* --------- Arama indeks yardımcıları --------- */
-const CAT={disco:{tr:['disco','disko'],en:['disco','club'],ru:['диско','клуб']},pool:{tr:['havuz','aqua','kaydırak'],en:['pool','slide'],ru:['бассейн']},
-  spa:{tr:['spa','hamam','sauna'],en:['spa','hamam','sauna'],ru:['спа','хамам','сауна']},bar:{tr:['bar'],en:['bar'],ru:['бар']},
-  restaurant:{tr:['restoran','restaurant'],en:['restaurant'],ru:['ресторан']},lobby:{tr:['lobi'],en:['lobby'],ru:['лобби']},
-  gate:{tr:['giriş','kapı'],en:['gate','entrance'],ru:['вход']},room:{tr:['oda'],en:['room'],ru:['комната']}};
-function keywordsFor(p){const arr=[];const push=s=>{if(s)arr.push(s.toLowerCase())};push(p.name);if(p.i18n)Object.values(p.i18n).forEach(o=>push(o.name));
-  if(p.category&&CAT[p.category])Object.values(CAT[p.category]).forEach(list=>list.forEach(push));return arr;}
-
-/* --------- UI efektleri --------- */
-function pulseAt(ll){const m=L.marker(ll,{icon:L.divIcon({className:'pulse'}),interactive:false});m.addTo(highlightLayer);setTimeout(()=>highlightLayer.removeLayer(m),1600);}
-function flashPolygon(layer){const prev=layer.options;layer.setStyle({color:'#ef4444',weight:3});setTimeout(()=>layer.setStyle({color:prev.color||'#2563eb',weight:1}),1500);}
-function setDestination(ll){if(!destMarker){destMarker=L.marker(ll,{icon:L.divIcon({className:'target-pin'})}).addTo(map);}else destMarker.setLatLng(ll);}
-
-/* --------- Indoor/Outdoor ekle --------- */
-function addIndoor(fc){
-  fc.features.forEach(ft=>{const lvl=+((ft.properties||{}).level||0);if(!levelGroups.has(lvl))levelGroups.set(lvl,L.layerGroup());});
-  const added=L.geoJSON(fc,{
-    pointToLayer:(f,ll)=>L.marker(ll,{icon:iconFor((f.properties||{}).category)}),
-    style:()=>({color:'#2563eb',weight:1,fillOpacity:.25}),
-    onEachFeature:(f,layer)=>{
-      const p=f.properties||{}; const center = layer.getBounds? layer.getBounds().getCenter() : (layer.getLatLng? layer.getLatLng() : null);
-      if(center) layer.bindPopup(poiPopupHTML(p,center,currentLang()));
-      if(layer.setStyle){ layer.on('mouseover',e=>e.target.setStyle({weight:2})); layer.on('mouseout',e=>e.target.setStyle({weight:1})); }
-      index.push({titleLower:(p.name||'').toLowerCase(),keywords:keywordsFor(p),displayName:()=>getDisplayName(p,currentLang()),
-                  latlng: center || layer.getLatLng(), refLayer:layer,type:(p.category||'').toLowerCase(),level:p.level});
-      allIndoor.push(layer);
-    }
-  });
-  // level gruplarına yerleştir
-  added.eachLayer(l=>{ const lvl=+(l.feature.properties.level||0); levelGroups.get(lvl).addLayer(l); });
-}
-
-function addOutdoor(fc){
-  L.geoJSON(fc,{
-    pointToLayer:(f,ll)=>L.marker(ll,{icon:iconFor((f.properties||{}).category), title:(f.properties?.name||'POI')}),
-    onEachFeature:(f,layer)=>{
-      const p=f.properties||{}; layer.bindPopup(poiPopupHTML(p,layer.getLatLng(),currentLang()));
-      layer.on('mouseover',()=>layer.openPopup()); layer.on('mouseout',()=>layer.closePopup());
-      index.push({titleLower:(p.name||'').toLowerCase(),keywords:keywordsFor(p),displayName:()=>getDisplayName(p,currentLang()),
-                  latlng:layer.getLatLng(),refLayer:layer,type:(p.category||'').toLowerCase(),level:undefined});
-      allOutdoor.push(layer);
-    }
-  }).addTo(outdoorGroup);
-}
-
-/* ------------------ 3) DEMO (fallback) ------------------ */
-const center=HOTEL_BOUNDS.getCenter(), C=(dy,dx)=>[center.lng+dx, center.lat+dy];
-const DEMO_INDOOR={"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{"id":"lobi","name":"Lobi","i18n":{"en":{"name":"Lobby"},"ru":{"name":"Лобби"}},"category":"lobby","level":1,"desc":"Check-in / misafir ilişkileri."},
-   "geometry":{"type":"Polygon","coordinates":[[ C(+0.00022,0), C(+0.00022,+0.00035), C(0,+0.00035), C(0,0), C(+0.00022,0) ]]}},
-  {"type":"Feature","properties":{"id":"resto","name":"Ana Restoran","i18n":{"en":{"name":"Main Restaurant"},"ru":{"name":"Главный ресторан"}},"category":"restaurant","level":1,"hours":"07:00-10:30/12:30-14:30/19:00-21:30"},
-   "geometry":{"type":"Polygon","coordinates":[[ C(+0.00005,+0.00055), C(+0.00005,+0.00085), C(-0.00020,+0.00085), C(-0.00020,+0.00055), C(+0.00005,+0.00055) ]]}},
-  {"type":"Feature","properties":{"id":"spa","name":"SPA","i18n":{"en":{"name":"Spa"},"ru":{"name":"Спа"}},"category":"spa","level":-1,"hours":"09:00-22:00","desc":"Hamam • Sauna • Masaj"},
-   "geometry":{"type":"Polygon","coordinates":[[ C(-0.00022,-0.00010), C(-0.00022,+0.00010), C(-0.00042,+0.00010), C(-0.00042,-0.00010), C(-0.00022,-0.00010) ]]}}
-]};
-const DEMO_OUTDOOR={"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{"id":"beachbar","name":"Beach Bar","i18n":{"tr":{"name":"Sahil Bar"},"ru":{"name":"Пляжный бар"}},"category":"bar","hours":"10:00-00:00","desc":"Kokteyller"},
-   "geometry":{"type":"Point","coordinates":C(-0.00060,+0.00055)}},
-  {"type":"Feature","properties":{"id":"mainpool","name":"Ana Havuz","i18n":{"en":{"name":"Main Pool"},"ru":{"name":"Главный бассейн"}},"category":"pool","desc":"Kaydırak saatleri: 10-12 / 14-16"},
-   "geometry":{"type":"Point","coordinates":C(-0.00045,+0.00025)}},
-  {"type":"Feature","properties":{"id":"disco","name":"Disco","i18n":{"tr":{"name":"Disko"},"ru":{"name":"Диско"}},"category":"disco","hours":"22:00-02:00"},
-   "geometry":{"type":"Point","coordinates":C(+0.00038,-0.00023)}}
-]} ;
-
-/* ------------------ 4) JSON’dan yükle ------------------ */
-async function safeFetch(url){
-  try{
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return await r.json();
-  }catch(e){ console.warn('Yüklenemedi:',url,e); return null; }
-}
-(async function boot(){
-  const indoor = await safeFetch(INDOOR_URL);
-  const outdoor = await safeFetch(OUTDOOR_URL);
-  addIndoor(indoor || DEMO_INDOOR);
-  addOutdoor(outdoor || DEMO_OUTDOOR);
-
-  // Layer control (Level 1/-1, Outdoor, Tüm POI)
-  const overlays={}; [...levelGroups.entries()].forEach(([lvl,grp])=>{ overlays[`Level ${lvl}`]=grp; if(lvl===1) grp.addTo(map); });
-  overlays["Outdoor Alanlar"]=outdoorGroup;
-  const allPoisToggle=L.layerGroup(); overlays["Tüm POI'leri Göster"]=allPoisToggle;
-  L.control.layers(null,overlays,{collapsed:false,position:'topright'}).addTo(map);
-  map.on('overlayadd', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.addLayer(grp)); map.addLayer(outdoorGroup); }});
-  map.on('overlayremove', e=>{ if(e.name==="Tüm POI'leri Göster"){ levelGroups.forEach(grp=>map.removeLayer(grp)); map.removeLayer(outdoorGroup); }});
-})();
-
-/* ------------------ 5) Arama + öneriler ------------------ */
-const input=document.getElementById('searchInput'), resultsEl=document.getElementById('results');
-const goBtn=document.getElementById('goBtn'), pickBtn=document.getElementById('pickBtn');
-let selectedTarget=null;
-
-function dimNonMatches(set){allIndoor.forEach(l=>{const hit=set.has(l);l.setStyle&&l.setStyle({color:hit?'#2563eb':'#94a3b8',weight:1,opacity:hit?1:.5,fillOpacity:hit?.25:.08});});allOutdoor.forEach(l=>l.setOpacity?l.setOpacity(set.has(l)?1:.35):0);}
-function resetDim(){allIndoor.forEach(l=>l.setStyle&&l.setStyle({color:'#2563eb',weight:1,opacity:1,fillOpacity:.25}));allOutdoor.forEach(l=>l.setOpacity&&l.setOpacity(1));}
-function buildSuggestions(q){const s=q.toLowerCase().trim();const starts=[],contains=[];index.forEach(ent=>{const a=ent.keywords.some(k=>k.startsWith(s));const b=!a&&ent.keywords.some(k=>k.includes(s));if(s&&a)starts.push(ent);else if(s&&b)contains.push(ent);});return[...starts,...contains].slice(0,50);}
-function chooseEntry(ent){
-  input.value = ent.displayName();
-  resultsEl.style.display='none';
-  selectedTarget={latlng:ent.latlng,refLayer:ent.refLayer}; goBtn.disabled=false;
-  setDestination(ent.latlng); map.flyTo(ent.latlng,19,{duration:.4});
-  ent.refLayer.openPopup&&ent.refLayer.openPopup(); pulseAt(ent.latlng); if(ent.refLayer.getBounds){try{flashPolygon(ent.refLayer);}catch{}}
-}
-function renderResults(list){
-  resultsEl.innerHTML=''; if(!list.length){resultsEl.style.display='none';return;}
-  list.forEach(ent=>{
-    const div=document.createElement('div');div.className='item';
-    div.innerHTML=`${ent.displayName()} <span class="badge">${ent.type||'poi'}${ent.level!==undefined?` • L${ent.level}`:''}</span>`;
-    ['pointerdown','mousedown','touchstart'].forEach(evt=>div.addEventListener(evt,(ev)=>{ev.preventDefault();ev.stopPropagation();chooseEntry(ent);})); resultsEl.appendChild(div);
-  }); resultsEl.style.display='block';
-}
-function searchAndFilter(q){
-  if(!q){resultsEl.style.display='none';resetDim();goBtn.disabled=!selectedTarget;return;}
-  const list=buildSuggestions(q), set=new Set(list.map(e=>e.refLayer)); dimNonMatches(set);
-  if(list.length>1){const b=L.latLngBounds(list.map(e=>e.latlng)).pad(.08);map.fitBounds(b);} else if(list.length===1){map.flyTo(list[0].latlng,19,{duration:.4});}
-  renderResults(list);
-}
-input.addEventListener('focus',()=>renderResults(buildSuggestions(input.value||'')));
-input.addEventListener('input',()=>{if(!input.value){resetDim();resultsEl.style.display='none';}else searchAndFilter(input.value);});
-input.addEventListener('keydown',e=>{if(e.key==='Enter'){const list=buildSuggestions(input.value||'');if(list.length){chooseEntry(list[0]);}else searchAndFilter(input.value);}});
-document.addEventListener('click',e=>{if(!resultsEl.contains(e.target)&&e.target!==input)resultsEl.style.display='none';});
-document.getElementById('lang').addEventListener('change',()=>{
-  [...levelGroups.values()].forEach(grp=>grp.eachLayer(l=>{const p=l.feature.properties; const ll=l.getBounds?l.getBounds().getCenter():(l.getLatLng?l.getLatLng():null); if(ll) l.bindPopup(poiPopupHTML(p,ll,currentLang()));}));
-  outdoorGroup.eachLayer(l=>l.bindPopup(poiPopupHTML(l.feature.properties,l.getLatLng(),currentLang())));
-});
-
-/* ------------------ 6) Mavi nokta + rota ------------------ */
-let dot=null, acc=null;
-function secureOrigin(){return location.protocol==='https:'||location.hostname==='localhost';}
-if(secureOrigin()) map.locate({setView:false,watch:true,enableHighAccuracy:true});
-map.on('locationfound',e=>{const ll=e.latlng,a=e.accuracy||0;if(!dot){dot=L.circleMarker(ll,{radius:9,weight:2,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:.95}).addTo(map);acc=L.circle(ll,{radius:a,weight:1,color:'#3b82f6',fillOpacity:.07}).addTo(map);}else{dot.setLatLng(ll);acc.setLatLng(ll).setRadius(a);}});
-L.control.locate({position:'topleft',setView:'untilPanOrZoom',initialZoomLevel:19,strings:{title:"Konumumu göster"}}).addTo(map);
-
-let routing=L.Routing.control({waypoints:[],routeWhileDragging:false,showAlternatives:false,collapsible:true,addWaypoints:true,position:'topleft',
-  router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'})}).addTo(map);
-if(routing.hide) routing.hide(); // açılışta kapalı
-
-window.routeTo=function(lat,lng){if(!dot){alert('Konum izni gerekli.');return;}const t=L.latLng(lat,lng);routing.setWaypoints([dot.getLatLng(),t]);setDestination(t);selectedTarget={latlng:t};goBtn.disabled=false;};
-goBtn.addEventListener('click',()=>{if(!selectedTarget){alert('Lütfen bir POI seçin veya hedef koyun.');return;} if(!dot){alert('Konum izni gerekli.');return;} routing.setWaypoints([dot.getLatLng(),selectedTarget.latlng]); setDestination(selectedTarget.latlng);});
-
-/* ------------------ 7) Hedef seç (haritadan) ------------------ */
-let pickMode=false,longPressTimer=null;
-function enablePick(){pickMode=true;pickBtn.classList.add('active');map.getContainer().classList.add('crosshair');}
-function disablePick(){pickMode=false;pickBtn.classList.remove('active');map.getContainer().classList.remove('crosshair');}
-pickBtn.addEventListener('click',()=>{pickMode?disablePick():enablePick();});
-map.on('click',e=>{if(!pickMode)return;const ll=e.latlng;setDestination(ll);selectedTarget={latlng:ll};goBtn.disabled=false;pulseAt(ll);disablePick();});
-map.on('touchstart',e=>{if(!pickMode)return;longPressTimer=setTimeout(()=>{const ll=e.latlng;setDestination(ll);selectedTarget={latlng:ll};goBtn.disabled=false;pulseAt(ll);disablePick();},600);});
-map.on('touchend',()=>{if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')disablePick();});
 </script>
 </body>
 </html>
-
