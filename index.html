@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 <style>
   html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial}
-  #map{height:100%}
+  #map{height:100%; touch-action:none;} /* mobilde jestler bize gelsin */
   .panel{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:10;
     background:#fff;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.25);
     padding:10px;width:calc(100% - 20px);max-width:980px}
@@ -98,23 +98,20 @@
 </div>
 
 <script>
-"use strict";
-
-/* ========== Kısa yardımcılar ========== */
-const $ = s => document.getElementById(s);
+/* ======== Kısayollar ======== */
+const $ = id => document.getElementById(id);
 const fmt = new ol.format.GeoJSON();
 const statusEl = $("status");
 function setStatus(msg){ statusEl.textContent=msg||""; statusEl.style.display = msg ? "block" : "none"; }
-function cursor(target, v){ target.style.cursor = v || ""; }
 function layerKey(){ return $("layerSel").value; }
 function tgtLayer(){ return layerKey()==="indoor" ? indoorLayer : outdoorLayer; }
-function toLocal(layer){ return JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(),{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"})); }
-function saveLocal(key, layer){ localStorage.setItem(key, JSON.stringify(toLocal(layer))); }
+function toGeoJSON(layer){ return JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(),{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"})); }
+function saveLocal(key, layer){ localStorage.setItem(key, JSON.stringify(toGeoJSON(layer))); }
 function loadLocal(key){ const s=localStorage.getItem(key); return s?JSON.parse(s):null; }
-async function mayFetch(url){ try{ const r=await fetch(url,{cache:"no-cache"}); if(!r.ok) throw 0; return await r.json(); }catch{ return null; } }
+async function tryFetch(url){ try{const r=await fetch(url,{cache:"no-cache"}); if(!r.ok) throw 0; return await r.json();}catch{return null;} }
 function loadGJ(layer, gj){ const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); }
 
-/* ========== Stil ve katmanlar ========== */
+/* ======== Stil & Katmanlar ======== */
 function styleFor(f){
   const t=f.getGeometry().getType();
   const stroke=new ol.style.Stroke({color:"rgba(0,0,0,0.6)",width:2});
@@ -124,137 +121,129 @@ function styleFor(f){
 }
 const indoorLayer  = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
 const outdoorLayer = new ol.layer.Vector({source:new ol.source.Vector(), style:styleFor});
-
 const map = new ol.Map({
   target:"map",
   layers:[ new ol.layer.Tile({source:new ol.source.OSM()}), indoorLayer, outdoorLayer ],
   view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17})
 });
 
-/* ========== Veri yükleme sırası ========== */
+/* ======== Veri yükleme (local → dosya → boş) ======== */
 (async ()=>{
-  loadGJ(indoorLayer,  loadLocal("indoor")  || (await mayFetch("indoor.json"))  || {"type":"FeatureCollection","features":[]});
-  loadGJ(outdoorLayer, loadLocal("outdoor") || (await mayFetch("outdoor.json")) || {"type":"FeatureCollection","features":[]});
+  loadGJ(indoorLayer,  loadLocal("indoor")  || (await tryFetch("indoor.json"))  || {"type":"FeatureCollection","features":[]});
+  loadGJ(outdoorLayer, loadLocal("outdoor") || (await tryFetch("outdoor.json")) || {"type":"FeatureCollection","features":[]});
 })();
 
-/* ========== Konum (isteğe bağlı) ========== */
+/* ======== Konum (opsiyonel) ======== */
 let lastPos=null;
 if(navigator.geolocation){
-  navigator.geolocation.watchPosition(p=>{ lastPos=p; }, {enableHighAccuracy:true,maximumAge:0,timeout:10000});
+  navigator.geolocation.watchPosition(p=>{ lastPos=p; },{enableHighAccuracy:true,maximumAge:0,timeout:10000});
 }
 
-/* ========== Etkileşimler ve güvenli temizlik ========== */
-let draw=null, modify=null, select=null, snap=null, selected=null;
+/* ======== Etkileşimler ======== */
+let draw=null, modify=null, select=null, selected=null;
 function clearInteractions(){
-  [draw, modify, select, snap].forEach(i=>{ if(i){ map.removeInteraction(i); }});
-  draw=modify=select=snap=null; selected=null;
+  if(draw){ map.removeInteraction(draw); draw=null; }
+  if(modify){ map.removeInteraction(modify); modify=null; }
+  if(select){ map.removeInteraction(select); select=null; }
+  selected=null;
   $("addPoint").classList.remove("active");
   $("addPoly").classList.remove("active");
   $("modify").classList.remove("active");
   $("selectBtn").classList.remove("active");
-  setStatus(""); cursor(map.getTargetElement(), "");
+  setStatus("");
+  map.getTargetElement().style.cursor = "";
 }
 
-/* ========== DoubleClickZoom'u geçici kapat/aç (poligon içindir) ========== */
-function withDoubleClickZoomDisabled(fn){
-  const dc = map.getInteractions().getArray().find(i => i instanceof ol.interaction.DoubleClickZoom);
+/* DC Zoom’u geçici kapatıp aç (poligon için) */
+function withDCZoomDisabled(fn){
+  const dc = map.getInteractions().getArray().find(i=>i instanceof ol.interaction.DoubleClickZoom);
   const prev = dc ? dc.getActive() : null;
   if(dc) dc.setActive(false);
   try{ fn(); } finally { if(dc && prev!==null) dc.setActive(prev); }
 }
 
-/* ========== Özellik formu ========== */
+/* ======== Özellik Formu ======== */
 function openForm(feat){
   const p=feat.getProperties();
-  $("f_name").value = p.name || "";
-  $("f_category").value = p.category || "";
-  $("f_hours").value = p.hours || "";
-  $("f_level").value = p.level || "";
-  $("f_desc").value = p.desc || "";
-  $("f_image").value = p.image || "";
-  $("propModal").style.display = "flex";
-
-  $("propSave").onclick = ()=>{
+  $("f_name").value=p.name||""; $("f_category").value=p.category||"";
+  $("f_hours").value=p.hours||""; $("f_level").value=p.level||"";
+  $("f_desc").value=p.desc||""; $("f_image").value=p.image||"";
+  $("propModal").style.display="flex";
+  $("propSave").onclick=()=>{
     feat.setProperties({
-      name: $("f_name").value.trim(),
-      category: $("f_category").value.trim(),
-      hours: $("f_hours").value.trim(),
-      level: $("f_level").value.trim(),
-      desc: $("f_desc").value.trim(),
-      image: $("f_image").value.trim()
+      name:$("f_name").value.trim(),
+      category:$("f_category").value.trim(),
+      hours:$("f_hours").value.trim(),
+      level:$("f_level").value.trim(),
+      desc:$("f_desc").value.trim(),
+      image:$("f_image").value.trim()
     });
     saveLocal(layerKey(), tgtLayer());
-    $("propModal").style.display = "none";
+    $("propModal").style.display="none";
     clearInteractions();
   };
-  $("propCancel").onclick = ()=>{
-    $("propModal").style.display = "none";
-    clearInteractions();
-  };
+  $("propCancel").onclick=()=>{ $("propModal").style.display="none"; clearInteractions(); };
 }
 
-/* ========== BUTONLAR ========== */
+/* ======== Butonlar ======== */
 
 /* ➕ Nokta */
-$("addPoint").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+$("addPoint").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   clearInteractions();
   const layer = tgtLayer();
   $("addPoint").classList.add("active");
-  setStatus("Çizim modu: NOKTA (haritaya dokun/tıkla)");
-  cursor(map.getTargetElement(), "crosshair");
+  setStatus("Çizim modu: NOKTA — haritaya dokun/tıkla");
+  map.getTargetElement().style.cursor = "crosshair";
 
   draw = new ol.interaction.Draw({ source: layer.getSource(), type: "Point" });
   map.addInteraction(draw);
-  snap = new ol.interaction.Snap({ source: layer.getSource() }); map.addInteraction(snap);
 
-  draw.once("drawend", (e)=>{
-    openForm(e.feature);
+  draw.once("drawend", (ev)=>{
+    openForm(ev.feature);
     saveLocal(layerKey(), layer);
   });
 };
 
-/* ⬛ Poligon */
-$("addPoly").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+/* ⬛ Poligon (çift tıkla/çift dokunuşla bitir) */
+$("addPoly").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   clearInteractions();
   const layer = tgtLayer();
   $("addPoly").classList.add("active");
-  setStatus("Çizim modu: POLİGON (noktalar yerleştir • bitirmek için çift dokun/çift tık)");
-  cursor(map.getTargetElement(), "crosshair");
+  setStatus("Çizim modu: POLİGON — noktalar yerleştir, bitirmek için çift tık/çift dokun");
+  map.getTargetElement().style.cursor = "crosshair";
 
-  withDoubleClickZoomDisabled(()=>{
+  withDCZoomDisabled(()=>{
     draw = new ol.interaction.Draw({
       source: layer.getSource(),
       type: "Polygon",
-      finishCondition: (e)=> e && e.originalEvent && e.originalEvent.type === "dblclick"
+      finishCondition: (evt)=> evt && evt.originalEvent && evt.originalEvent.type === "dblclick"
     });
     map.addInteraction(draw);
   });
-  snap = new ol.interaction.Snap({ source: layer.getSource() }); map.addInteraction(snap);
 
-  draw.once("drawend", (e)=>{
-    openForm(e.feature);
+  draw.once("drawend", (ev)=>{
+    openForm(ev.feature);
     saveLocal(layerKey(), layer);
   });
 };
 
 /* ✎ Düzenle */
-$("modify").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+$("modify").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   clearInteractions();
   $("modify").classList.add("active");
-  setStatus("Düzenle: köşe ve noktaları sürükleyin");
+  setStatus("Düzenle: köşeleri sürükleyin");
   const layer = tgtLayer();
   modify = new ol.interaction.Modify({ source: layer.getSource() });
   map.addInteraction(modify);
-  snap = new ol.interaction.Snap({ source: layer.getSource() }); map.addInteraction(snap);
   modify.on("modifyend", ()=> saveLocal(layerKey(), layer));
 };
 
 /* ☑ Seç / Özellik */
-$("selectBtn").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+$("selectBtn").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   clearInteractions();
   $("selectBtn").classList.add("active");
   setStatus("Seçim: öğeye dokun → form açılır");
@@ -262,25 +251,25 @@ $("selectBtn").onclick = (ev)=>{
   select = new ol.interaction.Select({ layers:[layer] });
   if(select.setHitTolerance) select.setHitTolerance(6);
   map.addInteraction(select);
-  select.on("select", (e)=>{
-    selected = e.selected[0] || null;
+  select.on("select", ev=>{
+    selected = ev.selected[0] || null;
     if(selected) openForm(selected);
   });
 };
 
 /* 🗑 Sil */
-$("del").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+$("del").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   const layer = tgtLayer();
-  if(!selected){ alert("Silmek için önce 'Seç / Özellik' ile öğe seçin."); return; }
+  if(!selected){ alert("Silmek için önce 'Seç / Özellik' ile bir öğe seçin."); return; }
   layer.getSource().removeFeature(selected); selected=null;
   saveLocal(layerKey(), layer);
   clearInteractions();
 };
 
 /* 📍 Benim Konumum */
-$("myPos").onclick = (ev)=>{
-  ev.preventDefault(); ev.stopPropagation();
+$("myPos").onclick = (e)=>{
+  e.preventDefault(); e.stopPropagation();
   const layer = tgtLayer();
   if(!lastPos){ alert("Konum alınamadı."); return; }
   const c = ol.proj.fromLonLat([lastPos.coords.longitude, lastPos.coords.latitude]);
@@ -290,26 +279,13 @@ $("myPos").onclick = (ev)=>{
   saveLocal(layerKey(), layer);
 };
 
-/* ========== İndir / Yükle / Temizle ========== */
-$("expIndoor").onclick = ()=> {
-  const data = toLocal(indoorLayer);
-  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob); const a=document.createElement("a");
-  a.href=url; a.download="indoor.json"; a.click(); URL.revokeObjectURL(url);
-};
-$("expOutdoor").onclick = ()=> {
-  const data = toLocal(outdoorLayer);
-  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob); const a=document.createElement("a");
-  a.href=url; a.download="outdoor.json"; a.click(); URL.revokeObjectURL(url);
-};
-$("imp").addEventListener("change", async (e)=>{
+/* ======== İndir / Yükle / Temizle ======== */
+$("expIndoor").onclick = ()=>{ const data=toGeoJSON(indoorLayer); const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download="indoor.json"; a.click(); URL.revokeObjectURL(u); };
+$("expOutdoor").onclick = ()=>{ const data=toGeoJSON(outdoorLayer); const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download="outdoor.json"; a.click(); URL.revokeObjectURL(u); };
+$("imp").addEventListener("change", async e=>{
   const file=e.target.files[0]; if(!file) return;
-  try{
-    const txt=await file.text(); const json=JSON.parse(txt);
-    const layer=tgtLayer(); loadGJ(layer,json); saveLocal(layerKey(), layer);
-    alert("JSON yüklendi.");
-  }catch{ alert("Geçersiz JSON."); }
+  try{ const txt=await file.text(); const json=JSON.parse(txt); const layer=tgtLayer(); loadGJ(layer,json); saveLocal(layerKey(), layer); alert("JSON yüklendi."); }
+  catch{ alert("Geçersiz JSON."); }
   e.target.value="";
 });
 $("clearLocal").onclick = ()=>{
