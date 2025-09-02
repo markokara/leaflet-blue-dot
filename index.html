@@ -7,72 +7,97 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <style>
-    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; }
+    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;margin:0}
-    body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
     #map{position:fixed; inset:0}
 
-    /* Attribution'u küçük ve sade yap + collapse düğmesini gizle */
+    /* Attribution küçük ve sade (lisansa uygun) */
     .ol-attribution{font-size:10px; opacity:.85}
     .ol-attribution button{display:none}
 
-    /* Üst bar */
-    .toolbar{
-      position:fixed; left:12px; right:12px; top:12px; z-index:1000;
-      background:#fff; border-radius:12px; padding:8px; box-shadow:var(--shadow);
-    }
-    .row{display:flex; align-items:center; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none}
-    .row::-webkit-scrollbar{display:none}
-    .row>*{flex:0 0 auto}
-    input[type="search"]{min-width:160px; width:52vw; max-width:620px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px}
+    /* Alt panel (tek yerde tüm kontroller) */
+    .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%);
+           width:min(780px,96vw); z-index:1000;}
+    .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
+    .p-8{padding:12px}
+    .row{display:flex; align-items:center; gap:8px}
+    .stack{display:flex; flex-direction:column; gap:8px}
+    .grow{flex:1 1 auto}
+    input[type="search"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px}
     button,.btn{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
     button:active{transform:translateY(1px)}
     button:disabled{opacity:.55; cursor:not-allowed}
     select{padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
+    .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
+    .pill input{accent-color:#1d4ed8}
+    .muted{color:var(--muted)}
 
-    /* Arama önerileri */
-    .results{position:absolute; left:12px; top:56px; z-index:1001; background:#fff; border:1px solid #e5e7eb; border-radius:10px; width:min(620px,92vw); max-height:44vh; overflow:auto; display:none; box-shadow:var(--shadow)}
+    /* Arama sonuçları */
+    .results{background:#fff; border:1px solid #e5e7eb; border-radius:10px; max-height:36vh; overflow:auto; display:none}
     .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:8px}
     .results .item small{color:var(--muted)}
     .results .item:hover{background:#f1f5f9}
     .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
 
+    /* Yönerge kutusu */
+    .dir{display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px}
+    .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5e7eb}
+    .dir .sum{font-weight:600}
+    .dir .list{max-height:30vh; overflow:auto; padding:8px 12px}
+    .step{display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed #e5e7eb}
+    .step:last-child{border-bottom:none}
+
     /* Popup */
     .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:220px; box-shadow:var(--shadow); transform:translate(-50%,-100%); }
     .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#9ca3af}
     .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
-    .muted{color:var(--muted)}
 
     /* Konum doğruluk rozeti: SAĞ ALTA */
     .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
-    @media (max-width:520px){ input[type="search"]{width:56vw; min-width:150px} }
+
+    @media (max-width:520px){ .panel{bottom:8px} }
   </style>
 </head>
 <body>
 
-  <!-- Üst bar -->
-  <div class="toolbar" role="toolbar" aria-label="Top bar">
-    <div class="row">
-      <input id="q" type="search" placeholder="Ara: restoran, spa, havuz…" />
-      <button id="go" disabled>Git</button>
-
-      <select id="lang" aria-label="Language">
-        <option value="tr" selected>Türkçe</option>
-        <option value="en">English</option>
-        <option value="ru">Русский</option>
-        <option value="de">Deutsch</option>
-        <option value="pl">Polski</option>
-      </select>
-
-      <button id="pick">Haritadan Hedef</button>
-      <button id="follow">🎯 İzle: Kapalı</button>
-      <button id="toggleDetails">Detaylar: Kapalı</button>
-      <button id="reset">Sıfırla</button>
+  <!-- Tek panel -->
+  <div class="panel">
+    <div class="card p-8 stack">
+      <div class="row">
+        <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…" />
+        <button id="go" disabled>Git</button>
+        <select id="lang" aria-label="Language">
+          <option value="tr" selected>TR</option>
+          <option value="en">EN</option>
+          <option value="ru">RU</option>
+          <option value="de">DE</option>
+          <option value="pl">PL</option>
+        </select>
+      </div>
+      <div class="row" style="flex-wrap:wrap">
+        <button id="pick">Haritadan Hedef</button>
+        <button id="follow">🎯 İzle: Kapalı</button>
+        <button id="toggleDetails">Detaylar: Kapalı</button>
+        <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
+        <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
+        <button id="reset">Sıfırla</button>
+        <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
+      </div>
+      <div id="results" class="results"></div>
+      <div id="dir" class="dir">
+        <div class="hdr">
+          <div><span class="sum" id="dirSum">–</span> <span class="muted" id="dirSub"></span></div>
+          <div class="row">
+            <button id="collapseDir">▲</button>
+            <button id="clearRoute">Rota Temizle</button>
+          </div>
+        </div>
+        <div class="list" id="dirList"></div>
+      </div>
+      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
     </div>
   </div>
-
-  <!-- Arama sonuçları -->
-  <div id="results" class="results"></div>
 
   <!-- Konum doğruluk rozeti -->
   <div id="acc" class="acc" style="display:none"></div>
@@ -89,34 +114,23 @@
 /* ========= i18n ========= */
 const I18N = {
   tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
-    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla", hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor" },
-    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe"},
+    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla", hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor", clearRoute:"Rota Temizle" },
+    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe", duration:"Süre"},
     cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC",
-           reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" } },
+           reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" },
+    nav:{ depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s" }
+  },
   en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go",
-    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset", hint:"🔎 Search is active: only matches are shown" },
-    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance"},
+    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset", hint:"🔎 Search is active: only matches are shown", clearRoute:"Clear Route" },
+    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance", duration:"Duration"},
     cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet",
-           reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" } },
-  ru:{ searchPH:"Поиск: ресторан, спа, бассейн…", go:"Поехали",
-    ui:{ pick:"Выбрать на карте", followOn:"Следить: Вкл", followOff:"Следить: Выкл", detailsOn:"Детали: Вкл", detailsOff:"Детали: Выкл", reset:"Сброс", hint:"🔎 Поиск активен: показываются только совпадения" },
-    labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание", dist:"Дистанция"},
-    cats:{ pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет",
-           reception:"Ресепшн", beach:"Пляж", kidsclub:"Детский клуб", elevator:"Лифт", gate:"Вход", parking:"Парковка", shuttle:"Шаттл", gym:"Тренажёрный зал" } },
-  de:{ searchPH:"Suche: Restaurant, Spa, Pool…", go:"Los",
-    ui:{ pick:"Ziel auf Karte", followOn:"Folgen: Ein", followOff:"Folgen: Aus", detailsOn:"Details: An", detailsOff:"Details: Aus", reset:"Zurücksetzen", hint:"🔎 Suche aktiv: es werden nur Treffer angezeigt" },
-    labels:{name:"Name", category:"Art", hours:"Zeiten", level:"Etage", desc:"Beschreibung", dist:"Entfernung"},
-    cats:{ pool:"Schwimmbad", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Café", shop:"Laden", toilet:"WC",
-           reception:"Rezeption", beach:"Strand", kidsclub:"Kinderclub", elevator:"Aufzug", gate:"Tor", parking:"Parkplatz", shuttle:"Shuttle", gym:"Fitness" } },
-  pl:{ searchPH:"Szukaj: restauracja, spa, basen…", go:"Idź",
-    ui:{ pick:"Wybierz na mapie", followOn:"Śledź: Wł.", followOff:"Śledź: Wył.", detailsOn:"Szczegóły: Wł.", detailsOff:"Szczegóły: Wył.", reset:"Reset", hint:"🔎 Wyszukiwanie aktywne: wyświetlane są tylko trafienia" },
-    labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis", dist:"Dystans"},
-    cats:{ pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta",
-           reception:"Recepcja", beach:"Plaża", kidsclub:"Klub dziecięcy", elevator:"Winda", gate:"Brama", parking:"Parking", shuttle:"Bus", gym:"Siłownia" } }
+           reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" },
+    nav:{ depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s" }
+  }
 };
 let LANG = localStorage.getItem("lang") || "tr";
 const t = () => I18N[LANG] || I18N.tr;
-const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
 /* eşanlamlılar */
 const SYNONYMS = {
@@ -180,17 +194,20 @@ const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: st
 const map = new ol.Map({
   target:'map',
   layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
+  // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
-// Döndürmeyi devre dışı bırak (yatay başlar)
-map.getInteractions().forEach(i=>{ if(i instanceof ol.interaction.DragRotate || i instanceof ol.interaction.PinchRotate){ map.removeInteraction(i); } });
+map.addControl(new ol.control.Rotate());
 
 /* ========= UI ========= */
 const $ = id=>document.getElementById(id);
 const q=$('q'), go=$('go'), langSel=$('lang'),
-      pick=$('pick'), followBtn=$('follow'), toggleDetails=$('toggleDetails'), resetBtn=$('reset'),
-      results=$('results'), acc=$('acc');
+      pickBtn=$('pick'), followBtn=$('follow'), toggleDetails=$('toggleDetails'), resetBtn=$('reset'),
+      results=$('results'), acc=$('acc'), hint=$('hint');
+const tglIndoor=$('tglIndoor'), tglOutdoor=$('tglOutdoor');
+const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
+
 const popupEl=$('popup'), popupCloser=$('popup-closer'), popupContent=$('popup-content');
 const popupOverlay=new ol.Overlay({element:popupEl, autoPan:{animation:{duration:200}}});
 map.addOverlay(popupOverlay);
@@ -198,7 +215,7 @@ popupCloser.addEventListener('click',e=>{e.preventDefault(); hidePopup();});
 
 function setSearchUIState(active){
   toggleDetails.disabled = active;
-  toggleDetails.title = active ? (t().ui.hint) : '';
+  hint.style.display = active ? 'inline' : 'none';
 }
 
 /* ========= Veri (cache-bypass + “Sıfırla” ile yeniden yükle) ========= */
@@ -207,14 +224,17 @@ let allFeats=[];
 async function loadJSONs(){
   const bust = 'v=' + Date.now();
   const [indoor, outdoor] = await Promise.all([
-    fetch('indoor.json?'+bust,  {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
-   ,fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
+    fetch('indoor.json?'+bust,  {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]})),
+    fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
   ]);
   indoorSource.clear(); outdoorSource.clear();
   const add=(src,gj,kind)=>{ const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}); fs.forEach(f=>f.set('src',kind)); src.addFeatures(fs); };
   add(indoorSource,indoor,'indoor'); add(outdoorSource,outdoor,'outdoor');
   allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
-  if(allFeats.length){ const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent()); if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[84,16,16,16], maxZoom:19}); map.getView().setRotation(0); }
+  if(allFeats.length){
+    const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+    if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
+  }
   applyLang();
   // arama/filtre sıfırlansın
   searchIds=null; results.style.display='none'; setSearchUIState(false); redraw();
@@ -225,10 +245,11 @@ loadJSONs();
 function applyLang(){
   const L=t();
   q.placeholder=L.searchPH; go.textContent=L.go;
-  pick.textContent=L.ui.pick;
+  pickBtn.textContent=L.ui.pick;
   followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
   toggleDetails.textContent = showAllDetails ? L.ui.detailsOn : L.ui.detailsOff;
   resetBtn.textContent=L.ui.reset;
+  clearRouteBtn.textContent=L.ui.clearRoute;
   localStorage.setItem('lang',LANG);
   if(currentPopupFeature && popupOverlay.getPosition()) popupContent.innerHTML=renderPopup(currentPopupFeature);
 }
@@ -263,7 +284,7 @@ q.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const first=results.quer
 
 function showResults(list,cat){
   results.innerHTML='';
-  const hint=document.createElement('div'); hint.className='hint'; hint.textContent=t().ui.hint; results.appendChild(hint);
+  const hintDiv=document.createElement('div'); hintDiv.className='hint'; hintDiv.textContent=t().ui.hint; results.appendChild(hintDiv);
 
   if(cat){
     const feats=allFeats.filter(f=> (f.get('category')||'').toLowerCase()===cat);
@@ -272,11 +293,10 @@ function showResults(list,cat){
     div.innerHTML=`<span>➤ ${(t().cats?.[cat] || cat)}</span> <small>${feats.length}</small>`;
     div.onclick=()=>{ 
       if(!feats.length) return;
-      // kategoriye tıklandığında: SADECE bu kategori kalsın + zoom
       searchIds = feats.map(f=> f.ol_uid || f.getId());
       redraw();
       const ext=ol.extent.createEmpty(); feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
-      map.getView().fit(ext,{padding:[84,16,16,16], maxZoom:18});
+      map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:18});
       results.style.display='none';
       setSearchUIState(true);
     };
@@ -289,7 +309,6 @@ function showResults(list,cat){
     const meta=[f.get('src')==='indoor'?'Indoor':'Outdoor', f.get('category')||'', f.get('level')||''].filter(Boolean).join(' · ');
     div.innerHTML = `<span>${name}</span><small>${meta}</small>`;
     div.onclick=()=>{ 
-      // TEKİL seçim: yalnızca bu feature kalsın
       searchIds = [f.ol_uid || f.getId()];
       redraw();
       focusFeature(f,true); 
@@ -306,6 +325,10 @@ function showResults(list,cat){
 /* ========= Kalabalık azaltma ========= */
 toggleDetails.onclick=()=>{ if(toggleDetails.disabled) return; showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
 function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
+
+/* ========= Katman toggles ========= */
+tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
+tglOutdoor.addEventListener('change',()=>{ outdoorLayer.setVisible(tglOutdoor.checked); });
 
 /* ========= Konum + takip ========= */
 let userLayer=null,userPoint=null,accCircle=null,followState=false,watchId=null;
@@ -330,26 +353,71 @@ followBtn.onclick=()=>{ followState=!followState; followBtn.textContent= followS
 
 /* ========= Hedef & rota ========= */
 let destLayer=null,destPoint=null,routeLayer=null,bearingLayer=null,pickMode=false;
-function setDestination(coord){ if(!destLayer){ destPoint=new ol.Feature(new ol.geom.Point(coord)); destPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:7,fill:new ol.style.Fill({color:'#ef4444'}),stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) })); destLayer=new ol.layer.Vector({source:new ol.source.Vector({features:[destPoint]})}); map.addLayer(destLayer);} else destPoint.getGeometry().setCoordinates(coord); go.disabled=false; }
-function clearRouteAndBearing(){ if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;} if(bearingLayer){map.removeLayer(bearingLayer);bearingLayer=null;} }
+function setDestination(coord){
+  if(!destLayer){
+    destPoint=new ol.Feature(new ol.geom.Point(coord));
+    destPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:7,fill:new ol.style.Fill({color:'#ef4444'}),stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) }));
+    destLayer=new ol.layer.Vector({source:new ol.source.Vector({features:[destPoint]})}); map.addLayer(destLayer);
+  } else destPoint.getGeometry().setCoordinates(coord);
+  go.disabled=false; 
+}
+function clearDestination(){ if(destLayer){ map.removeLayer(destLayer); destLayer=null; destPoint=null; } }
+
+pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
+map.on('click',evt=>{
+  if(pickMode){ setDestination(evt.coordinate); pickMode=false; pickBtn.classList.remove('active'); return; }
+  currentPopupFeature=null;
+  ;[indoorLayer,outdoorLayer].forEach(layer=> map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; }));
+  if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
+});
+
+function clearRouteAndBearing(){ if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;} if(bearingLayer){map.removeLayer(bearingLayer);bearingLayer=null;} dirBox.style.display='none'; dirList.innerHTML=''; }
 function routeToDestination(){
   if(!userPoint || !destPoint){ alert(LANG==='tr'?'Konum ve hedef gerekli.':'Need location and destination.'); return; }
   clearRouteAndBearing();
   const a=ol.proj.toLonLat(userPoint.getGeometry().getCoordinates()), b=ol.proj.toLonLat(destPoint.getGeometry().getCoordinates());
-  const url=`https://router.project-osrm.org/route/v1/foot/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`;
+  const url=`https://router.project-osrm.org/route/v1/foot/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson&steps=true`;
   fetch(url).then(r=>r.json()).then(d=>{
     if(d && d.routes && d.routes.length){
-      const line=new ol.geom.LineString(d.routes[0].geometry.coordinates).transform('EPSG:4326','EPSG:3857');
+      const route=d.routes[0];
+      const line=new ol.geom.LineString(route.geometry.coordinates).transform('EPSG:4326','EPSG:3857');
       const feat=new ol.Feature({geometry:line});
       routeLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[feat]}), style:new ol.style.Style({stroke:new ol.style.Stroke({color:'#16a34a',width:4})}) });
-      map.addLayer(routeLayer); map.getView().fit(line.getExtent(),{padding:[60,60,60,60], maxZoom:18});
+      map.addLayer(routeLayer); map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:18});
+      // Yönergeleri yaz
+      const km=(route.distance/1000).toFixed(2)+" km"; const min=Math.round(route.duration/60)+" dk";
+      dirSum.textContent=km; dirSub.textContent='· '+min;
+      const steps=(route.legs?.[0]?.steps)||[];
+      dirList.innerHTML='';
+      steps.forEach((s,i)=>{ const txt=stepText(s); const dist=(s.distance>=1000? (s.distance/1000).toFixed(2)+' km' : Math.round(s.distance)+' m');
+        const el=document.createElement('div'); el.className='step'; el.innerHTML=`<div>${i+1}.</div><div><div>${txt}</div><div class="muted" style="font-size:12px">${dist}</div></div>`; dirList.appendChild(el); });
+      dirBox.style.display='block';
     }else drawBearingLine();
   }).catch(()=> drawBearingLine());
 }
-go.onclick=routeToDestination;
+function stepText(s){
+  const L=t(); const man=s.maneuver||{}; const type=man.type||''; const mod=man.modifier||''; const street=s.name||'';
+  const onto=street? (L.nav.onto||'') .replace('%s', street) : '';
+  switch(type){
+    case 'depart': return L.nav.depart + onto;
+    case 'arrive': return L.nav.arrive;
+    case 'turn':
+      if(mod==='left') return L.nav.turn_left + onto;
+      if(mod==='right') return L.nav.turn_right + onto;
+      return (L.nav.straight||'') + onto;
+    case 'roundabout':
+      const ex=man.exit||1; return (L.nav.roundabout||'').replace('%n', ex) + onto;
+    default:
+      return (L.nav.straight||'') + onto;
+  }
+}
+
+go.onclick=routeToDestination; clearRouteBtn.onclick=()=>{ clearRouteAndBearing(); };
+collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block' : 'none'; collapseDir.textContent = s==='none' ? '▲' : '▼'; };
+
 function drawBearingLine(){
   const a=userPoint.getGeometry().getCoordinates(), b=destPoint.getGeometry().getCoordinates();
-  const line=new ol.geom.LineString([a,b]), feat=new ol.Feature({geometry:line});
+  const line=new ol.geom.LineString([a,b]);
   const arrow=new ol.style.Style({ geometry:new ol.geom.Point(b),
     image:new ol.style.RegularShape({points:3,radius:10,rotation:Math.atan2(b[1]-a[1],b[0]-a[0]), fill:new ol.style.Fill({color:'#16a34a'}),stroke:new ol.style.Stroke({color:'#fff',width:1})})
   });
@@ -359,8 +427,11 @@ function drawBearingLine(){
     text:new ol.style.Text({ text:(dist>=1000?(dist/1000).toFixed(2)+' km':dist+' m'), offsetY:-12, padding:[3,6,3,6],
       backgroundFill:new ol.style.Fill({color:'rgba(255,255,255,.9)'}), backgroundStroke:new ol.style.Stroke({color:'#e5e7eb',width:1}), fill:new ol.style.Fill({color:'#111'}) })
   });
+  const feat=new ol.Feature({geometry:line});
   bearingLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[feat]}), style:[ new ol.style.Style({stroke:new ol.style.Stroke({color:'#16a34a',width:4})}), arrow, label ] });
-  map.addLayer(bearingLayer); map.getView().fit(line.getExtent(),{padding:[60,60,60,60], maxZoom:19});
+  map.addLayer(bearingLayer); map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:19});
+  // Basit yönerge: düz çizgi
+  dirSum.textContent=(dist>=1000?(dist/1000).toFixed(2)+' km':dist+' m'); dirSub.textContent=''; dirList.innerHTML=''; dirBox.style.display='block';
 }
 
 /* ========= Popup ========= */
@@ -390,28 +461,18 @@ function hidePopup(){ popupEl.style.display='none'; popupOverlay.setPosition(und
 function focusFeature(f,open){
   const g=f.getGeometry();
   const extent=g.getExtent();
-  map.getView().fit(extent,{padding:[84,16,16,16], maxZoom:18});
+  map.getView().fit(extent,{padding:[140,20,160,20], maxZoom:18});
   const c=coordOfFeature(f);
   if(open) showPopup(f,c);
 }
-
-/* ========= Mouse & click ========= */
-
-pick.onclick=()=>{ pickMode=!pickMode; pick.classList.toggle('active',pickMode); };
-map.on('click',evt=>{
-  if(pickMode){ setDestination(evt.coordinate); pickMode=false; pick.classList.remove('active'); return; }
-  // öğe tıklama → popup
-  currentPopupFeature=null;
-  ;[indoorLayer,outdoorLayer].forEach(layer=> map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; }));
-  if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
-});
 
 /* ========= Reset ========= */
 resetBtn.onclick=()=>{
   hidePopup(); clearRouteAndBearing(); results.style.display='none';
   q.value=''; // arama temizle
-  // veriyi taze çek → telefon/PC cache farkı kalmaz
-  loadJSONs();
+  searchIds=null; redraw();
+  clearDestination(); // seçilen kırmızı hedefi de kaldır
+  loadJSONs(); // veriyi taze çek → telefon/PC cache farkı kalmaz
 };
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ results.style.display='none'; hidePopup(); }});
