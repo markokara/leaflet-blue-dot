@@ -12,9 +12,9 @@
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     #map{position:fixed; inset:0}
 
-    /* Attribution'u küçült */
+    /* Attribution'u küçük ve sade yap + collapse düğmesini gizle */
     .ol-attribution{font-size:10px; opacity:.85}
-    .ol-attribution button{display:none} /* collapse butonunu gizle */
+    .ol-attribution button{display:none}
 
     /* Üst bar */
     .toolbar{
@@ -27,6 +27,7 @@
     input[type="search"]{min-width:160px; width:52vw; max-width:620px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px}
     button,.btn{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
     button:active{transform:translateY(1px)}
+    button:disabled{opacity:.55; cursor:not-allowed}
     select{padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
 
     /* Arama önerileri */
@@ -34,6 +35,7 @@
     .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:8px}
     .results .item small{color:var(--muted)}
     .results .item:hover{background:#f1f5f9}
+    .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
 
     /* Popup */
     .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:220px; box-shadow:var(--shadow); transform:translate(-50%,-100%); }
@@ -85,27 +87,27 @@
 /* ========= i18n ========= */
 const I18N = {
   tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
-    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla" },
+    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla", hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor" },
     labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe"},
     cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC",
            reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" } },
   en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go",
-    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset" },
+    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset", hint:"🔎 Search is active: only matches are shown" },
     labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance"},
     cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet",
            reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" } },
   ru:{ searchPH:"Поиск: ресторан, спа, бассейн…", go:"Поехали",
-    ui:{ pick:"Выбрать на карте", followOn:"Следить: Вкл", followOff:"Следить: Выкл", detailsOn:"Детали: Вкл", detailsOff:"Детали: Выкл", reset:"Сброс" },
+    ui:{ pick:"Выбрать на карте", followOn:"Следить: Вкл", followOff:"Следить: Выкл", detailsOn:"Детали: Вкл", detailsOff:"Детали: Выкл", reset:"Сброс", hint:"🔎 Поиск активен: показываются только совпадения" },
     labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание", dist:"Дистанция"},
     cats:{ pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет",
            reception:"Ресепшн", beach:"Пляж", kidsclub:"Детский клуб", elevator:"Лифт", gate:"Вход", parking:"Парковка", shuttle:"Шаттл", gym:"Тренажёрный зал" } },
   de:{ searchPH:"Suche: Restaurant, Spa, Pool…", go:"Los",
-    ui:{ pick:"Ziel auf Karte", followOn:"Folgen: Ein", followOff:"Folgen: Aus", detailsOn:"Details: An", detailsOff:"Details: Aus", reset:"Zurücksetzen" },
+    ui:{ pick:"Ziel auf Karte", followOn:"Folgen: Ein", followOff:"Folgen: Aus", detailsOn:"Details: An", detailsOff:"Details: Aus", reset:"Zurücksetzen", hint:"🔎 Suche aktiv: es werden nur Treffer angezeigt" },
     labels:{name:"Name", category:"Art", hours:"Zeiten", level:"Etage", desc:"Beschreibung", dist:"Entfernung"},
     cats:{ pool:"Schwimmbad", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Café", shop:"Laden", toilet:"WC",
            reception:"Rezeption", beach:"Strand", kidsclub:"Kinderclub", elevator:"Aufzug", gate:"Tor", parking:"Parkplatz", shuttle:"Shuttle", gym:"Fitness" } },
   pl:{ searchPH:"Szukaj: restauracja, spa, basen…", go:"Idź",
-    ui:{ pick:"Wybierz na mapie", followOn:"Śledź: Wł.", followOff:"Śledź: Wył.", detailsOn:"Szczegóły: Wł.", detailsOff:"Szczegóły: Wył.", reset:"Reset" },
+    ui:{ pick:"Wybierz na mapie", followOn:"Śledź: Wł.", followOff:"Śledź: Wył.", detailsOn:"Szczegóły: Wł.", detailsOff:"Szczegóły: Wył.", reset:"Reset", hint:"🔎 Wyszukiwanie aktywne: wyświetlane są tylko trafienia" },
     labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis", dist:"Dystans"},
     cats:{ pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta",
            reception:"Recepcja", beach:"Plaża", kidsclub:"Klub dziecięcy", elevator:"Winda", gate:"Brama", parking:"Parking", shuttle:"Bus", gym:"Siłownia" } }
@@ -190,6 +192,11 @@ const popupOverlay=new ol.Overlay({element:popupEl, autoPan:{animation:{duration
 map.addOverlay(popupOverlay);
 popupCloser.addEventListener('click',e=>{e.preventDefault(); hidePopup();});
 
+function setSearchUIState(active){
+  toggleDetails.disabled = active;
+  toggleDetails.title = active ? (t().ui.hint) : '';
+}
+
 /* ========= Veri ========= */
 const fmt=new ol.format.GeoJSON();
 let allFeats=[];
@@ -227,7 +234,9 @@ function detectCategory(qs){
   return KEYWORD_TO_CAT[nq] || null;
 }
 q.addEventListener('input', ()=>{
-  const val=(q.value||'').trim(); if(!val){ searchIds=null; redraw(); results.style.display='none'; return; }
+  const val=(q.value||'').trim(); 
+  if(!val){ searchIds=null; redraw(); results.style.display='none'; setSearchUIState(false); return; }
+
   const qn=norm(val); const maybeCat=detectCategory(val);
   const hits=allFeats.filter(f=>{
     const p=f.getProperties(); const cat=(p.category||'').toLowerCase();
@@ -240,22 +249,38 @@ q.addEventListener('input', ()=>{
   showResults(hits, maybeCat);
   searchIds = hits.map(f=> f.ol_uid || f.getId());
   redraw();
+  setSearchUIState(true);
 });
 q.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const first=results.querySelector('.item'); if(first){ first.click(); e.preventDefault(); } } });
 
 function showResults(list,cat){
-  results.innerHTML=''; const L=t();
+  results.innerHTML='';
+  // küçük ipucu
+  const hint=document.createElement('div'); hint.className='hint'; hint.textContent=t().ui.hint; results.appendChild(hint);
+
   if(cat){
+    const feats=allFeats.filter(f=> (f.get('category')||'').toLowerCase()===cat);
     const div=document.createElement('div');
-    div.className='item'; div.innerHTML=`<span>➤ ${ (L.cats?.[cat] || cat) }</span> <small>kategori</small>`;
-    div.onclick=()=>{ const feats=allFeats.filter(f=> (f.get('category')||'').toLowerCase()===cat); if(!feats.length)return; const ext=ol.extent.createEmpty(); feats.forEach(f=>ol.extent.extend(ext,f.getGeometry().getExtent())); map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:18}); results.style.display='none'; };
+    div.className='item';
+    div.innerHTML=`<span>➤ ${(t().cats?.[cat] || cat)}</span> <small>${feats.length}</small>`;
+    div.onclick=()=>{ 
+      if(!feats.length) return;
+      // kategoriye tıklandığında: haritada SADECE bu kategori kalsın + zoom
+      searchIds = feats.map(f=> f.ol_uid || f.getId());
+      redraw();
+      const ext=ol.extent.createEmpty(); feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
+      map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:18});
+      results.style.display='none';
+      setSearchUIState(true);
+    };
     results.appendChild(div);
   }
+
   list.slice(0,60).forEach(f=>{
     const div=document.createElement('div'); div.className='item';
     const name= f.get('name_'+LANG) || f.get('name') || '(isimsiz)';
     const meta=[f.get('src')==='indoor'?'Indoor':'Outdoor', f.get('category')||'', f.get('level')||''].filter(Boolean).join(' · ');
-    div.innerHTML=`<span>${name}</span><small>${meta}</small>`;
+    div.innerHTML = `<span>${name}</span><small>${meta}</small>`;
     div.onclick=()=>{ focusFeature(f,true); setDestination(coordOfFeature(f)); results.style.display='none'; go.disabled=false; };
     results.appendChild(div);
   });
@@ -263,7 +288,7 @@ function showResults(list,cat){
 }
 
 /* ========= Kalabalık azaltma ========= */
-toggleDetails.onclick=()=>{ showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
+toggleDetails.onclick=()=>{ if(toggleDetails.disabled) return; showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
 function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
 
 /* ========= Konum + takip ========= */
@@ -356,13 +381,15 @@ function hidePopup(){ popupEl.style.display='none'; popupOverlay.setPosition(und
 
 /* ========= Reset ========= */
 resetBtn.onclick=()=>{
-  hidePopup(); clearRouteAndBearing(); results.style.display='none'; searchIds=null; redraw();
+  hidePopup(); clearRouteAndBearing(); results.style.display='none';
+  q.value=''; searchIds=null; redraw(); setSearchUIState(false);
   const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
   if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:17});
 };
 
 /* UX */
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ results.style.display='none'; hidePopup(); }});
+applyLang();
 </script>
 </body>
 </html>
