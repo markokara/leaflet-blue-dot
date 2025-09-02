@@ -42,7 +42,9 @@
     .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#9ca3af}
     .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
     .muted{color:var(--muted)}
-    .acc{position:fixed; right:12px; top:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+
+    /* Konum doğruluk rozeti: SAĞ ALTA */
+    .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
     @media (max-width:520px){ input[type="search"]{width:56vw; min-width:150px} }
   </style>
 </head>
@@ -153,7 +155,8 @@ function styleFactory(kind){
   return f=>{
     if(f.get('src')!==kind) return null;
     if(Array.isArray(searchIds)){
-      const hit = searchIds.includes(f.ol_uid) || searchIds.includes(f.getId());
+      const id = f.ol_uid || f.getId();
+      const hit = searchIds.includes(id);
       return hit ? styleFor(f,1) : null;
     }
     const cat=(f.get('category')||'').toLowerCase();
@@ -177,10 +180,11 @@ const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: st
 const map = new ol.Map({
   target:'map',
   layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, enableRotation:true})
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
 });
-map.addControl(new ol.control.Rotate());
 map.addControl(new ol.control.Attribution({collapsible:false}));
+// Döndürmeyi devre dışı bırak (yatay başlar)
+map.getInteractions().forEach(i=>{ if(i instanceof ol.interaction.DragRotate || i instanceof ol.interaction.PinchRotate){ map.removeInteraction(i); } });
 
 /* ========= UI ========= */
 const $ = id=>document.getElementById(id);
@@ -210,7 +214,7 @@ async function loadJSONs(){
   const add=(src,gj,kind)=>{ const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}); fs.forEach(f=>f.set('src',kind)); src.addFeatures(fs); };
   add(indoorSource,indoor,'indoor'); add(outdoorSource,outdoor,'outdoor');
   allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
-  if(allFeats.length){ const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent()); if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:19}); }
+  if(allFeats.length){ const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent()); if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[84,16,16,16], maxZoom:19}); map.getView().setRotation(0); }
   applyLang();
   // arama/filtre sıfırlansın
   searchIds=null; results.style.display='none'; setSearchUIState(false); redraw();
@@ -272,7 +276,7 @@ function showResults(list,cat){
       searchIds = feats.map(f=> f.ol_uid || f.getId());
       redraw();
       const ext=ol.extent.createEmpty(); feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
-      map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:18});
+      map.getView().fit(ext,{padding:[84,16,16,16], maxZoom:18});
       results.style.display='none';
       setSearchUIState(true);
     };
@@ -285,7 +289,7 @@ function showResults(list,cat){
     const meta=[f.get('src')==='indoor'?'Indoor':'Outdoor', f.get('category')||'', f.get('level')||''].filter(Boolean).join(' · ');
     div.innerHTML = `<span>${name}</span><small>${meta}</small>`;
     div.onclick=()=>{ 
-      // TEKIL seçim: yalnızca bu feature kalsın
+      // TEKİL seçim: yalnızca bu feature kalsın
       searchIds = [f.ol_uid || f.getId()];
       redraw();
       focusFeature(f,true); 
@@ -327,14 +331,6 @@ followBtn.onclick=()=>{ followState=!followState; followBtn.textContent= followS
 /* ========= Hedef & rota ========= */
 let destLayer=null,destPoint=null,routeLayer=null,bearingLayer=null,pickMode=false;
 function setDestination(coord){ if(!destLayer){ destPoint=new ol.Feature(new ol.geom.Point(coord)); destPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:7,fill:new ol.style.Fill({color:'#ef4444'}),stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) })); destLayer=new ol.layer.Vector({source:new ol.source.Vector({features:[destPoint]})}); map.addLayer(destLayer);} else destPoint.getGeometry().setCoordinates(coord); go.disabled=false; }
-pick.onclick=()=>{ pickMode=!pickMode; pick.classList.toggle('active',pickMode); };
-map.on('click',evt=>{
-  if(pickMode){ setDestination(evt.coordinate); pickMode=false; pick.classList.remove('active'); return; }
-  // öğe tıklama → popup
-  currentPopupFeature=null;
-  [indoorLayer,outdoorLayer].forEach(layer=> map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; }));
-  if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
-});
 function clearRouteAndBearing(){ if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;} if(bearingLayer){map.removeLayer(bearingLayer);bearingLayer=null;} }
 function routeToDestination(){
   if(!userPoint || !destPoint){ alert(LANG==='tr'?'Konum ve hedef gerekli.':'Need location and destination.'); return; }
@@ -379,7 +375,8 @@ function renderPopup(f){
   const level = p['level_'+LANG] || p.level || '';
   const desc  = p['desc_'+LANG]  || p.desc  || '';
   const img   = p['image_'+LANG] || p.image || '';
-  return `<div style="min-width:220px">
+  return `
+  <div style="min-width:220px">
     <div style="font-weight:600;margin-bottom:6px">${name}</div>
     ${catLabel?`<div class="badge" title="${L.labels.category}">${catLabel}</div>`:''}
     ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
@@ -390,6 +387,26 @@ function renderPopup(f){
 }
 function showPopup(f,coord){ currentPopupFeature=f; popupContent.innerHTML=renderPopup(f); popupEl.style.display='block'; popupOverlay.setPosition(coord); }
 function hidePopup(){ popupEl.style.display='none'; popupOverlay.setPosition(undefined); currentPopupFeature=null; }
+function focusFeature(f,open){
+  const g=f.getGeometry();
+  const extent=g.getExtent();
+  map.getView().fit(extent,{padding:[84,16,16,16], maxZoom:18});
+  const c=coordOfFeature(f);
+  if(open) showPopup(f,c);
+}
+
+/* ========= Mouse & click ========= */
+let pickMode=false;
+const pick=$('pick');
+
+pick.onclick=()=>{ pickMode=!pickMode; pick.classList.toggle('active',pickMode); };
+map.on('click',evt=>{
+  if(pickMode){ setDestination(evt.coordinate); pickMode=false; pick.classList.remove('active'); return; }
+  // öğe tıklama → popup
+  currentPopupFeature=null;
+  ;[indoorLayer,outdoorLayer].forEach(layer=> map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; }));
+  if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
+});
 
 /* ========= Reset ========= */
 resetBtn.onclick=()=>{
@@ -399,7 +416,6 @@ resetBtn.onclick=()=>{
   loadJSONs();
 };
 
-/* UX */
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ results.style.display='none'; hidePopup(); }});
 applyLang();
 </script>
