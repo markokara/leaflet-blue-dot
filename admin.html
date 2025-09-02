@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Admin – Indoor/Outdoor Editör (Manuel Yayın + Canlı Konum)</title>
+<title>Admin – Indoor/Outdoor Editör (Manuel Yayın + Canlı Konum + Çok Dilli)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 <style>
   html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial}
-  #map{position:fixed; inset:0; height:auto; width:auto; touch-action:none;}
+  #map{position:fixed; inset:0; touch-action:none;}
+  /* Attribution'u küçült + marka */
+  .ol-attribution{font-size:10px; opacity:.85}
+  .ol-attribution button{display:none}
+
   .panel{position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:10;
     background:#fff; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.25);
     padding:10px; width:calc(100% - 20px); max-width:1080px;}
@@ -17,12 +21,12 @@
   button,select,input[type="file"],input[type="text"]{
     padding:12px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer
   }
-  input[type="text"]{cursor:text}
+  input[type="text"], textarea{cursor:text}
   .primary{border-color:#b3d7ff; background:#f0f7ff}
   .active{outline:2px solid #3b82f6; background:#eaf2ff}
   #status{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:11; background:#111; color:#fff; padding:6px 10px; border-radius:8px; display:none; font-size:13px}
   .modal{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:12}
-  .panel2{background:#fff; width:min(560px,92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .panel2{background:#fff; width:min(700px,92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35)}
   .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
   .grid label{font-size:12px; color:#555}
   .grid input,.grid textarea,.grid select{width:100%; padding:10px; border:1px solid #ddd; border-radius:8px}
@@ -39,6 +43,7 @@
     .row>*{min-width:100px}
   }
   .acc-badge{position:fixed; right:10px; top:10px; z-index:11; background:#fff; border:1px solid #ddd; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .lang-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px}
 </style>
 </head>
 <body>
@@ -74,8 +79,10 @@
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
+
+    <!-- Genel (dil-agnostik) -->
     <div class="grid">
-      <div><label>İsim</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
+      <div><label>İsim (varsayılan)</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
       <div>
         <label>Kategori</label>
         <select id="f_category">
@@ -88,13 +95,37 @@
         </select>
       </div>
       <div style="grid-column:1/-1; display:none" id="catOtherWrap"><label>Diğer Kategori</label><input id="f_category_other" placeholder="ör. lounge"></div>
-      <div><label>Saatler</label><input id="f_hours" placeholder="09:00-22:00"></div>
-      <div><label>Seviye/Kat</label><input id="f_level" placeholder="1"></div>
-      <div style="grid-column:1/-1"><label>Açıklama</label><textarea id="f_desc" placeholder="Kısa açıklama"></textarea></div>
-      <div style="grid-column:1/-1"><label>Fotoğraf URL</label><input id="f_image" placeholder="https://.../foto.jpg"></div>
+      <div><label>Saatler (varsayılan)</label><input id="f_hours" placeholder="09:00-22:00"></div>
+      <div><label>Seviye/Kat (varsayılan)</label><input id="f_level" placeholder="1"></div>
+      <div style="grid-column:1/-1"><label>Açıklama (varsayılan)</label><textarea id="f_desc" placeholder="Kısa açıklama"></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf URL (varsayılan)</label><input id="f_image" placeholder="https://.../foto.jpg"></div>
       <div><label>Öğe ID (otomatik)</label><input id="f_id" disabled></div>
       <div><label>Alan/Uzunluk</label><input id="f_metric" disabled></div>
     </div>
+
+    <!-- Çok dilli paket -->
+    <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+    <div class="grid">
+      <div>
+        <label>Dil</label>
+        <select id="f_lang">
+          <option value="tr">Türkçe</option>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="de">Deutsch</option>
+          <option value="pl">Polski</option>
+        </select>
+      </div>
+      <div class="pill small" style="align-self:end">Bu bölüm <b>name_XX / hours_XX / level_XX / desc_XX / image_XX</b> alanlarını yazar.</div>
+    </div>
+    <div class="lang-grid">
+      <div><label>İsim (seçili dil)</label><input id="l_name"></div>
+      <div><label>Saatler (seçili dil)</label><input id="l_hours"></div>
+      <div><label>Seviye/Kat (seçili dil)</label><input id="l_level"></div>
+      <div style="grid-column:1/-1"><label>Açıklama (seçili dil)</label><textarea id="l_desc"></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf URL (seçili dil)</label><input id="l_image" placeholder="https://.../foto.jpg"></div>
+    </div>
+
     <div class="actions">
       <div class="left">
         <button id="propGeom" class="pill" title="Geometri noktalarını düzenle">Geometriyi Düzenle</button>
@@ -122,7 +153,7 @@ const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }
 const saveLocal = debounce((k,layer)=> saveLocalRaw(k, writeGJ(layer)), 250);
 const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
 
-/* ====== katmanlar ====== */
+/* ====== katmanlar & harita ====== */
 function baseStyleFor(f, dim=1){
   const t=f.getGeometry().getType();
   const stroke=new ol.style.Stroke({color:`rgba(0,0,0,${0.6*dim})`,width:2});
@@ -142,65 +173,50 @@ function styleWrapper(name){
 }
 const indoorLayer  = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("indoor")});
 const outdoorLayer = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("outdoor")});
-const map = new ol.Map({ target:"map", layers:[ new ol.layer.Tile({source:new ol.source.OSM()}), indoorLayer, outdoorLayer ], view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17}) });
+const map = new ol.Map({
+  target:"map",
+  layers:[
+    new ol.layer.Tile({source:new ol.source.OSM({ attributions:'© aihotelstech · © OpenStreetMap contributors' })}),
+    indoorLayer, outdoorLayer
+  ],
+  view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17})
+});
+map.addControl(new ol.control.Attribution({collapsible:false}));
+
 const tgtLayer = ()=> $("layerSel").value==="indoor" ? indoorLayer : outdoorLayer;
 
 /* ====== veri yükleme ====== */
-let bulk=false;
 (function initLoad(){
-  bulk=true;
   readGJToLayer(indoorLayer,  loadLocal("indoor")  || {"type":"FeatureCollection","features":[]});
   readGJToLayer(outdoorLayer, loadLocal("outdoor") || {"type":"FeatureCollection","features":[]});
-  bulk=false;
 })();
 
 /* ====== konum – canlı mavi nokta + takip ====== */
 const accEl = $("acc");
 let userMarker=null, accCircle=null, userLayer=null, follow=false, watchId=null;
-
-function ensureHttpsOrLocalhost(){
-  const prot = location.protocol;
-  const host = location.hostname;
-  if(!(prot==="https:" || host==="localhost" || host==="127.0.0.1")){
-    setStatus("Konum için HTTPS gerekir. (GitHub Pages ‘https’ tamam.)", 4000);
-  }
-}
-ensureHttpsOrLocalhost();
-
-function startWatch(){
-  if(!("geolocation" in navigator)) { setStatus("Cihazda konum desteği yok."); return; }
-  try{
-    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
-  }catch{}
-  watchId = navigator.geolocation.watchPosition(onPos, onGeoError, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
-  // izin durumu bilgilendirmesi
-  if(navigator.permissions?.query){
-    navigator.permissions.query({name:"geolocation"}).then(p=>{
-      if(p.state==="denied") setStatus("Konum izni reddedildi. Tarayıcı ayarlarından 'Precise/Doğru Konum'u açın.", 5000);
-    }).catch(()=>{});
-  }
-}
-function onGeoError(err){ setStatus("Konum alınamadı: " + (err?.message||err?.code||"bilinmiyor"), 4000); }
-function onPos(pos){
-  const lon=pos.coords.longitude, lat=pos.coords.latitude, acc=pos.coords.accuracy||0;
-  const coords = ol.proj.fromLonLat([lon,lat]);
-  if(!userMarker){
-    userMarker = new ol.Feature(new ol.geom.Point(coords));
-    userMarker.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:"#007bff"}), stroke:new ol.style.Stroke({color:"#fff",width:2})}) }));
-    accCircle  = new ol.Feature(new ol.geom.Circle(coords, acc));
-    accCircle.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:"#007bff",width:1}), fill:new ol.style.Fill({color:"rgba(0,123,255,0.08)"}) }));
-    userLayer  = new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userMarker]}) });
-    map.addLayer(userLayer);
-  }else{
-    userMarker.getGeometry().setCoordinates(coords);
-    accCircle.getGeometry().setCenter(coords);
-    accCircle.getGeometry().setRadius(acc);
-  }
-  accEl.textContent = "±" + Math.round(acc) + " m";
-  accEl.style.display = "block";
-  if(follow) map.getView().animate({center: coords, duration: 200});
-}
-startWatch();
+(function startWatch(){
+  if(!("geolocation" in navigator)) return;
+  try{ if(watchId!==null) navigator.geolocation.clearWatch(watchId);}catch{}
+  watchId = navigator.geolocation.watchPosition(pos=>{
+    const coords = ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+    if(!userMarker){
+      userMarker = new ol.Feature(new ol.geom.Point(coords));
+      userMarker.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:"#007bff"}), stroke:new ol.style.Stroke({color:"#fff",width:2})}) }));
+      accCircle  = new ol.Feature(new ol.geom.Circle(coords, pos.coords.accuracy||0));
+      accCircle.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:"#007bff",width:1}), fill:new ol.style.Fill({color:"rgba(0,123,255,0.08)"}) }));
+      userLayer  = new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userMarker]}) });
+      map.addLayer(userLayer);
+    }else{
+      userMarker.getGeometry().setCoordinates(coords);
+      accCircle.getGeometry().setCenter(coords);
+      accCircle.getGeometry().setRadius(pos.coords.accuracy||0);
+    }
+    accEl.textContent = "±" + Math.round(pos.coords.accuracy||0) + " m";
+    accEl.style.display = "block";
+    if(follow) map.getView().animate({center: coords, duration: 200});
+  },()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+})();
+$("follow").onclick=()=>{ follow=!follow; $("follow").textContent = follow ? "🎯 Takip: Açık" : "🎯 Takip: Kapalı"; if(follow && userMarker) map.getView().setCenter(userMarker.getGeometry().getCoordinates()); };
 
 /* ====== etkileşimler ====== */
 let mode=null, draw=null, select=null, selected=null, modify=null, snap=null;
@@ -208,43 +224,69 @@ function resetInteractions(){ if(draw){map.removeInteraction(draw);draw=null;} i
 function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
 function enrich(f){ try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{} const g=f.getGeometry(); if(g.getType()==="Polygon") f.set("area_m2",Math.round(g.getArea())); }
 
-$("follow").onclick=()=>{
-  follow=!follow; $("follow").textContent = follow ? "🎯 Takip: Açık" : "🎯 Takip: Kapalı";
-  if(follow && userMarker){ map.getView().setCenter(userMarker.getGeometry().getCoordinates()); }
-};
-
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
-
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla/dokun"); map.getTargetElement().style.cursor="crosshair"; };
-
 $("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; bitirmek için çift tık ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair"; const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); }; draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); }); };
-
 $("selectBtn").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active"); setStatus("SEÇİM: öğeye tıkla → form açılır"); const layer=tgtLayer(); select=new ol.interaction.Select({layers:[layer]}); if(select.setHitTolerance) select.setHitTolerance(6); map.addInteraction(select); select.on("select",ev=>{ selected=ev.selected[0]||null; if(selected) openForm(selected); }); };
-
 $("layerSel").addEventListener("change",()=>{ resetInteractions(); indoorLayer.changed(); outdoorLayer.changed(); });
 $("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); });
 
-/* ====== Özellik Formu ====== */
+/* ====== Özellik Formu + Çok Dilli ====== */
 const modal=$("propModal");
+const fld = id => document.getElementById(id);
 function validateImg(u){ try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{return false;} }
+
+let editFeature=null, i18nLang='tr';
+function loadLangFields(p){
+  fld('l_name').value  = p['name_'+i18nLang]  || '';
+  fld('l_hours').value = p['hours_'+i18nLang] || '';
+  fld('l_level').value = p['level_'+i18nLang] || '';
+  fld('l_desc').value  = p['desc_'+i18nLang]  || '';
+  fld('l_image').value = p['image_'+i18nLang] || '';
+}
+function saveLangFields(p){
+  const ln=i18nLang;
+  const img=fld('l_image').value.trim();
+  if(img && !validateImg(img)){ alert("Dil-özgü fotoğraf URL geçersiz."); return false; }
+  p['name_'+ln]  = fld('l_name').value.trim()  || undefined;
+  p['hours_'+ln] = fld('l_hours').value.trim() || undefined;
+  p['level_'+ln] = fld('l_level').value.trim() || undefined;
+  p['desc_'+ln]  = fld('l_desc').value.trim()  || undefined;
+  p['image_'+ln] = img || undefined;
+  return true;
+}
+
 function openForm(f){
-  const p=f.getProperties(); const catSel=$("f_category"), otherWrap=$("catOtherWrap"), other=$("f_category_other");
-  $("f_name").value=p.name||""; $("f_hours").value=p.hours||""; $("f_level").value=p.level||""; $("f_desc").value=p.desc||""; $("f_image").value=p.image||""; $("f_id").value=f.getId()||""; $("f_metric").value=p.area_m2? (p.area_m2+" m²"): (p.len_m? (p.len_m+" m"):"");
+  editFeature=f;
+  const p=f.getProperties(); const catSel=fld('f_category'), otherWrap=fld('catOtherWrap'), other=fld('f_category_other');
+  fld('f_name').value=p.name||""; fld('f_hours').value=p.hours||""; fld('f_level').value=p.level||""; fld('f_desc').value=p.desc||""; fld('f_image').value=p.image||""; fld('f_id').value=f.getId()||""; fld('f_metric').value=p.area_m2? (p.area_m2+" m²"): (p.len_m? (p.len_m+" m"):"");
   if(p.category && [...catSel.options].some(o=>o.value===p.category)){ catSel.value=p.category; otherWrap.style.display="none"; other.value=""; }
   else if(p.category){ catSel.value="_other"; otherWrap.style.display="block"; other.value=p.category; }
   else { catSel.value=""; otherWrap.style.display="none"; other.value=""; }
   catSel.onchange=()=>{ if(catSel.value==="_other") otherWrap.style.display="block"; else {otherWrap.style.display="none"; other.value="";} };
+
+  // çok dilli alanlar
+  fld('f_lang').value=i18nLang; loadLangFields(p);
+  fld('f_lang').onchange=()=>{ if(editFeature){ i18nLang=fld('f_lang').value; loadLangFields(editFeature.getProperties()); } };
+
   modal.style.display="flex"; modal.setAttribute("aria-hidden","false");
-  $("propSave").onclick=()=>{ const img=$("f_image").value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; } f.setProperties({ name:$("f_name").value.trim(), category:(catSel.value==="_other"? other.value.trim(): catSel.value.trim()), hours:$("f_hours").value.trim(), level:$("f_level").value.trim(), desc:$("f_desc").value.trim(), image:img }); enrich(f); saveLocal($("layerSel").value, tgtLayer()); };
-  $("propClose").onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); resetInteractions(); };
-  $("propGeom").onclick=()=>{ // sadece bu feature üzerinde geçici modify
-    if(modify) map.removeInteraction(modify);
-    modify=new ol.interaction.Modify({ features: new ol.Collection([f]) });
-    map.addInteraction(modify);
-    enableSnap(tgtLayer());
-    modify.on("modifyend",()=>{ enrich(f); saveLocal($("layerSel").value, tgtLayer()); });
+
+  fld('propSave').onclick=()=>{
+    const img=fld('f_image').value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; }
+    const props={
+      name:fld('f_name').value.trim() || undefined,
+      category:(catSel.value==="_other"? other.value.trim(): catSel.value.trim()) || undefined,
+      hours:fld('f_hours').value.trim() || undefined,
+      level:fld('f_level').value.trim() || undefined,
+      desc:fld('f_desc').value.trim() || undefined,
+      image:img || undefined
+    };
+    if(!saveLangFields(props)) return;
+    f.setProperties(props); enrich(f); saveLocal($("layerSel").value, tgtLayer()); setStatus("Kaydedildi.");
   };
-  $("propDelete").onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(f); saveLocal($("layerSel").value, tgtLayer()); modal.style.display="none"; resetInteractions(); } };
+  fld('propClose').onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); resetInteractions(); };
+  fld('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify); modify=new ol.interaction.Modify({ features: new ol.Collection([f]) }); map.addInteraction(modify); enableSnap(tgtLayer()); modify.on("modifyend",()=>{ enrich(f); saveLocal($("layerSel").value, tgtLayer()); }); };
+  fld('propDelete').onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(f); saveLocal($("layerSel").value, tgtLayer()); modal.style.display="none"; resetInteractions(); } };
 }
 document.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && modal.style.display==="flex"){ modal.style.display="none"; resetInteractions(); } });
 
@@ -260,7 +302,7 @@ $("imp").addEventListener("change", async e=>{
 });
 $("clearLocal").onclick=()=>{ if(confirm("Yerel veriyi sil?")){ localStorage.removeItem("indoor"); localStorage.removeItem("outdoor"); alert("Temizlendi. Sayfayı yenileyin."); } };
 
-setStatus("Hazır: Canlı konum + takip + sade admin.");
+setStatus("Hazır: Canlı konum + takip + çok dilli içerik.");
 </script>
 </body>
 </html>
