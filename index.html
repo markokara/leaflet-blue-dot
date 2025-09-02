@@ -1,324 +1,258 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>Misafir – Indoor & Outdoor Harita</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
-<style>
-  html,body,#map { height:100%; margin:0; }
-  /* ÜST KONTROL ÇUBUĞU */
-  .toolbar {
-    position: fixed; top: 8px; left: 8px; right: 8px;
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-    background: rgba(255,255,255,.96); backdrop-filter: blur(6px);
-    border: 1px solid #ddd; border-radius: 10px; padding: 8px; z-index: 1000;
-    box-shadow: 0 2px 6px rgba(0,0,0,.08);
-  }
-  .row-scroll { overflow-x:auto; scrollbar-width: thin; }
-  .toolbar input[type="text"]{
-    flex:1 1 260px; min-width:140px; padding:8px 10px; border:1px solid #ccc; border-radius:8px;
-  }
-  .btn, select {
-    flex:0 0 auto; height:34px; padding:0 10px; border-radius:8px; border:1px solid #ccc; background:#fff;
-  }
-  .btn.primary{ background:#0a66ff; color:#fff; border-color:#0a66ff; }
-  .btn.ghost{ background:#f7f7f7; }
-  .chip{ padding:4px 8px; border-radius:999px; background:#eef2ff; border:1px solid #d8e0ff; font-size:12px; }
-  .badge{ margin-left: 6px; padding:2px 6px; border-radius:10px; background:#eee; font-size:12px; white-space:nowrap; }
-  .spacer{ flex:1 1 8px; }
-  /* POPUP */
-  .popup{ background:#fff; border:1px solid #ccc; border-radius:10px; padding:10px; min-width:220px; }
-  .popup .title{ font-weight:700; }
-  .popup .muted{ color:#666; font-size:12px; }
-  .popup .btns{ display:flex; gap:6px; margin-top:8px; }
-  /* MOBİL AYARLAR */
-  @media (max-width:480px){
-    .toolbar { padding:6px; gap:6px; }
-    .btn, select { height:32px; padding:0 8px; }
-    .chip { font-size:11px; }
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+  <title>Misafir – Indoor & Outdoor Harita</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <style>
+    :root{
+      --pad:10px;
+      --radius:12px;
+      --shadow:0 6px 20px rgba(0,0,0,.12);
+    }
+    html,body{height:100%;margin:0}
+    body{font:14px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+
+    #map{position:fixed; inset:0;}
+
+    /* Üst araç çubuğu */
+    .toolbar{
+      position:fixed; left:12px; right:12px; top:12px; z-index:1000;
+      background:#fff; border-radius:var(--radius); padding:10px;
+      box-shadow:var(--shadow);
+    }
+    .row{
+      display:flex; align-items:center; gap:8px;
+      overflow-x:auto; /* çok dar ekranda taşanı kaydır */
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+    .row::-webkit-scrollbar{display:none}
+    .row > *{flex:0 0 auto}
+
+    input[type="search"]{
+      min-width:180px; width:50vw; max-width:520px;
+      padding:8px 10px; border:1px solid #ddd; border-radius:10px;
+    }
+    button,.btn{
+      padding:8px 10px; border:1px solid #ddd; background:#f7f7f7;
+      border-radius:10px; cursor:pointer;
+    }
+    button:active{transform:translateY(1px)}
+    select{
+      padding:8px 10px; border:1px solid #ddd; border-radius:10px; background:#fff;
+    }
+
+    /* Popup içi küçük rozeti */
+    .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
+
+    /* Telefonlarda rahat görünsün */
+    @media (max-width:480px){
+      input[type="search"]{width:56vw; min-width:160px}
+    }
+
+    /* Leaflet attribution biraz yukarı */
+    .leaflet-control-attribution{background:rgba(255,255,255,.85); border-radius:8px}
+  </style>
 </head>
 <body>
-<div id="map"></div>
 
-<!-- Üst Bar -->
-<div class="toolbar row-scroll" id="toolbar">
-  <input id="search" type="text" placeholder="Ara: restoran, spa, havuz..." />
-  <button class="btn primary" id="btnGo">Git</button>
-  <button class="btn ghost" id="btnPick">Hedef Seç</button>
-  <button class="btn ghost" id="btnFollow">Takip</button>
-  <span id="followState" class="chip">Takip: Kapalı</span>
-  <select id="profileSel" title="Profil">
-    <option value="driving">Araba</option>
-    <option value="walking">Yaya</option>
-    <option value="cycling">Bisiklet</option>
-  </select>
-  <select id="langSel" title="Dil">
-    <option value="tr">Türkçe</option>
-    <option value="en">English</option>
-    <option value="ru">Русский</option>
-    <option value="de">Deutsch</option>
-    <option value="pl">Polski</option>
-  </select>
-  <span id="searchBadge" class="badge"></span>
-</div>
+  <!-- Üst araç çubuğu -->
+  <div class="toolbar" role="toolbar" aria-label="Üst araç çubuğu">
+    <div class="row">
+      <input id="q" type="search" placeholder="Ara: restoran, spa, havuz…" />
+      <button id="go">Git</button>
 
-<!-- Popup kapsayıcı -->
-<div id="popup" class="popup" style="display:none;"></div>
+      <select id="preset">
+        <option value="">Hedef Seç</option>
+      </select>
 
-<script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+      <select id="lang" aria-label="Dil">
+        <option value="tr" selected>Türkçe</option>
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="de">Deutsch</option>
+        <option value="pl">Polski</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="map" aria-label="Harita"></div>
+
 <script>
-/* ====== i18n ====== */
-const LANGS = ['tr','en','ru','de','pl'];
-const UI = {
-  searchPH:{ tr:'Ara: restoran, spa, havuz...', en:'Search: restaurant, spa, pool...', ru:'Поиск: ресторан, спа, бассейн...', de:'Suche: Restaurant, Spa, Pool...', pl:'Szukaj: restauracja, spa, basen...' },
-  go:{ tr:'Git', en:'Go', ru:'Искать', de:'Los', pl:'Szukaj' },
-  pick:{ tr:'Hedef Seç', en:'Pick Start', ru:'Выбрать старт', de:'Start wählen', pl:'Wybierz start' },
-  follow:{ tr:'Takip', en:'Follow', ru:'Следить', de:'Folgen', pl:'Śledź' },
-  followOn:{ tr:'Takip: Açık', en:'Follow: On', ru:'След.: Вкл', de:'Folgen: An', pl:'Śledź: włącz' },
-  followOff:{ tr:'Takip: Kapalı', en:'Follow: Off', ru:'След.: Выкл', de:'Folgen: Aus', pl:'Śledź: wyłącz' },
-  car:{ tr:'Araba', en:'Car', ru:'Авто', de:'Auto', pl:'Samochód' },
-  walk:{ tr:'Yaya', en:'Walk', ru:'Пешком', de:'Zu Fuß', pl:'Pieszo' },
-  bike:{ tr:'Bisiklet', en:'Bike', ru:'Велосипед', de:'Fahrrad', pl:'Rower' },
-  zoomTo:{ tr:'Yakınlaş', en:'Zoom', ru:'Приблизить', de:'Zoomen', pl:'Powiększ' },
-  route:{ tr:'Buraya Git', en:'Route', ru:'Маршрут', de:'Route', pl:'Trasa' },
-  close:{ tr:'Kapat', en:'Close', ru:'Закрыть', de:'Schließen', pl:'Zamknij' },
-  cat:{ tr:'Kat.', en:'Cat.', ru:'Кат.', de:'Kat.', pl:'Kat.' }
-};
-const CAT = {
-  pool:      { tr:'Havuz',    en:'Pool',      ru:'Бассейн',  de:'Pool',   pl:'Basen' },
-  restaurant:{ tr:'Restoran', en:'Restaurant',ru:'Ресторан', de:'Restaurant', pl:'Restauracja' },
-  bar:       { tr:'Bar',      en:'Bar',       ru:'Бар',      de:'Bar',    pl:'Bar' },
-  spa:       { tr:'Spa',      en:'Spa',       ru:'Спа',      de:'Spa',    pl:'Spa' },
-};
-function t(key){ const o=UI[key]; return o?(o[lang]||o.en):key; }
-function tCat(code){ return (CAT[code] && (CAT[code][lang]||CAT[code].en)) || code || ''; }
-function tField(v){ if(!v) return ''; if(typeof v==='string') return v; return v[lang]||v.en||v.tr||Object.values(v)[0]; }
-
-let lang = localStorage.getItem('lang') || 'tr';
-
-/* ====== Map Kurulum ====== */
-const map = new ol.Map({
-  target:'map',
-  view: new ol.View({ center: ol.proj.fromLonLat([31.713,36.601]), zoom: 16 }),
-  layers:[
-    new ol.layer.Tile({ source:new ol.source.OSM() })
-  ],
-  controls: ol.control.defaults({ attribution:true, zoom:true })
-});
-
-/* Popup overlay */
-const popupEl = document.getElementById('popup');
-const popup = new ol.Overlay({ element: popupEl, autoPan: { animation:{ duration:250 } }});
-map.addOverlay(popup);
-
-/* Konum Takip */
-const geoloc = new ol.Geolocation({ tracking:false, projection: map.getView().getProjection() });
-const posLayer = new ol.layer.Vector({ source:new ol.source.Vector() });
-map.addLayer(posLayer);
-let followOn = false;
-geoloc.on('change:position', ()=>{
-  const p = geoloc.getPosition(); if(!p) return;
-  lastKnownLonLat = ol.proj.toLonLat(p);
-  // mavi nokta
-  posLayer.getSource().clear();
-  const f = new ol.Feature(new ol.geom.Point(p));
-  f.setStyle(new ol.style.Style({
-    image: new ol.style.Circle({ radius:6, fill:new ol.style.Fill({color:'rgba(0,125,255,.9)'}), stroke:new ol.style.Stroke({color:'#fff',width:2}) })
-  }));
-  posLayer.getSource().addFeature(f);
-  if(followOn){ map.getView().animate({ center:p, duration:300 }); }
-});
-geoloc.on('error', e=> alert(e.message||'Konum hatası'));
-
-/* Başlangıç (manuel) ve Rota katmanları */
-let manualStartLonLat = null;
-let lastKnownLonLat = null;
-const startLayer = new ol.layer.Vector({ source:new ol.source.Vector(), style:new ol.style.Style({
-  image:new ol.style.Icon({ src:'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="8" fill="%2307a" /></svg>' })
-})});
-map.addLayer(startLayer);
-
-const routeLayer = new ol.layer.Vector({
-  source:new ol.source.Vector(),
-  style: new ol.style.Style({ stroke:new ol.style.Stroke({ color:'rgba(6,125,247,0.85)', width:4 }) })
-});
-map.addLayer(routeLayer);
-
-/* Veri (outdoor.json) */
-const featLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
-map.addLayer(featLayer);
-
-fetch('outdoor.json').then(r=>r.json()).then(geo=>{
-  const format = new ol.format.GeoJSON();
-  const feats = format.readFeatures(geo, { featureProjection: map.getView().getProjection() });
-  featLayer.getSource().addFeatures(feats);
-  rebuildIndex();
-}).catch(()=>console.warn('outdoor.json yüklenemedi'));
-
-/* Arama Dizini (çok dilli) */
-let index = [];
-function searchableText(f){
-  const p = f.getProperties(); const parts=[];
-  ['name','desc'].forEach(k=>{
-    const v = p[k];
-    if(typeof v==='string') parts.push(v);
-    else if(v && typeof v==='object') LANGS.forEach(L=> v[L] && parts.push(v[L]));
-  });
-  const code = p.category || '';
-  parts.push(code);
-  if(CAT[code]) LANGS.forEach(L=> CAT[code][L] && parts.push(CAT[code][L]));
-  return parts.join(' ').toLowerCase();
-}
-function rebuildIndex(){
-  index = featLayer.getSource().getFeatures().map(f=>({ f, text: searchableText(f) }));
-}
-
-/* UI referansları */
-const qInput = document.getElementById('search');
-const btnGo = document.getElementById('btnGo');
-const btnPick = document.getElementById('btnPick');
-const btnFollow = document.getElementById('btnFollow');
-const followState = document.getElementById('followState');
-const profileSel = document.getElementById('profileSel');
-const langSel = document.getElementById('langSel');
-const searchBadge = document.getElementById('searchBadge');
-
-/* Dil ve placeholderları uygula */
-function refreshUITexts(){
-  qInput.placeholder = t('searchPH');
-  btnGo.textContent = t('go');
-  btnPick.textContent = t('pick');
-  btnFollow.textContent = t('follow');
-  followState.textContent = followOn ? t('followOn') : t('followOff');
-  profileSel.querySelector('option[value="driving"]').textContent = t('car');
-  profileSel.querySelector('option[value="walking"]').textContent = t('walk');
-  profileSel.querySelector('option[value="cycling"]').textContent = t('bike');
-}
-langSel.value = lang;
-refreshUITexts();
-
-/* Persistans (arama metni, profil) */
-(function initPersist(){
-  const last = localStorage.getItem('lastQuery') || '';
-  if(last){ qInput.value = last; searchBadge.textContent = `“${last}”`; }
-  const prof = localStorage.getItem('profile') || 'driving';
-  profileSel.value = prof;
-})();
-
-/* Etkinlikler */
-langSel.addEventListener('change', ()=>{
-  lang = langSel.value; localStorage.setItem('lang', lang); refreshUITexts(); rebuildIndex();
-});
-profileSel.addEventListener('change', ()=> localStorage.setItem('profile', profileSel.value));
-
-btnFollow.addEventListener('click', ()=>{
-  followOn = !followOn;
-  followState.textContent = followOn ? t('followOn') : t('followOff');
-  if(followOn){ geoloc.setTracking(true); } else { geoloc.setTracking(false); }
-});
-let picking = false;
-btnPick.addEventListener('click', ()=>{
-  picking = !picking;
-  btnPick.classList.toggle('primary', picking);
-});
-
-/* Arama */
-btnGo.addEventListener('click', runSearch);
-qInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
-
-function runSearch(){
-  const q = (qInput.value||'').trim();
-  localStorage.setItem('lastQuery', q);
-  searchBadge.textContent = q ? `“${q}”` : '';
-  if(!q){ return; }
-  const res = searchFeatures(q);
-  if(!res.length){ alert('Sonuç bulunamadı'); return; }
-  const f = res[0];
-  showPopupForFeature(f);
-  const extent = f.getGeometry().getExtent();
-  map.getView().fit(extent, { maxZoom: 18, duration: 300, padding:[80,80,80,80] });
-}
-
-function searchFeatures(q){
-  const s = q.toLowerCase();
-  return index.filter(it=> it.text.includes(s)).map(it=> it.f);
-}
-
-/* Feature tıklama & picking */
-map.on('singleclick', (evt)=>{
-  // picking modu → başlangıç seç
-  if(picking){
-    manualStartLonLat = ol.proj.toLonLat(evt.coordinate);
-    startLayer.getSource().clear();
-    startLayer.getSource().addFeature(new ol.Feature(new ol.geom.Point(evt.coordinate)));
-    picking = false; btnPick.classList.remove('primary');
-    return;
+/* =========================
+   Basit i18n (TR, EN, RU, DE, PL)
+   ========================= */
+const I18N = {
+  tr:{
+    searchPH:"Ara: restoran, spa, havuz…",
+    go:"Git", choose:"Hedef Seç",
+    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
+    cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC" }
+  },
+  en:{
+    searchPH:"Search: restaurant, spa, pool…",
+    go:"Go", choose:"Pick a place",
+    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
+    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet" }
+  },
+  ru:{
+    searchPH:"Поиск: ресторан, спа, бассейн…",
+    go:"Поехали", choose:"Выбрать место",
+    labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание"},
+    cats:{ pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет" }
+  },
+  de:{
+    searchPH:"Suche: Restaurant, Spa, Pool…",
+    go:"Los", choose:"Ziel wählen",
+    labels:{name:"Name", category:"Art", hours:"Zeiten", level:"Etage", desc:"Beschreibung"},
+    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Café", shop:"Laden", toilet:"WC" }
+  },
+  pl:{
+    searchPH:"Szukaj: restauracja, spa, basen…",
+    go:"Idź", choose:"Wybierz cel",
+    labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis"},
+    cats:{ pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta" }
   }
-  // feature bul
-  map.forEachFeatureAtPixel(evt.pixel, (feature, layer)=>{
-    if(layer!==featLayer) return;
-    showPopupForFeature(feature, evt.coordinate);
-    return true;
+};
+let LANG = localStorage.getItem("lang") || "tr";
+
+/* =========================
+   Harita kurulumu (Leaflet)
+   ========================= */
+const map = L.map('map', {
+  zoomControl: true,
+  worldCopyJump: true
+}).setView([36.6002,31.8046], 16);
+
+/* OSM zemin katmanı */
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 20,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> katılımcıları'
+}).addTo(map);
+
+/* Dış mekan verisi */
+let featureLayer = null;
+let featuresIndex = {};   // id -> layer
+let featuresData = [];    // orijinal geojson features
+
+/* UI elemanları */
+const $q = document.getElementById('q');
+const $go = document.getElementById('go');
+const $preset = document.getElementById('preset');
+const $lang = document.getElementById('lang');
+
+/* Dil uygula */
+function applyLang(){
+  const t = I18N[LANG] || I18N.tr;
+  $q.placeholder = t.searchPH;
+  $go.textContent = t.go;
+
+  // Hedef select'in ilk satırı
+  $preset.options[0].textContent = t.choose;
+
+  // Açık popup varsa içeriği güncelle
+  featureLayer && featureLayer.eachLayer(l => {
+    if(l.isPopupOpen()){
+      l.setPopupContent(renderPopup(l.feature));
+    }
   });
-});
 
-function showPopupForFeature(f, atCoord){
-  const coord = atCoord || f.getGeometry().getCoordinates();
-  const name = tField(f.get('name'));
-  const desc = tField(f.get('desc'));
-  const cat  = tCat(f.get('category'));
-  popupEl.innerHTML = `
-    <div class="title">${name}</div>
-    <div class="muted">${t('cat')} ${cat}</div>
-    ${desc?`<div style="margin-top:6px">${desc}</div>`:''}
-    <div class="btns">
-      <button class="btn ghost" data-act="zoom">${t('zoomTo')}</button>
-      <button class="btn primary" data-act="route">${t('route')}</button>
-      <button class="btn ghost" data-act="close">${t('close')}</button>
-    </div>`;
-  popup.setPosition(coord);
+  // kaydet
+  localStorage.setItem("lang", LANG);
+}
+$lang.value = LANG;
+$lang.addEventListener('change', () => { LANG = $lang.value; applyLang(); });
 
-  popupEl.querySelector('[data-act="zoom"]').onclick = ()=>{
-    map.getView().animate({ center: coord, zoom: 18, duration: 250 });
-  };
-  popupEl.querySelector('[data-act="route"]').onclick = ()=>{
-    const destLonLat = ol.proj.toLonLat(coord);
-    const start = manualStartLonLat || lastKnownLonLat;
-    if(!start){ alert('Başlangıç noktası yok. Takibi açın veya "Hedef Seç" ile başlangıç seçin.'); return; }
-    drawRoute(start, destLonLat, profileSel.value);
-  };
-  popupEl.querySelector('[data-act="close"]').onclick = ()=> popup.setPosition(undefined);
-  popupEl.style.display = 'block';
+/* Popup içeriği (çok dillilik) */
+function renderPopup(feat){
+  const p = feat.properties || {};
+  const t = I18N[LANG] || I18N.tr;
+
+  const name = p['name_'+LANG] || p.name || '';
+  const catKey = (p.category || '').toLowerCase();
+  const catLabel = t.cats[catKey] || p.category || '';
+
+  const hours = p['hours_'+LANG] || p.hours || '';
+  const level = p['level_'+LANG] || p.level || '';
+  const desc  = p['desc_'+LANG]  || p.desc  || '';
+
+  return `
+    <div style="min-width:180px">
+      <div style="font-weight:600; margin-bottom:6px">${name}</div>
+      ${catLabel ? `<div class="badge" title="${t.labels.category}">${catLabel}</div>`:''}
+      ${hours ? `<div style="margin-top:6px"><small>${t.labels.hours}:</small> ${hours}</div>`:''}
+      ${level ? `<div><small>${t.labels.level}:</small> ${level}</div>`:''}
+      ${desc  ? `<div style="margin-top:6px">${desc}</div>`:''}
+    </div>
+  `;
 }
 
-/* OSRM rota */
-async function drawRoute(startLonLat, endLonLat, profile='driving'){
-  try{
-    const url = `https://router.project-osrm.org/route/v1/${profile}/${startLonLat.join(',')};${endLonLat.join(',')}?overview=full&geometries=geojson`;
-    const r = await fetch(url);
-    const j = await r.json();
-    if(j.code!=='Ok' || !j.routes?.length) throw new Error('Rota bulunamadı');
-    const coords = j.routes[0].geometry.coordinates.map(c=> ol.proj.fromLonLat(c));
-    routeLayer.getSource().clear();
-    routeLayer.getSource().addFeature(new ol.Feature(new ol.geom.LineString(coords)));
-    // start işaretini de göster
-    startLayer.getSource().clear();
-    startLayer.getSource().addFeature(new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat(startLonLat))));
-    map.getView().fit(routeLayer.getSource().getExtent(), { padding:[80,80,80,80], duration: 300 });
-  }catch(e){
-    alert('Rota alınamadı'); console.warn(e);
-  }
+/* GeoJSON yükle ve haritaya ekle */
+fetch('outdoor.json')
+  .then(r => r.json())
+  .then(geojson => {
+    featuresData = geojson.features || [];
+
+    featureLayer = L.geoJSON(geojson, {
+      pointToLayer: (feat, latlng) =>
+        L.circleMarker(latlng, {
+          radius: 7, weight: 2, color:'#c1121f', fillColor:'#f94144', fillOpacity:.9
+        }),
+      onEachFeature: (feat, layer) => {
+        featuresIndex[feat.id || L.Util.stamp(layer)] = layer;
+        layer.bindPopup(renderPopup(feat));
+      }
+    }).addTo(map);
+
+    // Eğer veri alanı varsa ona göre odakla
+    try{
+      const b = featureLayer.getBounds();
+      if (b.isValid()) map.fitBounds(b.pad(0.2));
+    }catch(e){/* tek nokta olabilir, sorun değil */}
+
+    // Hedef listesine doldur
+    rebuildPresetOptions();
+    applyLang();
+  })
+  .catch(err => {
+    console.error('outdoor.json yükleme hatası', err);
+    applyLang();
+  });
+
+function rebuildPresetOptions(){
+  // ilk option'u koru, geri kalanını temizle
+  for(let i=$preset.options.length-1;i>=1;i--){ $preset.remove(i); }
+
+  // Sırala: ada göre
+  const arr = [...featuresData];
+  arr.sort((a,b)=>{
+    const na = (a.properties['name_'+LANG] || a.properties.name || '').toLocaleLowerCase(LANG);
+    const nb = (b.properties['name_'+LANG] || b.properties.name || '').toLocaleLowerCase(LANG);
+    return na.localeCompare(nb);
+  });
+
+  arr.forEach(f=>{
+    const name = f.properties['name_'+LANG] || f.properties.name || f.id;
+    const opt = document.createElement('option');
+    opt.value = f.id || '';
+    opt.textContent = name;
+    $preset.appendChild(opt);
+  });
 }
 
-/* UI başlat */
-window.addEventListener('DOMContentLoaded', ()=>{
-  refreshUITexts();
-  // Rozet & input senkron: kullanıcı silerse rozet de silinsin
-  qInput.addEventListener('input', ()=> searchBadge.textContent = (qInput.value||'').trim()?`“${(qInput.value||'').trim()}”`:'' );
-});
-</script>
-</body>
-</html>
+/* Preset seçilince git ve popup aç */
