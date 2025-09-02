@@ -19,6 +19,25 @@
         "image": ""
       },
       "id": "02d9b52d-b395-4498-9c63-22e362c5183c"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80507225570032,
+          36.597944163980856
+        ]
+      },
+      "properties": {
+        "name": "Dolfine Restourant",
+        "category": "restaurant",
+        "hours": "18:00 - 22:00",
+        "level": "",
+        "desc": "test",
+        "image": "http://info.lbresorts.com/wp-content/uploads/2025/08/google-new-seeklogo.png"
+      },
+      "id": "b436da9a-0cb0-4d5e-9309-db613f84fd8a"
     }
   ]
 }
