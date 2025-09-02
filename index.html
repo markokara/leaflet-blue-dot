@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Admin – Indoor/Outdoor Editör (Yayınlama + Mobil Sade)</title>
+<title>Admin – Indoor/Outdoor Editör (Manuel Yayın + Canlı Konum)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 <style>
@@ -11,7 +11,7 @@
   #map{position:fixed; inset:0; height:auto; width:auto; touch-action:none;}
   .panel{position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:10;
     background:#fff; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.25);
-    padding:10px; width:calc(100% - 20px); max-width:1100px; pointer-events:auto;}
+    padding:10px; width:calc(100% - 20px); max-width:1080px;}
   .row{display:flex; flex-wrap:wrap; gap:8px}
   .row>*{flex:1 1 auto; min-width:120px}
   button,select,input[type="file"],input[type="text"]{
@@ -19,7 +19,6 @@
   }
   input[type="text"]{cursor:text}
   .primary{border-color:#b3d7ff; background:#f0f7ff}
-  .danger{border-color:#ffb3b3; background:#fff0f0}
   .active{outline:2px solid #3b82f6; background:#eaf2ff}
   #status{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:11; background:#111; color:#fff; padding:6px 10px; border-radius:8px; display:none; font-size:13px}
   .modal{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:12}
@@ -30,23 +29,22 @@
   textarea{min-height:72px}
   .actions{display:flex; gap:8px; justify-content:space-between; margin-top:10px}
   .actions .left{display:flex; gap:8px}
-  .actions button{padding:10px 14px; border:1px solid #ddd; border-radius:8px; background:#fff}
-  .save{border-color:#b3d7ff; background:#f0f7ff}
-  .cancel{background:#fafafa}
+  .save{border-color:#b3d7ff; background:#f0f7ff; padding:10px 14px}
+  .danger{border:1px solid #ffb3b3; background:#fff0f0; padding:10px 14px}
   .pill{padding:4px 8px; font-size:12px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe}
   .small{font-size:12px; color:#555}
-  /* Mobil sade */
   @media (max-width: 640px){
     .panel{padding:8px}
     button,select,input[type="file"],input[type="text"]{padding:9px; font-size:14px}
-    #addLine, #clearLocal, #expIndoor, #expOutdoor, #del { display:none; } /* mobilde sadeleştir */
     .row>*{min-width:100px}
   }
+  .acc-badge{position:fixed; right:10px; top:10px; z-index:11; background:#fff; border:1px solid #ddd; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15)}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="status"></div>
+<div id="acc" class="acc-badge" style="display:none"></div>
 
 <div class="panel">
   <div class="row" style="margin-bottom:8px">
@@ -55,26 +53,20 @@
       <option value="indoor">Hedef: INDOOR</option>
     </select>
     <input id="levelFilter" placeholder="Kat filtresi (ör: 1) – boş=hepsi" />
-    <button id="myPos" class="primary">📍 Benim Konumum</button>
+    <button id="follow" class="primary" title="Harita konumumu izlesin">🎯 Takip: Kapalı</button>
     <button id="addPoint" class="primary">➕ Nokta</button>
-    <button id="addLine" class="primary">〰️ Çizgi</button>
     <button id="addPoly" class="primary">⬛ Poligon</button>
     <button id="finishDraw" style="display:none">✔ Bitir</button>
-    <button id="modify">✎ Düzenle</button>
     <button id="selectBtn">☑ Seç / Özellik</button>
-    <button id="del" class="danger">🗑 Sil</button>
+    <span class="pill small">Aktif katman vurgulu</span>
   </div>
   <div class="row">
-    <button id="undo">↶ Geri Al</button>
-    <button id="redo">↷ İleri Al</button>
     <button id="expIndoor">⤓ indoor.json</button>
     <button id="expOutdoor">⤓ outdoor.json</button>
     <label style="display:flex;align-items:center;gap:6px">⤒ JSON Yükle
       <input id="imp" type="file" accept=".json,application/json">
     </label>
     <button id="clearLocal" class="danger">🧹 Yerel Veriyi Temizle</button>
-    <button id="openPublish" class="primary">🚀 Yayınla / Ayarlar</button>
-    <span class="pill small">Aktif katman vurgulu</span>
   </div>
 </div>
 
@@ -105,60 +97,32 @@
     </div>
     <div class="actions">
       <div class="left">
-        <button class="cancel" id="propCancel">Vazgeç</button>
+        <button id="propGeom" class="pill" title="Geometri noktalarını düzenle">Geometriyi Düzenle</button>
         <button id="propDelete" class="danger">Sil</button>
       </div>
-      <button class="save" id="propSave">Kaydet</button>
-    </div>
-  </div>
-</div>
-
-<!-- Yayınla / Ayarlar -->
-<div id="pubModal" class="modal" aria-hidden="true">
-  <div class="panel2">
-    <h3>Yayınlama Ayarları</h3>
-    <p class="small">S3/MinIO/WebDAV gibi bir depoda <b>pre-signed PUT/POST URL</b> üretip aşağıya yapıştır. “Yayınla” dediğinde katmanlar o URL’lere yazılır.</p>
-    <div class="grid">
-      <div style="grid-column:1/-1">
-        <label>Indoor Publish URL (PUT/POST)</label>
-        <input id="pubIndoor" placeholder="https://.../indoor.json?X-Amz-...">
+      <div>
+        <button class="save" id="propSave">Kaydet</button>
+        <button class="save" id="propClose">Kapat</button>
       </div>
-      <div style="grid-column:1/-1">
-        <label>Outdoor Publish URL (PUT/POST)</label>
-        <input id="pubOutdoor" placeholder="https://.../outdoor.json?X-Amz-...">
-      </div>
-      <div style="grid-column:1/-1">
-        <label>Cache bust param (ops)</label>
-        <input id="pubCacheKey" placeholder="ör. v=123 veya boş bırak">
-      </div>
-    </div>
-    <div class="actions">
-      <div class="left">
-        <button class="cancel" id="pubCancel">Kapat</button>
-        <button id="pubTest">URL’leri Kaydet</button>
-      </div>
-      <button class="save" id="pubDo">🚀 Yayınla</button>
     </div>
   </div>
 </div>
 
 <script>
-/* ======= Yardımcılar / Kurulum (önceki sürümün tüm iyileştirmeleri dahil) ======= */
+/* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
 const statusEl = $("status");
-const setStatus = (msg, ms=2200) => { if(!msg){ statusEl.style.display="none"; return; } statusEl.textContent = msg; statusEl.style.display="block"; if(ms>0) setTimeout(()=>{ statusEl.style.display="none"; }, ms); };
-const layerKey = () => $("layerSel").value;
+const setStatus = (msg, ms=2200)=>{ if(!msg){statusEl.style.display="none";return;} statusEl.textContent=msg; statusEl.style.display="block"; if(ms>0) setTimeout(()=>statusEl.style.display="none", ms); };
 const fmt = new ol.format.GeoJSON();
-function isFeatureCollection(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
+function isFC(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
 const writeGJ = layer => JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(),{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}));
-const readGJToLayer = (layer, gj) => { if(!isFeatureCollection(gj)) throw new Error("GeoJSON FeatureCollection bekleniyor."); const fs = fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
-function debounce(fn, wait){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); }; }
-const saveLocalRaw = (key, data) => { try{ localStorage.setItem(key, JSON.stringify(data)); }catch(e){ console.warn(e); alert("Yerel depolama kotası dolu olabilir. Dışa aktarın ve temizleyin."); } };
-const saveLocal = debounce((key, layer)=> saveLocalRaw(key, writeGJ(layer)), 300);
-const loadLocal = key => { const s=localStorage.getItem(key); try{ return s?JSON.parse(s):null; }catch{return null;} };
-async function tryFetch(url){ try{ const r=await fetch(url,{cache:"no-cache"}); if(!r.ok) throw 0; return await r.json(); }catch{return null;} }
+const readGJToLayer = (layer, gj) => { if(!isFC(gj)) throw new Error("FeatureCollection bekleniyor"); const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
+function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }catch(e){ alert("Yerel depolama dolu olabilir."); } };
+const saveLocal = debounce((k,layer)=> saveLocalRaw(k, writeGJ(layer)), 250);
+const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
 
-/* Stil + katmanlar (soldurma + seviye filtresi) */
+/* ====== katmanlar ====== */
 function baseStyleFor(f, dim=1){
   const t=f.getGeometry().getType();
   const stroke=new ol.style.Stroke({color:`rgba(0,0,0,${0.6*dim})`,width:2});
@@ -166,145 +130,137 @@ function baseStyleFor(f, dim=1){
   const circle=new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:`rgba(200,0,0,${1*dim})`}),stroke:new ol.style.Stroke({color:"#fff",width:1})});
   return t==="Point" ? new ol.style.Style({image:circle}) : new ol.style.Style({stroke,fill});
 }
-function styleWrapper(layerName){
-  return function(f){
-    const activeLayer = layerKey();
-    const filter = $("levelFilter").value.trim();
-    const lvl = (f.get("level") ?? "").toString().trim();
-    const isActive = activeLayer === layerName;
-    if(filter && lvl !== filter) return null;
-    return baseStyleFor(f, isActive ? 1 : 0.35);
+function styleWrapper(name){
+  return f=>{
+    const active=$("layerSel").value;
+    const filter=$("levelFilter").value.trim();
+    const lvl=(f.get("level")??"").toString().trim();
+    const isActive=active===name;
+    if(filter && lvl!==filter) return null;
+    return baseStyleFor(f, isActive?1:0.35);
   };
 }
-const indoorSource  = new ol.source.Vector();
-const outdoorSource = new ol.source.Vector();
-const indoorLayer  = new ol.layer.VectorImage({source: indoorSource,  style: styleWrapper("indoor")});
-const outdoorLayer = new ol.layer.VectorImage({source: outdoorSource, style: styleWrapper("outdoor")});
+const indoorLayer  = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("indoor")});
+const outdoorLayer = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("outdoor")});
 const map = new ol.Map({ target:"map", layers:[ new ol.layer.Tile({source:new ol.source.OSM()}), indoorLayer, outdoorLayer ], view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17}) });
-const tgtLayer = ()=> layerKey()==="indoor" ? indoorLayer : outdoorLayer;
+const tgtLayer = ()=> $("layerSel").value==="indoor" ? indoorLayer : outdoorLayer;
 
-/* Veri yükleme (local→dosya→boş) */
-let isBulkLoading=false;
-(async ()=>{
-  isBulkLoading = true;
-  const ind = loadLocal("indoor")  || (await tryFetch("indoor.json"))  || {"type":"FeatureCollection","features":[]};
-  const out = loadLocal("outdoor") || (await tryFetch("outdoor.json")) || {"type":"FeatureCollection","features":[]};
-  readGJToLayer(indoorLayer, ind); readGJToLayer(outdoorLayer, out);
-  isBulkLoading = false;
+/* ====== veri yükleme ====== */
+let bulk=false;
+(function initLoad(){
+  bulk=true;
+  readGJToLayer(indoorLayer,  loadLocal("indoor")  || {"type":"FeatureCollection","features":[]});
+  readGJToLayer(outdoorLayer, loadLocal("outdoor") || {"type":"FeatureCollection","features":[]});
+  bulk=false;
 })();
 
-/* Jeolokasyon */
-let lastPos=null;
-function geoError(err){ setStatus("Konum alınamadı: "+(err?.message||err?.code||"bilinmiyor")); }
-if(navigator.geolocation){ navigator.geolocation.watchPosition(p=>{ lastPos=p; }, geoError, {enableHighAccuracy:true, maximumAge:5000, timeout:10000}); }
+/* ====== konum – canlı mavi nokta + takip ====== */
+const accEl = $("acc");
+let userMarker=null, accCircle=null, userLayer=null, follow=false, watchId=null;
 
-/* Etkileşim durumları */
-let mode=null, draw=null, modify=null, select=null, snap=null, selected=null;
-function resetInteractions(){ if(draw){map.removeInteraction(draw);draw=null;} if(modify){map.removeInteraction(modify);modify=null;} if(select){map.removeInteraction(select);select=null;} if(snap){map.removeInteraction(snap);snap=null;} selected=null; mode=null; ["addPoint","addLine","addPoly","modify","selectBtn"].forEach(id=>$(id).classList.remove("active")); $("finishDraw").style.display="none"; setStatus(""); map.getTargetElement().style.cursor=""; }
-function withDCZoomDisabled(fn){ const dc=map.getInteractions().getArray().find(i=>i instanceof ol.interaction.DoubleClickZoom); const prev=dc?dc.getActive():null; if(dc) dc.setActive(false); try{ fn(); } finally { if(dc && prev!==null) dc.setActive(prev); } }
-function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap = new ol.interaction.Snap({ source: layer.getSource() }); map.addInteraction(snap); }
-function enrichFeature(f){ try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{} const g=f.getGeometry(), t=g.getType(); if(t==="Polygon"){ f.set("area_m2", Math.round(g.getArea())); } else if(t==="LineString"){ f.set("len_m", Math.round(g.getLength())); } }
-
-/* Undo/Redo */
-const history = { indoor:{undo:[],redo:[]}, outdoor:{undo:[],redo:[]} };
-function snapshot(key){ const layer = key==="indoor"?indoorLayer:outdoorLayer; return writeGJ(layer); }
-function pushHistory(key){ if(isBulkLoading) return; const h=history[key]; h.undo.push(snapshot(key)); if(h.undo.length>50) h.undo.shift(); h.redo.length=0; }
-function applySnapshot(key, gj){ const layer = key==="indoor"?indoorLayer:outdoorLayer; isBulkLoading=true; readGJToLayer(layer, gj); isBulkLoading=false; saveLocal(key, layer); }
-function undo(){ const key=layerKey(), h=history[key]; if(h.undo.length===0) return; const current=snapshot(key); const prev=h.undo.pop(); h.redo.push(current); applySnapshot(key, prev); }
-function redo(){ const key=layerKey(), h=history[key]; if(h.redo.length===0) return; const current=snapshot(key); const next=h.redo.pop(); h.undo.push(current); applySnapshot(key, next); }
-$("undo").onclick=()=>undo(); $("redo").onclick=()=>redo();
-function wireSourceEvents(name, layer){ const src=layer.getSource(); src.on("addfeature", ()=>{pushHistory(name); saveLocal(name,layer);}); src.on("removefeature", ()=>{pushHistory(name); saveLocal(name,layer);}); }
-wireSourceEvents("indoor", indoorLayer); wireSourceEvents("outdoor", outdoorLayer);
-
-/* Özellik Formu */
-const propModal=$("propModal");
-function validateImg(url){ try{ const u=new URL(url); if(!(u.protocol==="http:"||u.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(u.pathname); }catch{return false;} }
-function openForm(f){
-  const p=f.getProperties();
-  $("f_name").value=p.name||"";
-  const catSel=$("f_category"), otherWrap=$("catOtherWrap"), otherInput=$("f_category_other");
-  if(p.category && [...catSel.options].some(o=>o.value===p.category)){ catSel.value=p.category; otherWrap.style.display="none"; otherInput.value=""; }
-  else if(p.category){ catSel.value="_other"; otherWrap.style.display="block"; otherInput.value=p.category; }
-  else{ catSel.value=""; otherWrap.style.display="none"; otherInput.value=""; }
-  $("f_hours").value=p.hours||""; $("f_level").value=p.level||""; $("f_desc").value=p.desc||""; $("f_image").value=p.image||"";
-  $("f_id").value=f.getId()||"(oluşturulacak)";
-  const g=f.getGeometry();
-  $("f_metric").value = g.getType()==="Polygon" ? (p.area_m2 ? (p.area_m2+" m²"):"") : g.getType()==="LineString" ? (p.len_m ? (p.len_m+" m"):"") : "";
-
-  propModal.style.display="flex"; propModal.setAttribute("aria-hidden","false");
-  const updateCatOther=()=>{ if(catSel.value==="_other"){ otherWrap.style.display="block"; } else { otherWrap.style.display="none"; otherInput.value=""; } };
-  catSel.onchange=updateCatOther; updateCatOther();
-
-  $("propSave").onclick=()=>{
-    const catVal=(catSel.value==="_other") ? otherInput.value.trim() : catSel.value.trim();
-    const img=$("f_image").value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; }
-    f.setProperties({ name:$("f_name").value.trim(), category:catVal||"", hours:$("f_hours").value.trim(), level:$("f_level").value.trim(), desc:$("f_desc").value.trim(), image:img });
-    enrichFeature(f);
-    const key=layerKey(), layer=tgtLayer(); pushHistory(key); saveLocal(key, layer);
-    propModal.style.display="none"; propModal.setAttribute("aria-hidden","true"); resetInteractions();
-  };
-  $("propCancel").onclick=()=>{ propModal.style.display="none"; propModal.setAttribute("aria-hidden","true"); resetInteractions(); };
-  $("propDelete").onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ const layer=tgtLayer(); layer.getSource().removeFeature(f); const key=layerKey(); pushHistory(key); saveLocal(key, layer); propModal.style.display="none"; propModal.setAttribute("aria-hidden","true"); resetInteractions(); } };
+function ensureHttpsOrLocalhost(){
+  const prot = location.protocol;
+  const host = location.hostname;
+  if(!(prot==="https:" || host==="localhost" || host==="127.0.0.1")){
+    setStatus("Konum için HTTPS gerekir. (GitHub Pages ‘https’ tamam.)", 4000);
+  }
 }
-document.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && propModal.style.display==="flex"){ propModal.style.display="none"; propModal.setAttribute("aria-hidden","true"); resetInteractions(); } });
+ensureHttpsOrLocalhost();
 
-/* Harita etkileşimleri */
-map.on("singleclick",(evt)=>{ if(mode!=="point") return; const layer=tgtLayer(); const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrichFeature(f); layer.getSource().addFeature(f); openForm(f); });
+function startWatch(){
+  if(!("geolocation" in navigator)) { setStatus("Cihazda konum desteği yok."); return; }
+  try{
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+  }catch{}
+  watchId = navigator.geolocation.watchPosition(onPos, onGeoError, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+  // izin durumu bilgilendirmesi
+  if(navigator.permissions?.query){
+    navigator.permissions.query({name:"geolocation"}).then(p=>{
+      if(p.state==="denied") setStatus("Konum izni reddedildi. Tarayıcı ayarlarından 'Precise/Doğru Konum'u açın.", 5000);
+    }).catch(()=>{});
+  }
+}
+function onGeoError(err){ setStatus("Konum alınamadı: " + (err?.message||err?.code||"bilinmiyor"), 4000); }
+function onPos(pos){
+  const lon=pos.coords.longitude, lat=pos.coords.latitude, acc=pos.coords.accuracy||0;
+  const coords = ol.proj.fromLonLat([lon,lat]);
+  if(!userMarker){
+    userMarker = new ol.Feature(new ol.geom.Point(coords));
+    userMarker.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:"#007bff"}), stroke:new ol.style.Stroke({color:"#fff",width:2})}) }));
+    accCircle  = new ol.Feature(new ol.geom.Circle(coords, acc));
+    accCircle.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:"#007bff",width:1}), fill:new ol.style.Fill({color:"rgba(0,123,255,0.08)"}) }));
+    userLayer  = new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userMarker]}) });
+    map.addLayer(userLayer);
+  }else{
+    userMarker.getGeometry().setCoordinates(coords);
+    accCircle.getGeometry().setCenter(coords);
+    accCircle.getGeometry().setRadius(acc);
+  }
+  accEl.textContent = "±" + Math.round(acc) + " m";
+  accEl.style.display = "block";
+  if(follow) map.getView().animate({center: coords, duration: 200});
+}
+startWatch();
+
+/* ====== etkileşimler ====== */
+let mode=null, draw=null, select=null, selected=null, modify=null, snap=null;
+function resetInteractions(){ if(draw){map.removeInteraction(draw);draw=null;} if(select){map.removeInteraction(select);select=null;} if(modify){map.removeInteraction(modify);modify=null;} if(snap){map.removeInteraction(snap);snap=null;} selected=null; mode=null; ["addPoint","addPoly","selectBtn"].forEach(id=>$(id).classList.remove("active")); $("finishDraw").style.display="none"; map.getTargetElement().style.cursor=""; }
+function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
+function enrich(f){ try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{} const g=f.getGeometry(); if(g.getType()==="Polygon") f.set("area_m2",Math.round(g.getArea())); }
+
+$("follow").onclick=()=>{
+  follow=!follow; $("follow").textContent = follow ? "🎯 Takip: Açık" : "🎯 Takip: Kapalı";
+  if(follow && userMarker){ map.getView().setCenter(userMarker.getGeometry().getCoordinates()); }
+};
+
+map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
+
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla/dokun"); map.getTargetElement().style.cursor="crosshair"; };
-$("addLine").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="line"; $("addLine").classList.add("active"); setStatus("ÇİZGİ: noktaları yerleştir; bitirmek için çift tık ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair"; const layer=tgtLayer(); withDCZoomDisabled(()=>{ draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); }); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); }; draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrichFeature(ev.feature); openForm(ev.feature); const key=layerKey(); pushHistory(key); saveLocal(key, layer); }); };
-$("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; bitirmek için çift tık ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair"; const layer=tgtLayer(); withDCZoomDisabled(()=>{ draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); }); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); }; draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrichFeature(ev.feature); openForm(ev.feature); const key=layerKey(); pushHistory(key); saveLocal(key, layer); }); };
-$("modify").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="modify"; $("modify").classList.add("active"); setStatus("DÜZENLE: köşeleri sürükle (Snap açık)"); const layer=tgtLayer(); modify=new ol.interaction.Modify({source:layer.getSource()}); map.addInteraction(modify); enableSnap(layer); modify.on("modifyend",()=>{ layer.getSource().getFeatures().forEach(enrichFeature); const key=layerKey(); pushHistory(key); saveLocal(key, layer); }); };
+
+$("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; bitirmek için çift tık ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair"; const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); }; draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); }); };
+
 $("selectBtn").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active"); setStatus("SEÇİM: öğeye tıkla → form açılır"); const layer=tgtLayer(); select=new ol.interaction.Select({layers:[layer]}); if(select.setHitTolerance) select.setHitTolerance(6); map.addInteraction(select); select.on("select",ev=>{ selected=ev.selected[0]||null; if(selected) openForm(selected); }); };
-$("del").onclick=(e)=>{ e.preventDefault(); const layer=tgtLayer(); if(!selected){ alert("Silmek için önce 'Seç / Özellik' ile öğe seçin."); return; } if(confirm("Seçili öğe silinsin mi?")){ layer.getSource().removeFeature(selected); selected=null; const key=layerKey(); pushHistory(key); saveLocal(key, layer); resetInteractions(); } };
-document.addEventListener("keydown",(e)=>{ if(e.key==="Delete" && selected){ const layer=tgtLayer(); if(confirm("Seçili öğe silinsin mi?")){ layer.getSource().removeFeature(selected); selected=null; const key=layerKey(); pushHistory(key); saveLocal(key, layer); resetInteractions(); } } });
+
 $("layerSel").addEventListener("change",()=>{ resetInteractions(); indoorLayer.changed(); outdoorLayer.changed(); });
 $("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); });
 
-/* Benim Konumum */
-$("myPos").onclick=async (e)=>{ e.preventDefault(); const layer=tgtLayer(); if(!lastPos && navigator.geolocation){ await new Promise(res=>navigator.geolocation.getCurrentPosition(p=>{lastPos=p; res();}, geoError, {enableHighAccuracy:true, timeout:8000})); } if(!lastPos){ alert("Konum alınamadı."); return; } const c=ol.proj.fromLonLat([lastPos.coords.longitude,lastPos.coords.latitude]); const f=new ol.Feature(new ol.geom.Point(c)); enrichFeature(f); layer.getSource().addFeature(f); openForm(f); const key=layerKey(); pushHistory(key); saveLocal(key, layer); };
+/* ====== Özellik Formu ====== */
+const modal=$("propModal");
+function validateImg(u){ try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{return false;} }
+function openForm(f){
+  const p=f.getProperties(); const catSel=$("f_category"), otherWrap=$("catOtherWrap"), other=$("f_category_other");
+  $("f_name").value=p.name||""; $("f_hours").value=p.hours||""; $("f_level").value=p.level||""; $("f_desc").value=p.desc||""; $("f_image").value=p.image||""; $("f_id").value=f.getId()||""; $("f_metric").value=p.area_m2? (p.area_m2+" m²"): (p.len_m? (p.len_m+" m"):"");
+  if(p.category && [...catSel.options].some(o=>o.value===p.category)){ catSel.value=p.category; otherWrap.style.display="none"; other.value=""; }
+  else if(p.category){ catSel.value="_other"; otherWrap.style.display="block"; other.value=p.category; }
+  else { catSel.value=""; otherWrap.style.display="none"; other.value=""; }
+  catSel.onchange=()=>{ if(catSel.value==="_other") otherWrap.style.display="block"; else {otherWrap.style.display="none"; other.value="";} };
+  modal.style.display="flex"; modal.setAttribute("aria-hidden","false");
+  $("propSave").onclick=()=>{ const img=$("f_image").value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; } f.setProperties({ name:$("f_name").value.trim(), category:(catSel.value==="_other"? other.value.trim(): catSel.value.trim()), hours:$("f_hours").value.trim(), level:$("f_level").value.trim(), desc:$("f_desc").value.trim(), image:img }); enrich(f); saveLocal($("layerSel").value, tgtLayer()); };
+  $("propClose").onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); resetInteractions(); };
+  $("propGeom").onclick=()=>{ // sadece bu feature üzerinde geçici modify
+    if(modify) map.removeInteraction(modify);
+    modify=new ol.interaction.Modify({ features: new ol.Collection([f]) });
+    map.addInteraction(modify);
+    enableSnap(tgtLayer());
+    modify.on("modifyend",()=>{ enrich(f); saveLocal($("layerSel").value, tgtLayer()); });
+  };
+  $("propDelete").onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(f); saveLocal($("layerSel").value, tgtLayer()); modal.style.display="none"; resetInteractions(); } };
+}
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && modal.style.display==="flex"){ modal.style.display="none"; resetInteractions(); } });
 
-/* İndir / Yükle / Temizle */
-function downloadJSON(obj,name){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
-$("expIndoor").onclick=()=> downloadJSON(writeGJ(indoorLayer),"indoor.json");
-$("expOutdoor").onclick=()=> downloadJSON(writeGJ(outdoorLayer),"outdoor.json");
+/* ====== indir / yükle / temizle ====== */
+function dl(obj,name){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+$("expIndoor").onclick=()=> dl(writeGJ(indoorLayer),"indoor.json");
+$("expOutdoor").onclick=()=> dl(writeGJ(outdoorLayer),"outdoor.json");
 $("imp").addEventListener("change", async e=>{
   const file=e.target.files[0]; if(!file) return;
-  if(file.size > 5*1024*1024){ alert("Dosya > 5MB, lütfen küçültün."); e.target.value=""; return; }
-  try{
-    const txt=await file.text(); const json=JSON.parse(txt);
-    if(!isFeatureCollection(json)) throw new Error();
-    if(json.features.length > 5000){ alert("Maks 5000 öğe."); e.target.value=""; return; }
-    const layer=tgtLayer(); isBulkLoading=true; readGJToLayer(layer,json); isBulkLoading=false;
-    const key=layerKey(); pushHistory(key); saveLocal(key, layer); alert("GeoJSON yüklendi.");
-  }catch{ alert("Geçersiz GeoJSON."); }
+  if(file.size>5*1024*1024){ alert("Dosya > 5MB."); e.target.value=""; return; }
+  try{ const json=JSON.parse(await file.text()); const layer=tgtLayer(); readGJToLayer(layer,json); saveLocal($("layerSel").value, layer); alert("GeoJSON yüklendi."); }catch{ alert("Geçersiz GeoJSON."); }
   e.target.value="";
 });
-$("clearLocal").onclick=()=>{ if(confirm("Tarayıcı yerel verisi silinsin mi?")){ localStorage.removeItem("indoor"); localStorage.removeItem("outdoor"); alert("Yerel veri temizlendi. Sayfayı yenileyin."); } };
+$("clearLocal").onclick=()=>{ if(confirm("Yerel veriyi sil?")){ localStorage.removeItem("indoor"); localStorage.removeItem("outdoor"); alert("Temizlendi. Sayfayı yenileyin."); } };
 
-/* ======= Yayınla / Ayarlar ======= */
-const pubModal=$("pubModal"); const openPublish=$("openPublish");
-const pubIndoor=$("pubIndoor"); const pubOutdoor=$("pubOutdoor"); const pubCacheKey=$("pubCacheKey");
-function loadPubCfg(){ pubIndoor.value=localStorage.getItem("publishIndoorURL")||""; pubOutdoor.value=localStorage.getItem("publishOutdoorURL")||""; pubCacheKey.value=localStorage.getItem("publishCacheKey")||""; }
-openPublish.onclick=()=>{ loadPubCfg(); pubModal.style.display="flex"; pubModal.setAttribute("aria-hidden","false"); };
-$("pubCancel").onclick=()=>{ pubModal.style.display="none"; pubModal.setAttribute("aria-hidden","true"); };
-$("pubTest").onclick=()=>{ localStorage.setItem("publishIndoorURL", pubIndoor.value.trim()); localStorage.setItem("publishOutdoorURL", pubOutdoor.value.trim()); localStorage.setItem("publishCacheKey", pubCacheKey.value.trim()); alert("URL’ler kaydedildi."); };
-$("pubDo").onclick=async ()=>{
-  const iURL=(pubIndoor.value||"").trim(); const oURL=(pubOutdoor.value||"").trim(); const ck=(pubCacheKey.value||"").trim();
-  if(!iURL && !oURL){ alert("Önce URL girin."); return; }
-  const headers = {'Content-Type':'application/json'};
-  const resMsgs=[];
-  async function putIt(url, obj){
-    const u = ck ? (url + (url.includes("?")?"&":"?") + ck) : url;
-    const r = await fetch(u, { method: (u.includes("X-Amz")||u.includes("X-Goog")||u.includes("sig")) ? "PUT":"POST", headers, body: JSON.stringify(obj) });
-    return r.ok;
-  }
-  if(iURL){ const ok = await putIt(iURL, writeGJ(indoorLayer)); resMsgs.push("Indoor: "+(ok?"✅":"❌")); }
-  if(oURL){ const ok = await putIt(oURL, writeGJ(outdoorLayer)); resMsgs.push("Outdoor: "+(ok?"✅":"❌")); }
-  alert("Yayınlama bitti → " + resMsgs.join(" | "));
-  pubModal.style.display="none"; pubModal.setAttribute("aria-hidden","true");
-};
-
-setStatus("Hazır: Yayınlama, Mobil sade, Undo/Redo, Snap, ✔ Bitir.");
+setStatus("Hazır: Canlı konum + takip + sade admin.");
 </script>
 </body>
 </html>
