@@ -2,71 +2,72 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-  <title>Misafir – Indoor & Outdoor Harita</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Misafir – Indoor & Outdoor Harita (OpenLayers)</title>
 
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+  <!-- OpenLayers -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
   <style>
     :root{
-      --pad:10px;
-      --radius:12px;
-      --shadow:0 6px 20px rgba(0,0,0,.12);
+      --pad:10px; --radius:12px; --shadow:0 6px 18px rgba(0,0,0,.12);
+      --muted:#737373; --brand:#2563eb; --danger:#dc2626;
     }
     html,body{height:100%;margin:0}
-    body{font:14px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
 
-    #map{position:fixed; inset:0;}
+    #map{position:fixed; inset:0}
 
     /* Üst araç çubuğu */
     .toolbar{
       position:fixed; left:12px; right:12px; top:12px; z-index:1000;
-      background:#fff; border-radius:var(--radius); padding:10px;
+      background:#fff; border-radius:var(--radius); padding:8px;
       box-shadow:var(--shadow);
     }
-    .row{
-      display:flex; align-items:center; gap:8px;
-      overflow-x:auto; /* çok dar ekranda taşanı kaydır */
-      -webkit-overflow-scrolling:touch;
-      scrollbar-width:none;
-    }
+    .row{display:flex; align-items:center; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none}
     .row::-webkit-scrollbar{display:none}
-    .row > *{flex:0 0 auto}
+    .row>*{flex:0 0 auto}
 
-    input[type="search"]{
-      min-width:180px; width:50vw; max-width:520px;
-      padding:8px 10px; border:1px solid #ddd; border-radius:10px;
-    }
-    button,.btn{
-      padding:8px 10px; border:1px solid #ddd; background:#f7f7f7;
-      border-radius:10px; cursor:pointer;
-    }
+    input[type="search"]{min-width:180px; width:50vw; max-width:520px; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px}
+    button,.btn{padding:8px 10px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
     button:active{transform:translateY(1px)}
-    select{
-      padding:8px 10px; border:1px solid #ddd; border-radius:10px; background:#fff;
-    }
-
-    /* Popup içi küçük rozeti */
+    select{padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
     .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
 
-    /* Telefonlarda rahat görünsün */
-    @media (max-width:480px){
+    /* Arama sonuç kutusu */
+    .results{position:absolute; left:12px; top:52px; z-index:1001; background:#fff; border:1px solid #e5e7eb; border-radius:10px; width:320px; max-height:42vh; overflow:auto; display:none; box-shadow:var(--shadow)}
+    .results .item{padding:8px 10px; cursor:pointer}
+    .results .item:hover{background:#f1f5f9}
+
+    /* Popup */
+    .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:200px; box-shadow:var(--shadow); transform:translate(-50%,-100%); }
+    .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#999}
+
+    /* Admin panel */
+    .admin{
+      position:fixed; right:12px; top:72px; width:320px; max-width:80vw; z-index:1000;
+      background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:var(--shadow); display:none;
+    }
+    .admin header{padding:10px 12px; border-bottom:1px solid #f1f5f9; font-weight:600}
+    .admin .content{padding:10px 12px; display:grid; gap:8px}
+    .admin label{font-size:12px; color:var(--muted)}
+    .admin input, .admin select, .admin textarea{
+      width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px; font:inherit
+    }
+    .admin .row{display:flex; gap:8px}
+    .admin .row>*{flex:1}
+    .admin .danger{background:#fff1f2; border-color:#fecdd3}
+    .admin .muted{color:var(--muted); font-size:12px}
+    .admin .btnbar{display:flex; gap:8px; margin-top:4px}
+    .admin .btnbar>.grow{flex:1}
+
+    @media (max-width:520px){
       input[type="search"]{width:56vw; min-width:160px}
+      .results{width:260px}
     }
 
-    /* Leaflet attribution biraz yukarı */
-    .leaflet-control-attribution{background:rgba(255,255,255,.85); border-radius:8px}
+    .leaflet-control-attribution, .ol-attribution{background:rgba(255,255,255,.85); border-radius:8px}
   </style>
 </head>
 <body>
@@ -75,7 +76,7 @@
   <div class="toolbar" role="toolbar" aria-label="Üst araç çubuğu">
     <div class="row">
       <input id="q" type="search" placeholder="Ara: restoran, spa, havuz…" />
-      <button id="go">Git</button>
+      <button id="go" disabled>Git</button>
 
       <select id="preset">
         <option value="">Hedef Seç</option>
@@ -88,171 +89,515 @@
         <option value="de">Deutsch</option>
         <option value="pl">Polski</option>
       </select>
+
+      <button id="pick">Haritadan Hedef</button>
+      <button id="adm">Admin</button>
     </div>
   </div>
+
+  <!-- Arama sonuçları -->
+  <div id="results" class="results" role="listbox" aria-label="Arama Sonuçları"></div>
+
+  <!-- Popup -->
+  <div id="popup" class="ol-popup" style="display:none">
+    <a href="#" id="popup-closer" class="ol-popup-closer">✕</a>
+    <div id="popup-content"></div>
+  </div>
+
+  <!-- Admin panel -->
+  <aside id="admin" class="admin">
+    <header>Admin Paneli</header>
+    <div class="content">
+      <div class="muted">Bir öğeye tıklayın veya “Yeni Nokta” ile ekleyin. Değişikliklerin kalıcı olması için “Dışa Aktar” ile <code>outdoor.json</code> kaydedin.</div>
+
+      <div class="row">
+        <button id="newPoint">Yeni Nokta</button>
+        <button id="newPoly">Yeni Çokgen</button>
+        <button id="delete" class="danger">Sil</button>
+      </div>
+
+      <select id="geomType">
+        <option value="Point">Point</option>
+        <option value="Polygon">Polygon</option>
+      </select>
+
+      <div class="row">
+        <select id="category">
+          <option value="">Kategori</option>
+          <option>pool</option><option>restaurant</option><option>spa</option>
+          <option>bar</option><option>cafe</option><option>shop</option><option>toilet</option>
+        </select>
+        <input id="hours" placeholder="hours_* (örn: 09:00–23:00)" />
+      </div>
+
+      <div class="row">
+        <input id="name_tr" placeholder="name_tr" />
+        <input id="name_en" placeholder="name_en" />
+      </div>
+      <div class="row">
+        <input id="name_ru" placeholder="name_ru" />
+        <input id="name_de" placeholder="name_de" />
+      </div>
+      <div class="row">
+        <input id="name_pl" placeholder="name_pl" />
+        <input id="level" placeholder="level_* (örn: Zemin, L1…)" />
+      </div>
+      <textarea id="desc" rows="3" placeholder="desc_* (çok dilli alanları isme benzer ekleyebilirsiniz)"></textarea>
+
+      <div class="btnbar">
+        <button id="save" class="grow">Kaydet/Update</button>
+        <button id="export">Dışa Aktar</button>
+        <label class="btn" style="cursor:pointer">
+          JSON Yükle
+          <input id="import" type="file" accept="application/json" style="display:none">
+        </label>
+      </div>
+    </div>
+  </aside>
 
   <div id="map" aria-label="Harita"></div>
 
 <script>
 /* =========================
-   Basit i18n (TR, EN, RU, DE, PL)
+   1) i18n (TR, EN, RU, DE, PL)
    ========================= */
 const I18N = {
-  tr:{
-    searchPH:"Ara: restoran, spa, havuz…",
-    go:"Git", choose:"Hedef Seç",
-    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
-    cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC" }
-  },
-  en:{
-    searchPH:"Search: restaurant, spa, pool…",
-    go:"Go", choose:"Pick a place",
-    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
-    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet" }
-  },
-  ru:{
-    searchPH:"Поиск: ресторан, спа, бассейн…",
-    go:"Поехали", choose:"Выбрать место",
-    labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание"},
-    cats:{ pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет" }
-  },
-  de:{
-    searchPH:"Suche: Restaurant, Spa, Pool…",
-    go:"Los", choose:"Ziel wählen",
-    labels:{name:"Name", category:"Art", hours:"Zeiten", level:"Etage", desc:"Beschreibung"},
-    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Café", shop:"Laden", toilet:"WC" }
-  },
-  pl:{
-    searchPH:"Szukaj: restauracja, spa, basen…",
-    go:"Idź", choose:"Wybierz cel",
-    labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis"},
-    cats:{ pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta" }
-  }
+  tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git", choose:"Hedef Seç",
+      labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
+      cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC" } },
+  en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go", choose:"Pick a place",
+      labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
+      cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet" } },
+  ru:{ searchPH:"Поиск: ресторан, спа, бассейн…", go:"Поехали", choose:"Выбрать место",
+      labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание"},
+      cats:{ pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет" } },
+  de:{ searchPH:"Suche: Restaurant, Spa, Pool…", go:"Los", choose:"Ziel wählen",
+      labels:{name:"Name", category:"Art", hours:"Zeiten", level:"Etage", desc:"Beschreibung"},
+      cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Café", shop:"Laden", toilet:"WC" } },
+  pl:{ searchPH:"Szukaj: restauracja, spa, basen…", go:"Idź", choose:"Wybierz cel",
+      labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis"},
+      cats:{ pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta" } }
 };
 let LANG = localStorage.getItem("lang") || "tr";
 
 /* =========================
-   Harita kurulumu (Leaflet)
+   2) Map & Layers
    ========================= */
-const map = L.map('map', {
-  zoomControl: true,
-  worldCopyJump: true
-}).setView([36.6002,31.8046], 16);
+const base = new ol.layer.Tile({ source: new ol.source.OSM() });
+const vectorSource = new ol.source.Vector();
+const vectorLayer  = new ol.layer.Vector({
+  source: vectorSource,
+  style: feature => {
+    const geom = feature.getGeometry();
+    if (geom.getType()==='Point') {
+      return new ol.style.Style({
+        image: new ol.style.Circle({ radius:7, fill:new ol.style.Fill({color:'#f94144'}), stroke:new ol.style.Stroke({color:'#c1121f', width:2}) })
+      });
+    }
+    return new ol.style.Style({
+      stroke:new ol.style.Stroke({color:'#2563eb', width:2}),
+      fill:new ol.style.Fill({color:'rgba(37,99,235,.10)'})
+    });
+  }
+});
 
-/* OSM zemin katmanı */
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 20,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> katılımcıları'
-}).addTo(map);
+const map = new ol.Map({
+  target: 'map',
+  layers: [base, vectorLayer],
+  view: new ol.View({ center: ol.proj.fromLonLat([31.8046,36.6002]), zoom: 16 })
+});
 
-/* Dış mekan verisi */
-let featureLayer = null;
-let featuresIndex = {};   // id -> layer
-let featuresData = [];    // orijinal geojson features
-
-/* UI elemanları */
+/* =========================
+   3) UI Elemanları
+   ========================= */
 const $q = document.getElementById('q');
 const $go = document.getElementById('go');
 const $preset = document.getElementById('preset');
 const $lang = document.getElementById('lang');
+const $pick = document.getElementById('pick');
+const $adm = document.getElementById('adm');
+const $results = document.getElementById('results');
+const $popup = document.getElementById('popup');
+const $popupCloser = document.getElementById('popup-closer');
+const $popupContent = document.getElementById('popup-content');
 
-/* Dil uygula */
-function applyLang(){
-  const t = I18N[LANG] || I18N.tr;
-  $q.placeholder = t.searchPH;
-  $go.textContent = t.go;
+/* Popup Overlay */
+const popupOverlay = new ol.Overlay({
+  element: $popup,
+  autoPan: { animation: { duration: 200 } }
+});
+map.addOverlay(popupOverlay);
+$popupCloser.addEventListener('click', (e)=>{ e.preventDefault(); $popup.style.display='none'; popupOverlay.setPosition(undefined); });
 
-  // Hedef select'in ilk satırı
-  $preset.options[0].textContent = t.choose;
+/* =========================
+   4) Dış veri (outdoor.json)
+   ========================= */
+let featuresData = []; // orijinal GeoJSON (FeatureCollection.features)
 
-  // Açık popup varsa içeriği güncelle
-  featureLayer && featureLayer.eachLayer(l => {
-    if(l.isPopupOpen()){
-      l.setPopupContent(renderPopup(l.feature));
-    }
+function loadGeoJSON(geojson){
+  featuresData = geojson.features || [];
+  vectorSource.clear();
+  const feats = new ol.format.GeoJSON().readFeatures(geojson, {
+    featureProjection:'EPSG:3857'
   });
+  vectorSource.addFeatures(feats);
+  rebuildPresetOptions();
+  applyLang();
 
-  // kaydet
+  if (feats.length) {
+    const extent = vectorSource.getExtent();
+    if (extent && extent.every(isFinite)) map.getView().fit(extent, { padding:[80,80,80,80], maxZoom:19 });
+  }
+}
+
+fetch('outdoor.json')
+  .then(r=>r.ok ? r.json() : {features:[]})
+  .then(loadGeoJSON)
+  .catch(err => { console.warn('outdoor.json yüklenemedi:', err); loadGeoJSON({type:'FeatureCollection', features:[]}); });
+
+/* =========================
+   5) Çok dillilik
+   ========================= */
+function t(){ return I18N[LANG] || I18N.tr; }
+
+function applyLang(){
+  const L10N = t();
+  $q.placeholder = L10N.searchPH;
+  $go.textContent = L10N.go;
+  $preset.options[0].textContent = L10N.choose;
+
+  // Açık popup içeriğini güncelle
+  const feat = currentPopupFeature;
+  if (feat && popupOverlay.getPosition()) {
+    $popupContent.innerHTML = renderPopup(feat);
+  }
+
+  // preset listesi güncellensin (isim sırasıyla)
+  rebuildPresetOptions();
   localStorage.setItem("lang", LANG);
 }
 $lang.value = LANG;
-$lang.addEventListener('change', () => { LANG = $lang.value; applyLang(); });
+$lang.addEventListener('change', ()=>{ LANG = $lang.value; applyLang(); });
 
-/* Popup içeriği (çok dillilik) */
-function renderPopup(feat){
-  const p = feat.properties || {};
-  const t = I18N[LANG] || I18N.tr;
+function renderPopup(feature){
+  const p = feature.getProperties();
+  const L10N = t();
 
   const name = p['name_'+LANG] || p.name || '';
   const catKey = (p.category || '').toLowerCase();
-  const catLabel = t.cats[catKey] || p.category || '';
-
+  const catLabel = L10N.cats[catKey] || p.category || '';
   const hours = p['hours_'+LANG] || p.hours || '';
   const level = p['level_'+LANG] || p.level || '';
   const desc  = p['desc_'+LANG]  || p.desc  || '';
 
   return `
-    <div style="min-width:180px">
+    <div style="min-width:200px">
       <div style="font-weight:600; margin-bottom:6px">${name}</div>
-      ${catLabel ? `<div class="badge" title="${t.labels.category}">${catLabel}</div>`:''}
-      ${hours ? `<div style="margin-top:6px"><small>${t.labels.hours}:</small> ${hours}</div>`:''}
-      ${level ? `<div><small>${t.labels.level}:</small> ${level}</div>`:''}
+      ${catLabel ? `<div class="badge" title="${L10N.labels.category}">${catLabel}</div>`:''}
+      ${hours ? `<div style="margin-top:6px"><small>${L10N.labels.hours}:</small> ${hours}</div>`:''}
+      ${level ? `<div><small>${L10N.labels.level}:</small> ${level}</div>`:''}
       ${desc  ? `<div style="margin-top:6px">${desc}</div>`:''}
     </div>
   `;
 }
 
-/* GeoJSON yükle ve haritaya ekle */
-fetch('outdoor.json')
-  .then(r => r.json())
-  .then(geojson => {
-    featuresData = geojson.features || [];
-
-    featureLayer = L.geoJSON(geojson, {
-      pointToLayer: (feat, latlng) =>
-        L.circleMarker(latlng, {
-          radius: 7, weight: 2, color:'#c1121f', fillColor:'#f94144', fillOpacity:.9
-        }),
-      onEachFeature: (feat, layer) => {
-        featuresIndex[feat.id || L.Util.stamp(layer)] = layer;
-        layer.bindPopup(renderPopup(feat));
-      }
-    }).addTo(map);
-
-    // Eğer veri alanı varsa ona göre odakla
-    try{
-      const b = featureLayer.getBounds();
-      if (b.isValid()) map.fitBounds(b.pad(0.2));
-    }catch(e){/* tek nokta olabilir, sorun değil */}
-
-    // Hedef listesine doldur
-    rebuildPresetOptions();
-    applyLang();
-  })
-  .catch(err => {
-    console.error('outdoor.json yükleme hatası', err);
-    applyLang();
-  });
+/* =========================
+   6) Arama & Preset
+   ========================= */
+function allFeatures(){ return vectorSource.getFeatures(); }
 
 function rebuildPresetOptions(){
-  // ilk option'u koru, geri kalanını temizle
-  for(let i=$preset.options.length-1;i>=1;i--){ $preset.remove(i); }
+  // ilk option kalır
+  for(let i=$preset.options.length-1;i>=1;i--) $preset.remove(i);
 
-  // Sırala: ada göre
-  const arr = [...featuresData];
-  arr.sort((a,b)=>{
-    const na = (a.properties['name_'+LANG] || a.properties.name || '').toLocaleLowerCase(LANG);
-    const nb = (b.properties['name_'+LANG] || b.properties.name || '').toLocaleLowerCase(LANG);
+  const arr = allFeatures().slice().sort((a,b)=>{
+    const na = (a.get('name_'+LANG) || a.get('name') || '').toLocaleLowerCase(LANG);
+    const nb = (b.get('name_'+LANG) || b.get('name') || '').toLocaleLowerCase(LANG);
     return na.localeCompare(nb);
   });
 
   arr.forEach(f=>{
-    const name = f.properties['name_'+LANG] || f.properties.name || f.id;
     const opt = document.createElement('option');
-    opt.value = f.id || '';
-    opt.textContent = name;
+    opt.value = f.ol_uid || f.getId() || '';
+    opt.textContent = f.get('name_'+LANG) || f.get('name') || '(isimsiz)';
     $preset.appendChild(opt);
   });
 }
 
-/* Preset seçilince git ve popup aç */
+$preset.addEventListener('change', ()=>{
+  const id = $preset.value;
+  if (!id) return;
+  const f = allFeatures().find(x => String(x.ol_uid)===id || String(x.getId())===id);
+  if (f) {
+    focusFeature(f, true);
+    setDestination(f.getGeometry().getFirstCoordinate());
+  }
+});
+
+$q.addEventListener('input', ()=>{
+  const val = ($q.value || '').toLowerCase().trim();
+  if (!val) { $results.style.display='none'; return; }
+  const matches = allFeatures().filter(f=>{
+    const props = f.getProperties();
+    const name = (props['name_'+LANG] || props.name || '').toLowerCase();
+    const cat  = (props.category || '').toLowerCase();
+    return name.includes(val) || cat.includes(val);
+  });
+  showResults(matches);
+});
+
+function showResults(list){
+  $results.innerHTML = '';
+  if (!list.length){ $results.style.display='none'; return; }
+  list.forEach(f=>{
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.textContent = (f.get('name_'+LANG) || f.get('name') || '(isimsiz)') + (f.get('category') ? ' ('+f.get('category')+')' : '');
+    div.onclick = ()=>{ focusFeature(f, true); setDestination(f.getGeometry().getFirstCoordinate()); $results.style.display='none'; };
+    $results.appendChild(div);
+  });
+  $results.style.display = 'block';
+}
+
+function focusFeature(feature, openPopup=false){
+  const geom = feature.getGeometry();
+  map.getView().fit(geom.getExtent(), { maxZoom: 19, padding:[80,80,80,80] });
+  if (openPopup) {
+    const coord = geom.getFirstCoordinate();
+    $popupContent.innerHTML = renderPopup(feature);
+    $popup.style.display = 'block';
+    popupOverlay.setPosition(coord);
+    currentPopupFeature = feature;
+  }
+}
+
+/* =========================
+   7) Konum (Mavi Nokta)
+   ========================= */
+let userLayer = null;
+let userPoint = null, accCircle = null;
+
+function ensureUserLayer(){
+  if (userLayer) return userLayer;
+  userPoint = new ol.Feature(new ol.geom.Point([0,0]));
+  userPoint.setStyle(new ol.style.Style({
+    image: new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:'#1d4ed8'}), stroke:new ol.style.Stroke({color:'#fff',width:1.8})})
+  }));
+  accCircle = new ol.Feature(new ol.geom.Circle([0,0], 1));
+  accCircle.setStyle(new ol.style.Style({
+    stroke:new ol.style.Stroke({color:'#1d4ed8',width:1}),
+    fill:new ol.style.Fill({color:'rgba(29,78,216,.06)'})
+  }));
+  userLayer = new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle, userPoint]}) });
+  map.addLayer(userLayer);
+  return userLayer;
+}
+
+navigator.geolocation?.watchPosition(pos=>{
+  const coord = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
+  ensureUserLayer();
+  userPoint.getGeometry().setCoordinates(coord);
+  accCircle.getGeometry().setCenter(coord);
+  accCircle.getGeometry().setRadius(pos.coords.accuracy);
+}, err => console.warn('Geolocation hata:', err), { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+
+/* =========================
+   8) Hedef seç & Rota
+   ========================= */
+let destLayer=null, destPoint=null, routeLayer=null, pickMode=false;
+
+function setDestination(coord3857){
+  if (!destLayer){
+    destPoint = new ol.Feature(new ol.geom.Point(coord3857));
+    destPoint.setStyle(new ol.style.Style({
+      image: new ol.style.Circle({radius:7, fill:new ol.style.Fill({color:'#ef4444'}), stroke:new ol.style.Stroke({color:'#fff', width:1.8})})
+    }));
+    destLayer = new ol.layer.Vector({ source: new ol.source.Vector({features:[destPoint]}) });
+    map.addLayer(destLayer);
+  }else{
+    destPoint.getGeometry().setCoordinates(coord3857);
+  }
+  $go.disabled = !(userPoint && destPoint);
+}
+
+document.getElementById('pick').onclick = ()=>{
+  pickMode = !pickMode;
+  document.getElementById('pick').classList.toggle('active', pickMode);
+};
+
+map.on('click', evt=>{
+  if (pickMode){
+    setDestination(evt.coordinate);
+    pickMode = false;
+    document.getElementById('pick').classList.remove('active');
+  }
+});
+
+function clearRoute(){
+  if (routeLayer){ map.removeLayer(routeLayer); routeLayer = null; }
+}
+
+document.getElementById('go').onclick = async ()=>{
+  if (!userPoint || !destPoint) return alert('Konum ve hedef gerekli.');
+  clearRoute();
+
+  const userLL = ol.proj.toLonLat(userPoint.getGeometry().getCoordinates());
+  const destLL = ol.proj.toLonLat(destPoint.getGeometry().getCoordinates());
+  const url = `https://router.project-osrm.org/route/v1/foot/${userLL[0]},${userLL[1]};${destLL[0]},${destLL[1]}?overview=full&geometries=geojson`;
+
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.routes || !data.routes.length) return alert('Rota bulunamadı.');
+    const coords = data.routes[0].geometry.coordinates; // GeoJSON (LonLat)
+    const line = new ol.geom.LineString(coords).transform('EPSG:4326','EPSG:3857');
+    const feat = new ol.Feature({ geometry: line });
+    routeLayer = new ol.layer.Vector({
+      source:new ol.source.Vector({features:[feat]}),
+      style: new ol.style.Style({ stroke: new ol.style.Stroke({color:'#16a34a', width:4}) })
+    });
+    map.addLayer(routeLayer);
+    map.getView().fit(line.getExtent(), { padding:[60,60,60,60], maxZoom:18 });
+  }catch(e){
+    console.error(e);
+    alert('OSRM yönlendirme servisine erişilemedi.');
+  }
+};
+
+/* =========================
+   9) Feature tıklama -> Popup
+   ========================= */
+let currentPopupFeature = null;
+map.on('singleclick', evt=>{
+  if (pickMode) return; // hedef seç modunda sadece hedef koyuyoruz
+  currentPopupFeature = null;
+  map.forEachFeatureAtPixel(evt.pixel, (feature, layer)=>{
+    if (layer === vectorLayer){
+      currentPopupFeature = feature;
+    }
+  });
+  if (currentPopupFeature){
+    $popupContent.innerHTML = renderPopup(currentPopupFeature);
+    $popup.style.display = 'block';
+    popupOverlay.setPosition(evt.coordinate);
+  }else{
+    $popup.style.display = 'none';
+    popupOverlay.setPosition(undefined);
+  }
+});
+
+/* =========================
+   10) Admin Paneli (CRUD + Import/Export)
+   ========================= */
+const adminEl = document.getElementById('admin');
+const fld = id => document.getElementById(id);
+
+let adminMode = false;
+let editFeature = null;
+let drawInteraction = null;
+
+$adm.onclick = ()=>{
+  adminMode = !adminMode;
+  adminEl.style.display = adminMode ? 'block' : 'none';
+  if (!adminMode){ stopDraw(); editFeature=null; }
+};
+
+function stopDraw(){
+  if (drawInteraction){ map.removeInteraction(drawInteraction); drawInteraction=null; }
+}
+
+function bindForm(feature){
+  editFeature = feature;
+  const p = feature ? feature.getProperties() : {};
+  fld('geomType').value = feature?.getGeometry()?.getType() || 'Point';
+  fld('category').value = p.category || '';
+  fld('hours').value = p.hours || p['hours_'+LANG] || '';
+  fld('name_tr').value = p.name_tr || '';
+  fld('name_en').value = p.name_en || '';
+  fld('name_ru').value = p.name_ru || '';
+  fld('name_de').value = p.name_de || '';
+  fld('name_pl').value = p.name_pl || '';
+  fld('level').value = p.level || p['level_'+LANG] || '';
+  fld('desc').value  = p.desc  || p['desc_'+LANG]  || '';
+}
+
+vectorLayer.on('click', e=>{ if(adminMode) bindForm(e.feature); });
+
+map.on('singleclick', e=>{
+  if (!adminMode) return;
+  let picked = null;
+  map.forEachFeatureAtPixel(e.pixel, (feature, layer)=>{ if(layer===vectorLayer) picked = feature; });
+  if (picked){ bindForm(picked); }
+});
+
+fld('newPoint').onclick = ()=>{
+  if (!adminMode) return;
+  stopDraw();
+  drawInteraction = new ol.interaction.Draw({ source: vectorSource, type:'Point' });
+  map.addInteraction(drawInteraction);
+  drawInteraction.once('drawend', (e)=>{ bindForm(e.feature); });
+};
+fld('newPoly').onclick = ()=>{
+  if (!adminMode) return;
+  stopDraw();
+  drawInteraction = new ol.interaction.Draw({ source: vectorSource, type:'Polygon' });
+  map.addInteraction(drawInteraction);
+  drawInteraction.once('drawend', (e)=>{ bindForm(e.feature); });
+};
+
+fld('save').onclick = ()=>{
+  if (!editFeature){ alert('Seçili bir obje yok.'); return; }
+  const p = editFeature.getProperties();
+  p.category = fld('category').value || undefined;
+  p.hours = fld('hours').value || undefined;
+  p.name_tr = fld('name_tr').value || undefined;
+  p.name_en = fld('name_en').value || undefined;
+  p.name_ru = fld('name_ru').value || undefined;
+  p.name_de = fld('name_de').value || undefined;
+  p.name_pl = fld('name_pl').value || undefined;
+  p.level   = fld('level').value || undefined;
+  p.desc    = fld('desc').value || undefined;
+  editFeature.setProperties(p);
+  rebuildPresetOptions();
+  alert('Güncellendi (kalıcı olması için Dışa Aktar).');
+};
+
+fld('delete').onclick = ()=>{
+  if (!editFeature) return;
+  if (confirm('Silinsin mi?')){ vectorSource.removeFeature(editFeature); editFeature=null; }
+  rebuildPresetOptions();
+};
+
+fld('export').onclick = ()=>{
+  const geojson = new ol.format.GeoJSON().writeFeaturesObject(
+    vectorSource.getFeatures(),
+    { featureProjection:'EPSG:3857', dataProjection:'EPSG:4326' }
+  );
+  const blob = new Blob([JSON.stringify(geojson, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'outdoor.json'; a.click();
+  URL.revokeObjectURL(url);
+};
+
+fld('import').addEventListener('change', async (ev)=>{
+  const file = ev.target.files?.[0]; if(!file) return;
+  const text = await file.text();
+  const json = JSON.parse(text);
+  loadGeoJSON(json);
+  alert('Yüklendi.');
+});
+
+/* =========================
+   11) Dil uygulama (ilk açılış)
+   ========================= */
+applyLang();
+
+/* =========================
+   12) Kaynaklar / Notlar
+   - OpenLayers API (ol) haritalama ve vektör düzenleme için kullanıldı.
+   - OSRM (router.project-osrm.org) ile yaya rotalama yapıldı (profil: foot).
+   - GeoJSON giriş/çıkış EPSG:4326; harita görünümü EPSG:3857.
+   ========================= */
+</script>
+</body>
+</html>
