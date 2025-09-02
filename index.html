@@ -197,13 +197,14 @@ function setSearchUIState(active){
   toggleDetails.title = active ? (t().ui.hint) : '';
 }
 
-/* ========= Veri ========= */
+/* ========= Veri (cache-bypass + “Sıfırla” ile yeniden yükle) ========= */
 const fmt=new ol.format.GeoJSON();
 let allFeats=[];
-(async function loadJSONs(){
+async function loadJSONs(){
+  const bust = 'v=' + Date.now();
   const [indoor, outdoor] = await Promise.all([
-    fetch('indoor.json').then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
-   ,fetch('outdoor.json').then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
+    fetch('indoor.json?'+bust,  {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
+   ,fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
   ]);
   indoorSource.clear(); outdoorSource.clear();
   const add=(src,gj,kind)=>{ const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}); fs.forEach(f=>f.set('src',kind)); src.addFeatures(fs); };
@@ -211,7 +212,10 @@ let allFeats=[];
   allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
   if(allFeats.length){ const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent()); if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:19}); }
   applyLang();
-})();
+  // arama/filtre sıfırlansın
+  searchIds=null; results.style.display='none'; setSearchUIState(false); redraw();
+}
+loadJSONs();
 
 /* ========= Dil ========= */
 function applyLang(){
@@ -255,7 +259,6 @@ q.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const first=results.quer
 
 function showResults(list,cat){
   results.innerHTML='';
-  // küçük ipucu
   const hint=document.createElement('div'); hint.className='hint'; hint.textContent=t().ui.hint; results.appendChild(hint);
 
   if(cat){
@@ -265,7 +268,7 @@ function showResults(list,cat){
     div.innerHTML=`<span>➤ ${(t().cats?.[cat] || cat)}</span> <small>${feats.length}</small>`;
     div.onclick=()=>{ 
       if(!feats.length) return;
-      // kategoriye tıklandığında: haritada SADECE bu kategori kalsın + zoom
+      // kategoriye tıklandığında: SADECE bu kategori kalsın + zoom
       searchIds = feats.map(f=> f.ol_uid || f.getId());
       redraw();
       const ext=ol.extent.createEmpty(); feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
@@ -276,12 +279,21 @@ function showResults(list,cat){
     results.appendChild(div);
   }
 
-  list.slice(0,60).forEach(f=>{
+  list.slice(0,80).forEach(f=>{
     const div=document.createElement('div'); div.className='item';
     const name= f.get('name_'+LANG) || f.get('name') || '(isimsiz)';
     const meta=[f.get('src')==='indoor'?'Indoor':'Outdoor', f.get('category')||'', f.get('level')||''].filter(Boolean).join(' · ');
     div.innerHTML = `<span>${name}</span><small>${meta}</small>`;
-    div.onclick=()=>{ focusFeature(f,true); setDestination(coordOfFeature(f)); results.style.display='none'; go.disabled=false; };
+    div.onclick=()=>{ 
+      // TEKIL seçim: yalnızca bu feature kalsın
+      searchIds = [f.ol_uid || f.getId()];
+      redraw();
+      focusFeature(f,true); 
+      setDestination(coordOfFeature(f)); 
+      results.style.display='none'; 
+      go.disabled=false; 
+      setSearchUIState(true);
+    };
     results.appendChild(div);
   });
   results.style.display='block';
@@ -382,9 +394,9 @@ function hidePopup(){ popupEl.style.display='none'; popupOverlay.setPosition(und
 /* ========= Reset ========= */
 resetBtn.onclick=()=>{
   hidePopup(); clearRouteAndBearing(); results.style.display='none';
-  q.value=''; searchIds=null; redraw(); setSearchUIState(false);
-  const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-  if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[80,80,80,80], maxZoom:17});
+  q.value=''; // arama temizle
+  // veriyi taze çek → telefon/PC cache farkı kalmaz
+  loadJSONs();
 };
 
 /* UX */
