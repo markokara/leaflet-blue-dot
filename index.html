@@ -201,7 +201,13 @@ const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: st
 const map = new ol.Map({
   target:'map',
   layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
+  view:new ol.View({
+    center: ol.proj.fromLonLat([31.8046,36.6002]),
+    zoom:16,
+    rotation:0
+  })
+});
+
 // ============= Cesium entegrasyonu =============
 let ol3d = new olcs.OLCesium({ map: map });
 let scene = ol3d.getCesiumScene();
@@ -219,6 +225,7 @@ toggle3dBtn.onclick = () => {
   ol3d.setEnabled(!state);
   toggle3dBtn.textContent = state ? "3D Aç" : "3D Kapat";
 };
+
 
   // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
 });
