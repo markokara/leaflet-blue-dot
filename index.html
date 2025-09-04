@@ -4,36 +4,10 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – Indoor & Outdoor Harita</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-
-  <!-- Kütüphane -->
-<script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js"></script>
-
-<!-- Kendi kodunuz -->
-<script>
-  var osmb = new OSMBuildings({
-    container: 'map',
-    position: { latitude: 52.52000, longitude: 13.41000 },
-    zoom: 16,
-    minZoom: 15,
-    maxZoom: 22
-  });
-
-  osmb.addMapTiles(
-    'https://{a,b,c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { attribution: '© OpenStreetMap contributors' }
-  );
-
-  osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
-</script>
-
-
-
-<body>
-  <div id="map"></div>
-
   
 <!-- CesiumJS 1.132 -->
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
