@@ -9,9 +9,12 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
+  <link href="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.css" rel="stylesheet">
+  <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js">
   <!-- Kütüphane -->
 <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js"></script>
 
+      var osmb = new OSMBuildings({
 <!-- Kendi kodunuz -->
 <script>
   var osmb = new OSMBuildings({
@@ -23,10 +26,17 @@
   });
 
   osmb.addMapTiles(
+    YOUR_TILESET_URL,
+    {
+      attribution: '© Data <a href="http://openstreetmap.org/copyright/">OpenStreetMap</a> · © Map <a href="http://mapbox.com">Mapbox</a>'
+    }
     'https://{a,b,c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     { attribution: '© OpenStreetMap contributors' }
   );
 
+  osmb.addGeoJSONTiles('http://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
+    
+  </script>
   osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
 </script>
 
@@ -118,8 +128,8 @@
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="reset">Sıfırla</button>
         <button id="reset">Sıfırla</button>        <button id="toggle3D">3D Aç</button>
+        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
