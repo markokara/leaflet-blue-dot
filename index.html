@@ -126,12 +126,14 @@
 
 <script>
 // Leaflet ile OSMBuildings entegrasyonu
+// Leaflet + OSMBuildings + Marker entegrasyonu
 document.addEventListener('DOMContentLoaded', function() {
   var leafletMap = L.map('map').setView([36.6002, 31.8046], 16);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
   }).addTo(leafletMap);
 
+  // OSMBuildings 3D
   var osmb = new OSMBuildings({
     baseURL: 'https://cdn.osmbuildings.org/4.0.0/',
     minZoom: 15,
@@ -157,6 +159,41 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('map').style.display = osmbEnabled ? 'block' : 'none';
     toggle3dBtn.textContent = osmbEnabled ? "3D Kapat" : "3D Aç";
   };
+
+  // Marker katmanları
+  var indoorLayer = L.layerGroup().addTo(leafletMap);
+  var outdoorLayer = L.layerGroup().addTo(leafletMap);
+
+  // JSON'dan marker ekle
+  function addMarkersFromGeoJSON(url, layer, color) {
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.features) return;
+        data.features.forEach(function(feat) {
+          if (!feat.geometry || feat.geometry.type !== 'Point') return;
+          var coords = feat.geometry.coordinates;
+          var marker = L.circleMarker([coords[1], coords[0]], {
+            radius: 8,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.8
+          });
+          var props = feat.properties || {};
+          var popupHtml = `<b>${props.name || ''}</b><br>${props.category || ''}<br>${props.desc || ''}`;
+          marker.bindPopup(popupHtml);
+          layer.addLayer(marker);
+        });
+      });
+  }
+  addMarkersFromGeoJSON('indoor.json', indoorLayer, '#1d4ed8');
+  addMarkersFromGeoJSON('outdoor.json', outdoorLayer, '#ef4444');
+
+  // Marker ekleme fonksiyonu (örnek)
+  leafletMap.on('click', function(e) {
+    var marker = L.marker(e.latlng).addTo(leafletMap);
+    marker.bindPopup('Yeni nokta eklendi!').openPopup();
+  });
 });
 
 /* ========= UI ========= */
