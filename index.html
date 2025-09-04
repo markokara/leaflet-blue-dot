@@ -194,7 +194,7 @@ const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: st
 const map = new ol.Map({
   target:'map',
   layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:45}),
   // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
