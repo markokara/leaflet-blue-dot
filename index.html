@@ -144,10 +144,30 @@ map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addControl(new ol.control.Rotate());
 
 // ========= OSMBuildings =========
+// ========= OSMBuildings =========
 const osmb = new OSMBuildings({ baseURL: 'https://cdn.osmbuildings.org/4.1.1/' });
 osmb.addMapTiles('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
 osmb.appendTo('map');
+
+// OL → OSMBuildings senkronizasyonu
+const view = map.getView();
+
+function syncOSMB() {
+  const center = ol.proj.toLonLat(view.getCenter());
+  osmb.setPosition({ latitude: center[1], longitude: center[0] });
+  osmb.setZoom(view.getZoom());
+  osmb.setRotation(view.getRotation());
+}
+
+// İlk senkronizasyon
+syncOSMB();
+
+// View değişince güncelle
+view.on('change:center', syncOSMB);
+view.on('change:zoom', syncOSMB);
+view.on('change:rotation', syncOSMB);
+
 </script>
 </body>
 </html>
