@@ -6,6 +6,13 @@
   <title>Misafir – Indoor & Outdoor Harita</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+<!-- CesiumJS 1.132 -->
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Cesium.js"></script>
+
+<!-- OL-Cesium köprü -->
+<script src="https://cdn.jsdelivr.net/npm/ol-cesium@2.18.0/dist/olcesium.js"></script>
+
   <style>
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;margin:0}
@@ -81,7 +88,7 @@
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="reset">Sıfırla</button>
+        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
@@ -195,6 +202,24 @@ const map = new ol.Map({
   target:'map',
   layers:[base, indoorLayer, outdoorLayer],
   view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
+// ============= Cesium entegrasyonu =============
+let ol3d = new olcs.OLCesium({ map: map });
+let scene = ol3d.getCesiumScene();
+
+// Başlangıçta 2D
+ol3d.setEnabled(false);
+
+// Dünya aydınlatma
+scene.globe.enableLighting = true;
+
+// 3D butonu
+const toggle3dBtn = document.getElementById("toggle3d");
+toggle3dBtn.onclick = () => {
+  const state = ol3d.getEnabled();
+  ol3d.setEnabled(!state);
+  toggle3dBtn.textContent = state ? "3D Aç" : "3D Kapat";
+};
+
   // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
