@@ -2,279 +2,274 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Misafir – Indoor & Outdoor Harita + 3D Binalar</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OpenLayers – Indoor & Outdoor</title>
 
-  <!-- OpenLayers -->
+  <!-- OpenLayers CSS & JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
-  <!-- OSMBuildings -->
-  <link href="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.css" rel="stylesheet">
-  <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js"></script>
-
   <style>
-    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
-    html,body{height:100%;margin:0}
-    body{font:14px/1.35 system-ui,sans-serif;background:#f3f4f6}
-    #map-ol,#map-osmb{position:fixed;inset:0}
-    #map-osmb{display:none}
-
-    .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%);
-           width:min(780px,96vw); z-index:1000;}
-    .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
-    .p-8{padding:12px}
-    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-    .stack{display:flex; flex-direction:column; gap:8px}
-    .grow{flex:1 1 auto}
-    input[type="search"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px}
-    button{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
-    button:disabled{opacity:.55; cursor:not-allowed}
-    select{padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
-    .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
-    .muted{color:var(--muted)}
-    .results{background:#fff; border:1px solid #e5e7eb; border-radius:10px; max-height:36vh; overflow:auto; display:none}
-    .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between}
-    .results .item small{color:var(--muted)}
-    .dir{display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px}
-    .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5e7eb}
-    .dir .sum{font-weight:600}
-    .dir .list{max-height:30vh; overflow:auto; padding:8px 12px}
-    .step{display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed #e5e7eb}
-    .step:last-child{border-bottom:none}
-    .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:220px; box-shadow:var(--shadow); transform:translate(-50%,-100%);}
-    .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#9ca3af}
-    .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
-    .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+    html, body {
+      margin:0; padding:0; height:100%;
+    }
+    #map {
+      width:100%; height:100%;
+    }
+    .toolbar {
+      position:absolute; top:10px; left:10px; z-index:1000;
+      background:#fff; padding:6px; border-radius:6px;
+      box-shadow:0 2px 6px rgba(0,0,0,.2);
+      display:flex; gap:6px;
+    }
+    .toolbar input { padding:6px; width:220px; }
+    .toolbar select, .toolbar button { padding:6px; }
+    .results {
+      position:absolute; top:50px; left:10px; z-index:1001;
+      background:#fff; border:1px solid #ccc; border-radius:6px;
+      width:220px; max-height:40vh; overflow:auto; display:none;
+    }
+    .results .item { padding:6px; cursor:pointer; }
+    .results .item:hover { background:#f0f0f0; }
   </style>
 </head>
 <body>
 
-  <!-- Panel -->
-  <div class="panel">
-    <div class="card p-8 stack">
-      <div class="row">
-        <input id="q" class="grow" type="search"/>
-        <button id="go" disabled></button>
-        <select id="lang">
-          <option value="tr">Türkçe</option>
-          <option value="en">English</option>
-          <option value="ru">Русский</option>
-          <option value="pl">Polski</option>
-          <option value="de">Deutsch</option>
-        </select>
-      </div>
-      <div class="row">
-        <button id="pick"></button>
-        <button id="follow"></button>
-        <button id="toggleDetails"></button>
-        <label class="pill"><input type="checkbox" id="tglIndoor" checked><span id="lblIndoor"></span></label>
-        <label class="pill"><input type="checkbox" id="tglOutdoor" checked><span id="lblOutdoor"></span></label>
-        <button id="reset"></button>
-        <button onclick="showOSMB()" id="btn3d"></button>
-        <button onclick="showOL()" id="btn2d"></button>
-      </div>
-      <div id="results" class="results"></div>
-      <div id="dir" class="dir">
-        <div class="hdr">
-          <div><span class="sum" id="dirSum">–</span> <span class="muted" id="dirSub"></span></div>
-          <div class="row">
-            <button id="collapseDir">▲</button>
-            <button id="clearRoute"></button>
-          </div>
-        </div>
-        <div class="list" id="dirList"></div>
-      </div>
-      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
-    </div>
+  <!-- Harita -->
+  <div id="map"></div>
+
+  <!-- Araç Çubuğu -->
+  <div class="toolbar">
+    <input id="searchInput" type="text" placeholder="Ara: disco, havuz, restoran, spa…" />
+    <select id="lang">
+      <option value="tr">TR</option>
+      <option value="en">EN</option>
+      <option value="ru">RU</option>
+    </select>
+    <button id="goBtn" disabled>Git</button>
+    <button id="pickBtn">Hedef Seç</button>
   </div>
 
-  <!-- Map alanları -->
-  <div id="map-ol"></div>
-  <div id="map-osmb"></div>
+  <!-- Arama Sonuçları -->
+  <div id="results" class="results"></div>
 
 <script>
-/* ========= Çoklu Dil ========= */
-const I18N={
-  tr:{search:"Ara: restoran, spa, havuz…",go:"Git",pick:"Haritadan Hedef",followOff:"🎯 İzle: Kapalı",followOn:"🎯 İzle: Açık",detailsOff:"Detaylar: Kapalı",detailsOn:"Detaylar: Açık",indoor:"Indoor",outdoor:"Outdoor",reset:"Sıfırla",b3d:"3D Binalar",b2d:"2D Harita",clearRoute:"Rota Temizle"},
-  en:{search:"Search: restaurant, spa, pool…",go:"Go",pick:"Pick on Map",followOff:"🎯 Follow: Off",followOn:"🎯 Follow: On",detailsOff:"Details: Off",detailsOn:"Details: On",indoor:"Indoor",outdoor:"Outdoor",reset:"Reset",b3d:"3D Buildings",b2d:"2D Map",clearRoute:"Clear Route"},
-  ru:{search:"Поиск: ресторан, спа, бассейн…",go:"Поиск",pick:"Выбрать на карте",followOff:"🎯 Следить: выкл",followOn:"🎯 Следить: вкл",detailsOff:"Детали: выкл",detailsOn:"Детали: вкл",indoor:"Внутри",outdoor:"Снаружи",reset:"Сброс",b3d:"3D здания",b2d:"2D карта",clearRoute:"Очистить маршрут"},
-  pl:{search:"Szukaj: restauracja, spa, basen…",go:"Szukaj",pick:"Wybierz na mapie",followOff:"🎯 Śledź: wył",followOn:"🎯 Śledź: wł",detailsOff:"Szczegóły: wył",detailsOn:"Szczegóły: wł",indoor:"Wewnątrz",outdoor:"Na zewnątrz",reset:"Resetuj",b3d:"Budynki 3D",b2d:"Mapa 2D",clearRoute:"Wyczyść trasę"},
-  de:{search:"Suche: Restaurant, Spa, Pool…",go:"Los",pick:"Auf Karte wählen",followOff:"🎯 Folgen: Aus",followOn:"🎯 Folgen: An",detailsOff:"Details: Aus",detailsOn:"Details: An",indoor:"Innen",outdoor:"Außen",reset:"Zurücksetzen",b3d:"3D Gebäude",b2d:"2D Karte",clearRoute:"Route löschen"}
+/* --- 1) Otel Alanı --- */
+const HOTEL_GEOMETRY = {
+  "type":"Polygon","coordinates":[[
+    [31.80488563536983,36.60144809135009],
+    [31.80141125277774,36.599560719072684],
+    [31.806994242514662,36.59688713533359],
+    [31.80828178115803,36.59899633325935],
+    [31.80488563536983,36.60144809135009]
+  ]]
 };
-let LANG="tr";
-function applyLang(){
-  const L=I18N[LANG];
-  q.placeholder=L.search;
-  go.textContent=L.go;
-  pickBtn.textContent=L.pick;
-  followBtn.textContent=followState?L.followOn:L.followOff;
-  toggleDetails.textContent=showAllDetails?L.detailsOn:L.detailsOff;
-  document.getElementById("lblIndoor").textContent=L.indoor;
-  document.getElementById("lblOutdoor").textContent=L.outdoor;
-  resetBtn.textContent=L.reset;
-  document.getElementById("btn3d").textContent=L.b3d;
-  document.getElementById("btn2d").textContent=L.b2d;
-  document.getElementById("clearRoute").textContent=L.clearRoute;
+
+/* --- 2) DEMO Indoor/Outdoor --- */
+const DEMO_INDOOR = {
+  "type":"FeatureCollection","features":[
+    {
+      "type":"Feature",
+      "properties":{"name":"Lobi","category":"lobby"},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.8050,36.6005],[31.8052,36.6005],
+        [31.8052,36.6007],[31.8050,36.6007],
+        [31.8050,36.6005]
+      ]]}
+    },
+    {
+      "type":"Feature",
+      "properties":{"name":"Ana Restoran","category":"restaurant"},
+      "geometry":{"type":"Polygon","coordinates":[[
+        [31.8053,36.6006],[31.8056,36.6006],
+        [31.8056,36.6009],[31.8053,36.6009],
+        [31.8053,36.6006]
+      ]]}
+    }
+  ]
+};
+
+const DEMO_OUTDOOR = {
+  "type":"FeatureCollection","features":[
+    {
+      "type":"Feature",
+      "properties":{"name":"Disco","category":"disco"},
+      "geometry":{"type":"Point","coordinates":[31.8053,36.6002]}
+    },
+    {
+      "type":"Feature",
+      "properties":{"name":"Ana Havuz","category":"pool"},
+      "geometry":{"type":"Point","coordinates":[31.8055,36.6004]}
+    }
+  ]
+};
+
+/* --- 3) Layer Helper --- */
+function makeVectorLayer(geojson, color){
+  return new ol.layer.Vector({
+    source: new ol.source.Vector({
+      features: new ol.format.GeoJSON().readFeatures(geojson,{featureProjection:"EPSG:3857"})
+    }),
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({color:color,width:2}),
+      fill: new ol.style.Fill({color:color.replace("1)", "0.2)")}),
+      image: new ol.style.Circle({
+        radius:5,
+        fill: new ol.style.Fill({color:color}),
+        stroke: new ol.style.Stroke({color:"#fff",width:1})
+      })
+    })
+  });
 }
 
-/* ========= OpenLayers ========= */
-const base = new ol.layer.Tile({ source: new ol.source.OSM() });
-const indoorSource  = new ol.source.Vector();
-const outdoorSource = new ol.source.Vector();
+/* --- 4) Layers --- */
+const hotelLayer = makeVectorLayer(
+  {"type":"FeatureCollection","features":[{"type":"Feature","geometry":HOTEL_GEOMETRY}]},
+  "rgba(0,0,255,1)"
+);
+const indoorLayer  = makeVectorLayer(DEMO_INDOOR,"rgba(0,200,0,1)");
+const outdoorLayer = makeVectorLayer(DEMO_OUTDOOR,"rgba(200,0,0,1)");
 
-const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource });
-const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource });
-
+/* --- 5) Map --- */
 const map = new ol.Map({
-  target:'map-ol',
-  layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({ center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16 })
+  target:"map",
+  layers:[
+    new ol.layer.Tile({source:new ol.source.OSM()}),
+    hotelLayer, indoorLayer, outdoorLayer
+  ],
+  view:new ol.View({
+    center: ol.proj.fromLonLat([31.805,36.600]),
+    zoom:17, rotation:0
+  })
 });
 
-/* ========= JSON yükleme ========= */
-const fmt=new ol.format.GeoJSON();
-async function loadJSONs(){
-  const bust = 'v=' + Date.now();
-  const [indoor, outdoor] = await Promise.all([
-    fetch('indoor.json?'+bust).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}),
-    fetch('outdoor.json?'+bust).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]})
-  ]);
-  indoorSource.clear(); outdoorSource.clear();
-  const add=(src,gj,kind)=>{ const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857'}); fs.forEach(f=>f.set('src',kind)); src.addFeatures(fs); };
-  add(indoorSource,indoor,'indoor'); add(outdoorSource,outdoor,'outdoor');
-}
-loadJSONs();
+/* --- 6) Search --- */
+const searchInput=document.getElementById("searchInput");
+const resultsEl=document.getElementById("results");
+let selectedFeature=null;
 
-/* ========= Popup ========= */
-const popupEl=document.createElement('div');
-popupEl.className='ol-popup';
-const popupContent=document.createElement('div');
-popupEl.appendChild(popupContent);
-const popupCloser=document.createElement('a');
-popupCloser.className='ol-popup-closer';
-popupCloser.textContent='✕';
-popupEl.appendChild(popupCloser);
-document.body.appendChild(popupEl);
+const allFeatures = indoorLayer.getSource().getFeatures()
+  .concat(outdoorLayer.getSource().getFeatures());
 
-const popupOverlay=new ol.Overlay({element:popupEl, autoPan:{animation:{duration:200}}});
-map.addOverlay(popupOverlay);
-
-popupCloser.onclick=()=>{ popupOverlay.setPosition(undefined); return false; };
-
-map.on('singleclick',evt=>{
-  map.forEachFeatureAtPixel(evt.pixel,(f)=>{
-    const props=f.getProperties();
-    popupContent.innerHTML=`<b>${props.name||'(isimsiz)'}</b><br>${props.category||''}`;
-    popupOverlay.setPosition(evt.coordinate);
-  });
-});
-
-/* ========= Arama ========= */
-let allFeats=[];
-function refreshFeats(){
-  allFeats=indoorSource.getFeatures().concat(outdoorSource.getFeatures());
-}
-indoorSource.on('change',refreshFeats);
-outdoorSource.on('change',refreshFeats);
-
-const q=document.getElementById('q');
-const results=document.getElementById('results');
-q.addEventListener('input',()=>{
-  const val=q.value.trim().toLowerCase();
-  results.innerHTML='';
-  if(!val){ results.style.display='none'; return; }
-  const hits=allFeats.filter(f=>{
-    const p=f.getProperties();
-    return (p.name||'').toLowerCase().includes(val) || (p.category||'').toLowerCase().includes(val);
-  });
-  hits.forEach(f=>{
-    const div=document.createElement('div');
-    div.className='item';
-    div.innerHTML=`<span>${f.get('name')||'(isimsiz)'}</span><small>${f.get('category')||''}</small>`;
+function showResults(list){
+  resultsEl.innerHTML="";
+  if(!list.length){ resultsEl.style.display="none"; return; }
+  list.forEach(f=>{
+    const div=document.createElement("div");
+    div.className="item";
+    div.textContent=f.get("name")+" ("+(f.get("category")||"")+")";
     div.onclick=()=>{
-      const c=f.getGeometry().getFirstCoordinate();
-      map.getView().animate({center:c,zoom:18});
+      selectedFeature=f;
+      searchInput.value=f.get("name");
+      map.getView().fit(f.getGeometry().getExtent(),{maxZoom:19});
+      resultsEl.style.display="none";
+      document.getElementById("goBtn").disabled=false;
+      setDestination(f.getGeometry().getFirstCoordinate());
     };
-    results.appendChild(div);
+    resultsEl.appendChild(div);
   });
-  results.style.display='block';
-});
-
-/* ========= Rota ========= */
-let userPoint=null, destPoint=null, routeLayer=null, followState=false, showAllDetails=false;
-
-navigator.geolocation.getCurrentPosition(pos=>{
-  const c=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
-  userPoint=new ol.Feature(new ol.geom.Point(c));
-  const userLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[userPoint]}) });
-  map.addLayer(userLayer);
-});
-
-function setDestination(coord){
-  destPoint=new ol.Feature(new ol.geom.Point(coord));
-  const destLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[destPoint]}) });
-  map.addLayer(destLayer);
+  resultsEl.style.display="block";
 }
 
-map.on('dblclick',evt=>{
-  setDestination(evt.coordinate);
+searchInput.addEventListener("input",()=>{
+  const val=searchInput.value.toLowerCase().trim();
+  if(!val){ resultsEl.style.display="none"; return; }
+  const matches=allFeatures.filter(f=>(f.get("name")||"").toLowerCase().includes(val));
+  showResults(matches);
 });
 
-document.getElementById('go').onclick=()=>{
-  if(!userPoint||!destPoint){ alert("Konum ve hedef gerekli"); return; }
-  if(routeLayer){ map.removeLayer(routeLayer); }
-  const a=ol.proj.toLonLat(userPoint.getGeometry().getCoordinates());
-  const b=ol.proj.toLonLat(destPoint.getGeometry().getCoordinates());
-  fetch(`https://router.project-osrm.org/route/v1/foot/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`)
-  .then(r=>r.json()).then(json=>{
-    const coords=json.routes[0].geometry.coordinates;
-    const line=new ol.geom.LineString(coords).transform('EPSG:4326','EPSG:3857');
-    const feat=new ol.Feature(line);
-    routeLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[feat]}),
-      style:new ol.style.Style({ stroke:new ol.style.Stroke({color:'red',width:3}) })
+/* --- 7) Blue Dot (Konum) --- */
+let userMarker=null, accCircle=null;
+navigator.geolocation.watchPosition(pos=>{
+  const coords=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+  if(!userMarker){
+    userMarker=new ol.Feature(new ol.geom.Point(coords));
+    userMarker.setStyle(new ol.style.Style({
+      image:new ol.style.Circle({
+        radius:5,
+        fill:new ol.style.Fill({color:"#007bff"}),
+        stroke:new ol.style.Stroke({color:"#fff",width:1.5})
+      })
+    }));
+    accCircle=new ol.Feature(new ol.geom.Circle(coords,pos.coords.accuracy));
+    accCircle.setStyle(new ol.style.Style({
+      stroke:new ol.style.Stroke({color:"#007bff",width:1}),
+      fill:new ol.style.Fill({color:"rgba(0,123,255,0.05)"})
+    }));
+    const layer=new ol.layer.Vector({
+      source:new ol.source.Vector({features:[accCircle,userMarker]})
     });
-    map.addLayer(routeLayer);
-    map.getView().fit(line.getExtent(),{padding:[50,50,50,50]});
+    map.addLayer(layer);
+  }else{
+    userMarker.getGeometry().setCoordinates(coords);
+    accCircle.getGeometry().setCenter(coords);
+    accCircle.getGeometry().setRadius(pos.coords.accuracy);
+  }
+},{ enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+
+/* --- 8) Hedef seç (map click) --- */
+let destMarker=null;
+function setDestination(coords){
+  if(!destMarker){
+    destMarker=new ol.Feature(new ol.geom.Point(coords));
+    destMarker.setStyle(new ol.style.Style({
+      image:new ol.style.Circle({
+        radius:6,
+        fill:new ol.style.Fill({color:"red"}),
+        stroke:new ol.style.Stroke({color:"#fff",width:1.5})
+      })
+    }));
+    const layer=new ol.layer.Vector({source:new ol.source.Vector({features:[destMarker]})});
+    map.addLayer(layer);
+  } else {
+    destMarker.getGeometry().setCoordinates(coords);
+  }
+  document.getElementById("goBtn").disabled=false;
+}
+
+let pickMode=false;
+document.getElementById("pickBtn").onclick=()=>{
+  pickMode=!pickMode;
+  document.getElementById("pickBtn").classList.toggle("active",pickMode);
+};
+
+map.on("click",evt=>{
+  if(pickMode){
+    setDestination(evt.coordinate);
+    pickMode=false;
+    document.getElementById("pickBtn").classList.remove("active");
+  }
+});
+
+/* --- 9) Routing --- */
+document.getElementById("goBtn").onclick=()=>{
+  if(!userMarker || !destMarker)
+    return alert("Konum ve hedef seçilmeli");
+
+  const userLonLat=ol.proj.toLonLat(userMarker.getGeometry().getCoordinates());
+  const destLonLat=ol.proj.toLonLat(destMarker.getGeometry().getCoordinates());
+
+  const url=`https://router.project-osrm.org/route/v1/foot/${userLonLat[0]},${userLonLat[1]};${destLonLat[0]},${destLonLat[1]}?overview=full&geometries=geojson`;
+
+  fetch(url).then(r=>r.json()).then(data=>{
+    if(data.routes.length){
+      const coords=data.routes[0].geometry.coordinates;
+      const line=new ol.geom.LineString(coords).transform("EPSG:4326","EPSG:3857");
+      const route=new ol.Feature({geometry:line});
+      const routeLayer=new ol.layer.Vector({
+        source:new ol.source.Vector({features:[route]}),
+        style:new ol.style.Style({
+          stroke:new ol.style.Stroke({color:"blue",width:3})
+        })
+      });
+      map.addLayer(routeLayer);
+    }
   });
 };
 
-/* ========= Reset ========= */
-const resetBtn=document.getElementById('reset');
-resetBtn.onclick=()=>{
-  q.value=''; results.style.display='none';
-  indoorSource.clear(); outdoorSource.clear(); loadJSONs();
-  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-};
-
-/* ========= UI Elemanları ========= */
-const go=document.getElementById('go');
-const pickBtn=document.getElementById('pick');
-const followBtn=document.getElementById('follow');
-const toggleDetails=document.getElementById('toggleDetails');
-
-/* ========= Dil seçimi ========= */
-document.getElementById('lang').onchange=(e)=>{ LANG=e.target.value; applyLang(); };
-applyLang();
-
-/* ========= OSMBuildings ========= */
-const osmb = new OSMBuildings({
-  container: 'map-osmb',
-  position: { latitude: 36.88414, longitude: 30.70563 },
-  zoom: 16, tilt: 45, rotation: 0
-});
-osmb.addMapTiles('https://{a,b,c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  { attribution: '© OpenStreetMap contributors' });
-osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
-
-function showOL(){
-  document.getElementById('map-ol').style.display='block';
-  document.getElementById('map-osmb').style.display='none';
-}
-function showOSMB(){
-  document.getElementById('map-ol').style.display='none';
-  document.getElementById('map-osmb').style.display='block';
-}
+/* --- 10) Rotate --- */
+// Mobil: 2 parmak ile çevir
+// Desktop: Alt + Drag
 </script>
 </body>
 </html>
