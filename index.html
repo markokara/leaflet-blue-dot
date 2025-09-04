@@ -1,9 +1,24 @@
-<!doctype html>
+!doctype html>
 <html lang="tr">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – Indoor & Outdoor Harita</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+  <link href="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.css" rel="stylesheet">
+  <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js"></script>
+
+
+
+<body>
+  <div id="map"></div>
+
+
+<!-- Cesium ve ol-cesium kaldırıldı, Leaflet ve OSMBuildings kullanılacak -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
@@ -20,6 +35,7 @@
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;margin:0}
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
+  #map{position:fixed; inset:0; z-index:0}
     #map{position:fixed; inset:0}
 
     /* Attribution küçük ve sade (lisansa uygun) */
@@ -91,7 +107,7 @@
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-    <button id="reset">Sıfırla</button>
+        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
@@ -121,31 +137,28 @@
   <div id="map" aria-label="Harita"></div>
 
 <script>
-// ...mevcut kod...
-// Arama kutusu ve butonlar işlevsel hale getirildi
-q.addEventListener('input', ()=>{
-  const val=(q.value||'').trim();
-  if(!val){ searchIds=null; redraw(); results.style.display='none'; setSearchUIState(false); return; }
-  const qn=norm(val); const maybeCat=detectCategory(val);
-  const hits=allFeats.filter(f=>{
-    const p=f.getProperties(); const cat=(p.category||'').toLowerCase();
-    if(maybeCat && cat===maybeCat) return true;
-    const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
-    if(names.some(n=>n.includes(qn))) return true;
-    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
-    return ex.some(d=>d.includes(qn));
-  });
-  showResults(hits, maybeCat);
-  searchIds = hits.map(f=> f.ol_uid || f.getId());
-  redraw();
-  setSearchUIState(true);
-});
+// Leaflet ile OSMBuildings entegrasyonu
+// Leaflet + OSMBuildings + Marker entegrasyonu
+document.addEventListener('DOMContentLoaded', function() {
+  var leafletMap = L.map('map').setView([36.6002, 31.8046], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(leafletMap);
 
-pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
-followBtn.onclick=()=>{ followState=!followState; followBtn.textContent= followState ? t().ui.followOn : t().ui.followOff; if(followState && userPoint) map.getView().setCenter(userPoint.getGeometry().getCoordinates()); };
-toggleDetails.onclick=()=>{ if(toggleDetails.disabled) return; showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
-tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
-tglOutdoor.addEventListener('change',()=>{ outdoorLayer.setVisible(tglOutdoor.checked); });
+  // OSMBuildings 3D
+  var osmb = new OSMBuildings({
+    baseURL: 'https://cdn.osmbuildings.org/4.0.0/',
+    minZoom: 15,
+    maxZoom: 22,
+    zoom: 16,
+    position: { latitude: 36.6002, longitude: 31.8046 },
+    style: 'standard',
+    container: 'map'
+  });
+  osmb.addMapTiles(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '© OpenStreetMap contributors'
 /* ========= i18n ========= */
 const I18N = {
   tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
@@ -208,10 +221,46 @@ function styleFactory(kind){
       const hit = searchIds.includes(id);
       return hit ? styleFor(f,1) : null;
     }
+  );
+  osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
+
+  // 3D harita aç/kapat butonu
+  var toggle3dBtn = document.getElementById("toggle3d");
+  var osmbEnabled = true;
+  toggle3dBtn.onclick = function() {
+    osmbEnabled = !osmbEnabled;
+    document.getElementById('map').style.display = osmbEnabled ? 'block' : 'none';
+    toggle3dBtn.textContent = osmbEnabled ? "3D Kapat" : "3D Aç";
     const cat=(f.get('category')||'').toLowerCase();
     if(!showAllDetails && !FEATURED.has(cat)) return null;
     return styleFor(f,1);
   };
+
+  // Marker katmanları
+  var indoorLayer = L.layerGroup().addTo(leafletMap);
+  var outdoorLayer = L.layerGroup().addTo(leafletMap);
+
+  // JSON'dan marker ekle
+  function addMarkersFromGeoJSON(url, layer, color) {
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.features) return;
+        data.features.forEach(function(feat) {
+          if (!feat.geometry || feat.geometry.type !== 'Point') return;
+          var coords = feat.geometry.coordinates;
+          var marker = L.circleMarker([coords[1], coords[0]], {
+            radius: 8,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.8
+          });
+          var props = feat.properties || {};
+          var popupHtml = `<b>${props.name || ''}</b><br>${props.category || ''}<br>${props.desc || ''}`;
+          marker.bindPopup(popupHtml);
+          layer.addLayer(marker);
+        });
+      });
 }
 function styleFor(f,dim){
   const g=f.getGeometry();
@@ -220,9 +269,16 @@ function styleFor(f,dim){
       image:new ol.style.Circle({radius:7, fill:new ol.style.Fill({color:`rgba(249,65,68,${0.95*dim})`}), stroke:new ol.style.Stroke({color:`rgba(193,18,31,${1*dim})`,width:2})})
     });
   }
+  addMarkersFromGeoJSON('indoor.json', indoorLayer, '#1d4ed8');
+  addMarkersFromGeoJSON('outdoor.json', outdoorLayer, '#ef4444');
   return new ol.style.Style({ stroke:new ol.style.Stroke({color:`rgba(37,99,235,${1*dim})`,width:2}), fill:new ol.style.Fill({color:`rgba(37,99,235,${.10*dim})`}) });
 }
 
+  // Marker ekleme fonksiyonu (örnek)
+  leafletMap.on('click', function(e) {
+    var marker = L.marker(e.latlng).addTo(leafletMap);
+    marker.bindPopup('Yeni nokta eklendi!').openPopup();
+  });
 const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource,  style: styleFactory('indoor') });
 const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: styleFactory('outdoor') });
 
