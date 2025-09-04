@@ -16,6 +16,44 @@
 <!-- OL-Cesium köprü -->
 <script src="https://cdn.jsdelivr.net/npm/ol-cesium@2.17.0/dist/olcesium.js"></script>
 
+  
+<link href="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.css" rel="stylesheet">
+
+<script src="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.js"></script>
+
+
+
+<div id="map"></div>
+
+
+
+<script>
+
+var map = new OSMBuildings({
+
+	container: 'map',
+
+	position: { latitude: 52.51836, longitude: 13.40438 },
+
+	zoom: 16,
+
+	minZoom: 15,
+
+	maxZoom: 20,
+
+	attribution: '© Data <a href="https://openstreetmap.org/copyright/">OpenStreetMap</a> © Map <a href="https://osmbuildings.org/copyright/">OSM Buildings</a>'
+
+})
+
+
+
+map.addMapTiles('https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png');
+
+map.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/59fcc2e8/tile/{z}/{x}/{y}.json');
+
+</script>
+
+
   <style>
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;margin:0}
