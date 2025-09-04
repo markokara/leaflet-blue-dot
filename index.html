@@ -9,50 +9,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   
-<!-- CesiumJS 1.132 -->
-<link href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-<script src="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Cesium.js"></script>
-
-<!-- OL-Cesium köprü -->
-<script src="https://cdn.jsdelivr.net/npm/ol-cesium@2.17.0/dist/olcesium.js"></script>
-
-  
-<link href="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.css" rel="stylesheet">
-
-<script src="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.js"></script>
-
-
-
-<div id="map"></div>
-
-
-
-<script>
-
-var map = new OSMBuildings({
-
-	container: 'map',
-
-	position: { latitude: 52.51836, longitude: 13.40438 },
-
-	zoom: 16,
-
-	minZoom: 15,
-
-	maxZoom: 20,
-
-	attribution: '© Data <a href="https://openstreetmap.org/copyright/">OpenStreetMap</a> © Map <a href="https://osmbuildings.org/copyright/">OSM Buildings</a>'
-
-})
-
-
-
-map.addMapTiles('https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png');
-
-map.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/59fcc2e8/tile/{z}/{x}/{y}.json');
-
-</script>
-
+  <link href="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.css" rel="stylesheet">
+  <script src="https://cdn.osmbuildings.org/4.1.1/OSMBuildings.js"></script>
 
   <style>
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
@@ -129,7 +87,7 @@ map.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/59fcc2e8/tile/{z}/{x}
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
+        <button id="reset">Sıfırla</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
@@ -159,85 +117,18 @@ map.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/59fcc2e8/tile/{z}/{x}
   <div id="map" aria-label="Harita"></div>
 
 <script>
-/* ========= i18n ========= */
-const I18N = {
-  tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
-    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla", hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor", clearRoute:"Rota Temizle" },
-    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe", duration:"Süre"},
-    cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC",
-           reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" },
-    nav:{ depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s" }
-  },
-  en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go",
-    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset", hint:"🔎 Search is active: only matches are shown", clearRoute:"Clear Route" },
-    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance", duration:"Duration"},
-    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet",
-           reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" },
-    nav:{ depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s" }
-  }
-};
-let LANG = localStorage.getItem("lang") || "tr";
-const t = () => I18N[LANG] || I18N.tr;
-const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-
-/* eşanlamlılar */
-const SYNONYMS = {
-  pool:['havuz','pool','basen','бассейн','schwimmbad'],
-  restaurant:['restoran','restaurant','restauracja','ресторан','gaststätte'],
-  spa:['spa','wellness','спа'],
-  bar:['bar','barı','бар'],
-  cafe:['cafe','café','kafe','кафе','kawiarnia'],
-  shop:['shop','store','market','magaza','sklep','магазин','laden'],
-  toilet:['wc','toilet','tuvalet','restroom','toaleta','туалет'],
-  reception:['reception','resepsiyon','recepcja','рецепция'],
-  beach:['beach','plaj','plaża','пляж','strand'],
-  kidsclub:['kids club','kidsclub','çocuk','miniclub','детский клуб','kinderclub'],
-  elevator:['elevator','lift','asansör','aufzug','лифт','winda'],
-  gate:['gate','kapı','giriş','brama','ворота'],
-  parking:['parking','park','otopark','parkplatz'],
-  shuttle:['shuttle','servis','bus'],
-  gym:['gym','fitness','spor','siłownia']
-};
-const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
-
-/* ========= Map ========= */
+// ========= OpenLayers Base =========
 const base = new ol.layer.Tile({
   source: new ol.source.OSM({
     attributions: '© aihotelstech · © OpenStreetMap contributors'
   })
 });
+
 const indoorSource  = new ol.source.Vector();
 const outdoorSource = new ol.source.Vector();
 
-let showAllDetails=false;
-const FEATURED=new Set(['reception','restaurant','spa','pool','beach','bar','toilet','kidsclub','elevator','gate','parking','shuttle','shop']);
-let searchIds=null;
-
-function styleFactory(kind){
-  return f=>{
-    if(f.get('src')!==kind) return null;
-    if(Array.isArray(searchIds)){
-      const id = f.ol_uid || f.getId();
-      const hit = searchIds.includes(id);
-      return hit ? styleFor(f,1) : null;
-    }
-    const cat=(f.get('category')||'').toLowerCase();
-    if(!showAllDetails && !FEATURED.has(cat)) return null;
-    return styleFor(f,1);
-  };
-}
-function styleFor(f,dim){
-  const g=f.getGeometry();
-  if(g.getType()==='Point'){
-    return new ol.style.Style({
-      image:new ol.style.Circle({radius:7, fill:new ol.style.Fill({color:`rgba(249,65,68,${0.95*dim})`}), stroke:new ol.style.Stroke({color:`rgba(193,18,31,${1*dim})`,width:2})})
-    });
-  }
-  return new ol.style.Style({ stroke:new ol.style.Stroke({color:`rgba(37,99,235,${1*dim})`,width:2}), fill:new ol.style.Fill({color:`rgba(37,99,235,${.10*dim})`}) });
-}
-
-const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource,  style: styleFactory('indoor') });
-const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: styleFactory('outdoor') });
+const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource });
+const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource });
 
 const map = new ol.Map({
   target:'map',
@@ -249,306 +140,14 @@ const map = new ol.Map({
   })
 });
 
-// ============= Cesium entegrasyonu =============
-let ol3d = new olcs.OLCesium({ map: map });
-let scene = ol3d.getCesiumScene();
-
-// Başlangıçta 2D
-ol3d.setEnabled(false);
-
-// Dünya aydınlatma
-scene.globe.enableLighting = true;
-
-// 3D butonu
-const toggle3dBtn = document.getElementById("toggle3d");
-toggle3dBtn.onclick = () => {
-  const state = ol3d.getEnabled();
-  ol3d.setEnabled(!state);
-  toggle3dBtn.textContent = state ? "3D Aç" : "3D Kapat";
-};
-
-
-  // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
 map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addControl(new ol.control.Rotate());
 
-/* ========= UI ========= */
-const $ = id=>document.getElementById(id);
-const q=$('q'), go=$('go'), langSel=$('lang'),
-      pickBtn=$('pick'), followBtn=$('follow'), toggleDetails=$('toggleDetails'), resetBtn=$('reset'),
-      results=$('results'), acc=$('acc'), hint=$('hint');
-const tglIndoor=$('tglIndoor'), tglOutdoor=$('tglOutdoor');
-const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
-
-const popupEl=$('popup'), popupCloser=$('popup-closer'), popupContent=$('popup-content');
-const popupOverlay=new ol.Overlay({element:popupEl, autoPan:{animation:{duration:200}}});
-map.addOverlay(popupOverlay);
-popupCloser.addEventListener('click',e=>{e.preventDefault(); hidePopup();});
-
-function setSearchUIState(active){
-  toggleDetails.disabled = active;
-  hint.style.display = active ? 'inline' : 'none';
-}
-
-/* ========= Veri (cache-bypass + “Sıfırla” ile yeniden yükle) ========= */
-const fmt=new ol.format.GeoJSON();
-let allFeats=[];
-async function loadJSONs(){
-  const bust = 'v=' + Date.now();
-  const [indoor, outdoor] = await Promise.all([
-    fetch('indoor.json?'+bust,  {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]})),
-    fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
-  ]);
-  indoorSource.clear(); outdoorSource.clear();
-  const add=(src,gj,kind)=>{ const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}); fs.forEach(f=>f.set('src',kind)); src.addFeatures(fs); };
-  add(indoorSource,indoor,'indoor'); add(outdoorSource,outdoor,'outdoor');
-  allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
-  if(allFeats.length){
-    const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-    if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
-  }
-  applyLang();
-  // arama/filtre sıfırlansın
-  searchIds=null; results.style.display='none'; setSearchUIState(false); redraw();
-}
-loadJSONs();
-
-/* ========= Dil ========= */
-function applyLang(){
-  const L=t();
-  q.placeholder=L.searchPH; go.textContent=L.go;
-  pickBtn.textContent=L.ui.pick;
-  followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
-  toggleDetails.textContent = showAllDetails ? L.ui.detailsOn : L.ui.detailsOff;
-  resetBtn.textContent=L.ui.reset;
-  clearRouteBtn.textContent=L.ui.clearRoute;
-  localStorage.setItem('lang',LANG);
-  if(currentPopupFeature && popupOverlay.getPosition()) popupContent.innerHTML=renderPopup(currentPopupFeature);
-}
-langSel.value=LANG;
-langSel.addEventListener('change',()=>{ LANG=langSel.value; applyLang(); });
-
-/* ========= Arama ========= */
-function detectCategory(qs){
-  const nq=norm(qs), dict=I18N[LANG]?.cats||{};
-  for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq) || nq.includes(norm(label))) return k; }
-  return KEYWORD_TO_CAT[nq] || null;
-}
-q.addEventListener('input', ()=>{
-  const val=(q.value||'').trim(); 
-  if(!val){ searchIds=null; redraw(); results.style.display='none'; setSearchUIState(false); return; }
-
-  const qn=norm(val); const maybeCat=detectCategory(val);
-  const hits=allFeats.filter(f=>{
-    const p=f.getProperties(); const cat=(p.category||'').toLowerCase();
-    if(maybeCat && cat===maybeCat) return true;
-    const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
-    if(names.some(n=>n.includes(qn))) return true;
-    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
-    return ex.some(d=>d.includes(qn));
-  });
-  showResults(hits, maybeCat);
-  searchIds = hits.map(f=> f.ol_uid || f.getId());
-  redraw();
-  setSearchUIState(true);
-});
-q.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const first=results.querySelector('.item'); if(first){ first.click(); e.preventDefault(); } } });
-
-function showResults(list,cat){
-  results.innerHTML='';
-  const hintDiv=document.createElement('div'); hintDiv.className='hint'; hintDiv.textContent=t().ui.hint; results.appendChild(hintDiv);
-
-  if(cat){
-    const feats=allFeats.filter(f=> (f.get('category')||'').toLowerCase()===cat);
-    const div=document.createElement('div');
-    div.className='item';
-    div.innerHTML=`<span>➤ ${(t().cats?.[cat] || cat)}</span> <small>${feats.length}</small>`;
-    div.onclick=()=>{ 
-      if(!feats.length) return;
-      searchIds = feats.map(f=> f.ol_uid || f.getId());
-      redraw();
-      const ext=ol.extent.createEmpty(); feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
-      map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:18});
-      results.style.display='none';
-      setSearchUIState(true);
-    };
-    results.appendChild(div);
-  }
-
-  list.slice(0,80).forEach(f=>{
-    const div=document.createElement('div'); div.className='item';
-    const name= f.get('name_'+LANG) || f.get('name') || '(isimsiz)';
-    const meta=[f.get('src')==='indoor'?'Indoor':'Outdoor', f.get('category')||'', f.get('level')||''].filter(Boolean).join(' · ');
-    div.innerHTML = `<span>${name}</span><small>${meta}</small>`;
-    div.onclick=()=>{ 
-      searchIds = [f.ol_uid || f.getId()];
-      redraw();
-      focusFeature(f,true); 
-      setDestination(coordOfFeature(f)); 
-      results.style.display='none'; 
-      go.disabled=false; 
-      setSearchUIState(true);
-    };
-    results.appendChild(div);
-  });
-  results.style.display='block';
-}
-
-/* ========= Kalabalık azaltma ========= */
-toggleDetails.onclick=()=>{ if(toggleDetails.disabled) return; showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
-function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
-
-/* ========= Katman toggles ========= */
-tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
-tglOutdoor.addEventListener('change',()=>{ outdoorLayer.setVisible(tglOutdoor.checked); });
-
-/* ========= Konum + takip ========= */
-let userLayer=null,userPoint=null,accCircle=null,followState=false,watchId=null;
-function ensureUserLayer(){
-  if(userLayer) return;
-  userPoint=new ol.Feature(new ol.geom.Point([0,0]));
-  userPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:'#1d4ed8'}), stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) }));
-  accCircle=new ol.Feature(new ol.geom.Circle([0,0],1));
-  accCircle.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:'#1d4ed8',width:1}), fill:new ol.style.Fill({color:'rgba(29,78,216,.06)'}) }));
-  userLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userPoint]}) }); map.addLayer(userLayer);
-}
-(function startWatch(){
-  if(!('geolocation' in navigator)) return;
-  try{ if(watchId!==null) navigator.geolocation.clearWatch(watchId);}catch{}
-  watchId=navigator.geolocation.watchPosition(pos=>{
-    const c=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]); ensureUserLayer();
-    userPoint.getGeometry().setCoordinates(c); accCircle.getGeometry().setCenter(c); accCircle.getGeometry().setRadius(pos.coords.accuracy||0);
-    acc.textContent="±"+Math.round(pos.coords.accuracy||0)+" m"; acc.style.display='block'; if(followState) map.getView().animate({center:c,duration:200});
-  },()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-})();
-followBtn.onclick=()=>{ followState=!followState; followBtn.textContent= followState ? t().ui.followOn : t().ui.followOff; if(followState && userPoint) map.getView().setCenter(userPoint.getGeometry().getCoordinates()); };
-
-/* ========= Hedef & rota ========= */
-let destLayer=null,destPoint=null,routeLayer=null,bearingLayer=null,pickMode=false;
-function setDestination(coord){
-  if(!destLayer){
-    destPoint=new ol.Feature(new ol.geom.Point(coord));
-    destPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:7,fill:new ol.style.Fill({color:'#ef4444'}),stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) }));
-    destLayer=new ol.layer.Vector({source:new ol.source.Vector({features:[destPoint]})}); map.addLayer(destLayer);
-  } else destPoint.getGeometry().setCoordinates(coord);
-  go.disabled=false; 
-}
-function clearDestination(){ if(destLayer){ map.removeLayer(destLayer); destLayer=null; destPoint=null; } }
-
-pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
-map.on('click',evt=>{
-  if(pickMode){ setDestination(evt.coordinate); pickMode=false; pickBtn.classList.remove('active'); return; }
-  currentPopupFeature=null;
-  ;[indoorLayer,outdoorLayer].forEach(layer=> map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; }));
-  if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
-});
-
-function clearRouteAndBearing(){ if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;} if(bearingLayer){map.removeLayer(bearingLayer);bearingLayer=null;} dirBox.style.display='none'; dirList.innerHTML=''; }
-function routeToDestination(){
-  if(!userPoint || !destPoint){ alert(LANG==='tr'?'Konum ve hedef gerekli.':'Need location and destination.'); return; }
-  clearRouteAndBearing();
-  const a=ol.proj.toLonLat(userPoint.getGeometry().getCoordinates()), b=ol.proj.toLonLat(destPoint.getGeometry().getCoordinates());
-  const url=`https://router.project-osrm.org/route/v1/foot/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson&steps=true`;
-  fetch(url).then(r=>r.json()).then(d=>{
-    if(d && d.routes && d.routes.length){
-      const route=d.routes[0];
-      const line=new ol.geom.LineString(route.geometry.coordinates).transform('EPSG:4326','EPSG:3857');
-      const feat=new ol.Feature({geometry:line});
-      routeLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[feat]}), style:new ol.style.Style({stroke:new ol.style.Stroke({color:'#16a34a',width:4})}) });
-      map.addLayer(routeLayer); map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:18});
-      // Yönergeleri yaz
-      const km=(route.distance/1000).toFixed(2)+" km"; const min=Math.round(route.duration/60)+" dk";
-      dirSum.textContent=km; dirSub.textContent='· '+min;
-      const steps=(route.legs?.[0]?.steps)||[];
-      dirList.innerHTML='';
-      steps.forEach((s,i)=>{ const txt=stepText(s); const dist=(s.distance>=1000? (s.distance/1000).toFixed(2)+' km' : Math.round(s.distance)+' m');
-        const el=document.createElement('div'); el.className='step'; el.innerHTML=`<div>${i+1}.</div><div><div>${txt}</div><div class="muted" style="font-size:12px">${dist}</div></div>`; dirList.appendChild(el); });
-      dirBox.style.display='block';
-    }else drawBearingLine();
-  }).catch(()=> drawBearingLine());
-}
-function stepText(s){
-  const L=t(); const man=s.maneuver||{}; const type=man.type||''; const mod=man.modifier||''; const street=s.name||'';
-  const onto=street? (L.nav.onto||'') .replace('%s', street) : '';
-  switch(type){
-    case 'depart': return L.nav.depart + onto;
-    case 'arrive': return L.nav.arrive;
-    case 'turn':
-      if(mod==='left') return L.nav.turn_left + onto;
-      if(mod==='right') return L.nav.turn_right + onto;
-      return (L.nav.straight||'') + onto;
-    case 'roundabout':
-      const ex=man.exit||1; return (L.nav.roundabout||'').replace('%n', ex) + onto;
-    default:
-      return (L.nav.straight||'') + onto;
-  }
-}
-
-go.onclick=routeToDestination; clearRouteBtn.onclick=()=>{ clearRouteAndBearing(); };
-collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block' : 'none'; collapseDir.textContent = s==='none' ? '▲' : '▼'; };
-
-function drawBearingLine(){
-  const a=userPoint.getGeometry().getCoordinates(), b=destPoint.getGeometry().getCoordinates();
-  const line=new ol.geom.LineString([a,b]);
-  const arrow=new ol.style.Style({ geometry:new ol.geom.Point(b),
-    image:new ol.style.RegularShape({points:3,radius:10,rotation:Math.atan2(b[1]-a[1],b[0]-a[0]), fill:new ol.style.Fill({color:'#16a34a'}),stroke:new ol.style.Stroke({color:'#fff',width:1})})
-  });
-  const aLL=ol.proj.toLonLat(a), bLL=ol.proj.toLonLat(b);
-  const dist=Math.round(ol.sphere.getDistance(aLL,bLL));
-  const label=new ol.style.Style({ geometry:new ol.geom.Point([(a[0]+b[0])/2,(a[1]+b[1])/2]),
-    text:new ol.style.Text({ text:(dist>=1000?(dist/1000).toFixed(2)+' km':dist+' m'), offsetY:-12, padding:[3,6,3,6],
-      backgroundFill:new ol.style.Fill({color:'rgba(255,255,255,.9)'}), backgroundStroke:new ol.style.Stroke({color:'#e5e7eb',width:1}), fill:new ol.style.Fill({color:'#111'}) })
-  });
-  const feat=new ol.Feature({geometry:line});
-  bearingLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[feat]}), style:[ new ol.style.Style({stroke:new ol.style.Stroke({color:'#16a34a',width:4})}), arrow, label ] });
-  map.addLayer(bearingLayer); map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:19});
-  // Basit yönerge: düz çizgi
-  dirSum.textContent=(dist>=1000?(dist/1000).toFixed(2)+' km':dist+' m'); dirSub.textContent=''; dirList.innerHTML=''; dirBox.style.display='block';
-}
-
-/* ========= Popup ========= */
-let currentPopupFeature=null;
-function coordOfFeature(f){ const g=f.getGeometry(); if(g.getType()==='Point') return g.getCoordinates(); if(g.getType()==='Polygon') return g.getInteriorPoint().getCoordinates(); return g.getFirstCoordinate(); }
-function renderPopup(f){
-  const p=f.getProperties(), L=t();
-  const name = p['name_'+LANG] || p.name || '';
-  const catKey=(p.category||'').toLowerCase();
-  const catLabel=L.cats[catKey] || p.category || '';
-  const hours = p['hours_'+LANG] || p.hours || '';
-  const level = p['level_'+LANG] || p.level || '';
-  const desc  = p['desc_'+LANG]  || p.desc  || '';
-  const img   = p['image_'+LANG] || p.image || '';
-  return `
-  <div style="min-width:220px">
-    <div style="font-weight:600;margin-bottom:6px">${name}</div>
-    ${catLabel?`<div class="badge" title="${L.labels.category}">${catLabel}</div>`:''}
-    ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
-    ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
-    ${desc?`<div style="margin-top:6px" class="muted">${desc}</div>`:''}
-    ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" alt="" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px"></div>`:''}
-  </div>`;
-}
-function showPopup(f,coord){ currentPopupFeature=f; popupContent.innerHTML=renderPopup(f); popupEl.style.display='block'; popupOverlay.setPosition(coord); }
-function hidePopup(){ popupEl.style.display='none'; popupOverlay.setPosition(undefined); currentPopupFeature=null; }
-function focusFeature(f,open){
-  const g=f.getGeometry();
-  const extent=g.getExtent();
-  map.getView().fit(extent,{padding:[140,20,160,20], maxZoom:18});
-  const c=coordOfFeature(f);
-  if(open) showPopup(f,c);
-}
-
-/* ========= Reset ========= */
-resetBtn.onclick=()=>{
-  hidePopup(); clearRouteAndBearing(); results.style.display='none';
-  q.value=''; // arama temizle
-  searchIds=null; redraw();
-  clearDestination(); // seçilen kırmızı hedefi de kaldır
-  loadJSONs(); // veriyi taze çek → telefon/PC cache farkı kalmaz
-};
-
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ results.style.display='none'; hidePopup(); }});
-applyLang();
+// ========= OSMBuildings =========
+const osmb = new OSMBuildings({ baseURL: 'https://cdn.osmbuildings.org/4.1.1/' });
+osmb.addMapTiles('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
+osmb.appendTo('map');
 </script>
 </body>
 </html>
