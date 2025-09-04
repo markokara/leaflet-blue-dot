@@ -4,11 +4,37 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – Indoor & Outdoor Harita</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
-  
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-  
+
+  <link href="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.css" rel="stylesheet">
+  <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js">
+
+      var osmb = new OSMBuildings({
+    container: 'map',
+    position: { latitude: 52.52000, longitude: 13.41000 },
+    zoom: 16,
+    minZoom: 15,
+    maxZoom: 22
+  });
+
+  osmb.addMapTiles(
+    YOUR_TILESET_URL,
+    {
+      attribution: '© Data <a href="http://openstreetmap.org/copyright/">OpenStreetMap</a> · © Map <a href="http://mapbox.com">Mapbox</a>'
+    }
+  );
+
+  osmb.addGeoJSONTiles('http://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
+    
+  </script>
+
+
+<body>
+  <div id="map"></div>
+
+
 <!-- CesiumJS 1.132 -->
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Cesium.js"></script>
@@ -91,7 +117,7 @@
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-    <button id="reset">Sıfırla</button>
+        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
