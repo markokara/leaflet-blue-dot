@@ -121,6 +121,31 @@
   <div id="map" aria-label="Harita"></div>
 
 <script>
+// ...mevcut kod...
+// Arama kutusu ve butonlar işlevsel hale getirildi
+q.addEventListener('input', ()=>{
+  const val=(q.value||'').trim();
+  if(!val){ searchIds=null; redraw(); results.style.display='none'; setSearchUIState(false); return; }
+  const qn=norm(val); const maybeCat=detectCategory(val);
+  const hits=allFeats.filter(f=>{
+    const p=f.getProperties(); const cat=(p.category||'').toLowerCase();
+    if(maybeCat && cat===maybeCat) return true;
+    const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
+    if(names.some(n=>n.includes(qn))) return true;
+    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
+    return ex.some(d=>d.includes(qn));
+  });
+  showResults(hits, maybeCat);
+  searchIds = hits.map(f=> f.ol_uid || f.getId());
+  redraw();
+  setSearchUIState(true);
+});
+
+pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
+followBtn.onclick=()=>{ followState=!followState; followBtn.textContent= followState ? t().ui.followOn : t().ui.followOff; if(followState && userPoint) map.getView().setCenter(userPoint.getGeometry().getCoordinates()); };
+toggleDetails.onclick=()=>{ if(toggleDetails.disabled) return; showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; redraw(); };
+tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
+tglOutdoor.addEventListener('change',()=>{ outdoorLayer.setVisible(tglOutdoor.checked); });
 /* ========= i18n ========= */
 const I18N = {
   tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
