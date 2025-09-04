@@ -4,17 +4,13 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – Indoor & Outdoor Harita</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
-
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
   <link href="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.css" rel="stylesheet">
   <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js">
   <!-- Kütüphane -->
 <script src="https://cdn.osmbuildings.org/4.0.0/OSMBuildings.js"></script>
-
-      var osmb = new OSMBuildings({
 <!-- Kendi kodunuz -->
 <script>
   var osmb = new OSMBuildings({
@@ -37,7 +33,6 @@
   osmb.addGeoJSONTiles('http://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
     
   </script>
-  osmb.addGeoJSONTiles('https://{s}.data.osmbuildings.org/0.2/anonymous/tile/{z}/{x}/{y}.json');
 </script>
 
 
@@ -47,8 +42,8 @@
 
 
 <!-- CesiumJS 1.132 -->
-<link href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-<script src="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Cesium.js"></script>
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.133/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.133/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
 <!-- OL-Cesium köprü -->
 <script src="https://cdn.jsdelivr.net/npm/ol-cesium@2.17.0/dist/olcesium.js"></script>
