@@ -128,7 +128,7 @@
         <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="reset">Sıfırla</button><button id="toggle3d">3D Aç</button>
+  <button id="reset">Sıfırla</button><button id="toggle3d" style="display:none">3D Aç</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
       <div id="results" class="results"></div>
@@ -258,13 +258,15 @@ ol3d.setEnabled(false);
 // Dünya aydınlatma
 scene.globe.enableLighting = true;
 
-// 3D butonu
+// 3D butonu (opsiyonel)
 const toggle3dBtn = document.getElementById("toggle3d");
-toggle3dBtn.onclick = () => {
-  const state = ol3d.getEnabled();
-  ol3d.setEnabled(!state);
-  toggle3dBtn.textContent = state ? "3D Aç" : "3D Kapat";
-};
+if (toggle3dBtn) {
+  toggle3dBtn.onclick = () => {
+    const state = ol3d.getEnabled();
+    ol3d.setEnabled(!state);
+    toggle3dBtn.textContent = state ? "3D Aç" : "3D Kapat";
+  };
+}
 
 
   // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
