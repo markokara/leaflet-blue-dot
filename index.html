@@ -4,7 +4,6 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – Indoor & Outdoor Harita</title>
-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <style>
@@ -197,30 +196,12 @@
     })();
 
     /* ========= Map ========= */
-
-// === Long Beach Hotel'e kilitleme ayarları ===
-// KOORDİNATLARI KENDİ DOĞRU DEĞERİNİZLE GÜNCELLEYİN  [lon, lat]
-const HOTEL_LONLAT = [31.756900, 36.606600]; // ÖRNEK: Long Beach Hotel
-const HOTEL_BUFFER_METERS = 350;             // görünür yarıçap (metre)
-const LOCK_TO_HOTEL = true;                  // haritayı bu alana kilitle
-
-function extentAroundLonLat([lon,lat], meters){
-  const c = ol.proj.fromLonLat([lon,lat]);
-  // Basit kare zarf (metre cinsinden)
-  return [c[0]-meters, c[1]-meters, c[0]+meters, c[1]+meters];
-}
-
     const base = new ol.layer.Tile({
-  source: new ol.source.OSM({
-    attributions: '© aihotelstech · © OpenStreetMap contributors',
-    wrapX: false
-  })
-});
+      source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
+    });
 
-
-    const indoorSource = new ol.source.Vector({ wrapX:false });
-    const outdoorSource = new ol.source.Vector({ wrapX:false });
-
+    const indoorSource = new ol.source.Vector();
+    const outdoorSource = new ol.source.Vector();
 
     let showAllDetails=false;
     const FEATURED=new Set(['reception','restaurant','spa','pool','beach','bar','toilet','kidsclub','elevator','gate','parking','shuttle','shop']);
@@ -263,26 +244,11 @@ function extentAroundLonLat([lon,lat], meters){
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({
-  center: ol.proj.fromLonLat(HOTEL_LONLAT),
-  zoom: 17,
-  minZoom: 16,
-  maxZoom: 19,
-  enableRotation: false,
-  extent: extentAroundLonLat(HOTEL_LONLAT, HOTEL_BUFFER_METERS),
-  constrainOnlyCenter: false
-}),
-
+      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
       // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
     map.addControl(new ol.control.Rotate());
-// Başlangıçta otele tam odaklan
-if (LOCK_TO_HOTEL) {
-  const hotelExtent = extentAroundLonLat(HOTEL_LONLAT, HOTEL_BUFFER_METERS);
-  map.getView().fit(hotelExtent, { padding:[140,20,160,20], maxZoom:18, duration:0 });
-}
-
 
     /* ========= UI ========= */
     const $ = id=>document.getElementById(id);
@@ -752,11 +718,6 @@ if (LOCK_TO_HOTEL) {
       clearDestination(); // seçilen kırmızı hedefi de kaldır
       loadJSONs(); // veriyi taze çek → telefon/PC cache farkı kalmaz
     };
-if (LOCK_TO_HOTEL) {
-  const hotelExtent = extentAroundLonLat(HOTEL_LONLAT, HOTEL_BUFFER_METERS);
-  map.getView().fit(hotelExtent, { padding:[140,20,160,20], maxZoom:18, duration:0 });
-}
-
 
     document.addEventListener('keydown',e=>{
       if(e.key==='Escape'){
