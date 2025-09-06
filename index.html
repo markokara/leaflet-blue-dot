@@ -1,216 +1,225 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Misafir – Indoor & Outdoor Harita (3D Binalar)</title>
-
-  <!-- OpenLayers -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Misafir – Indoor/Outdoor (2.5D Binalar)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-
   <style>
-    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
-    html,body{height:100%;margin:0}
-    body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
-    /* Harita konteyneri tam ekran (yükseklik hatasını önler) */
-    #map{position:fixed; inset:0; min-width:320px; min-height:320px}
-
-    /* Attribution sade */
+    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; }
+    html,body{height:100%;margin:0;background:#f3f4f6;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    #map{position:fixed; inset:0; min-height:300px}
     .ol-attribution{font-size:10px; opacity:.85}
     .ol-attribution button{display:none}
-
-    /* Alt panel */
-    .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(780px,96vw); z-index:1000;}
-    .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
-    .p-8{padding:12px}
-    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-    button{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
-    button:active{transform:translateY(1px)}
-    button:disabled{opacity:.55; cursor:not-allowed}
+    .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); z-index:10; width:min(820px,96vw)}
+    .card{background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow); padding:10px}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    button,.btn,select{padding:10px 12px; border:1px solid #e5e7eb; background:#fff; border-radius:10px; cursor:pointer}
     .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
-    .muted{color:var(--muted)}
+    .muted{color:var(--muted); font-size:12px}
   </style>
 </head>
 <body>
-
   <div id="map" aria-label="Harita"></div>
 
-  <!-- Alt kontrol paneli -->
   <div class="panel">
-    <div class="card p-8">
+    <div class="card">
       <div class="row">
-        <button id="btn3d">3D: Kapalı</button>
-        <span class="muted">Taban: OSM</span>
-        <button id="reset">Sıfırla</button>
+        <button id="btnPoster">Poster: Kapalı</button>
+        <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
+        <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
+        <button id="btnFit">Otele Yakınlaş</button>
+        <span class="muted">• 2.5D binalar stabil – kayma yok</span>
       </div>
-      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
     </div>
   </div>
 
   <script>
-    /* ===================== Temel harita ===================== */
-    const base = new ol.layer.Tile({
-      source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
-    });
+  // -------------------- Harita --------------------
+  const base = new ol.layer.Tile({
+    source: new ol.source.OSM({attributions:'© aihotelstech · © OpenStreetMap contributors'})
+  });
 
-    const map = new ol.Map({
-      target: 'map',
-      layers: [base],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([31.8046, 36.6002]),
-        zoom: 17, rotation: 0
+  const map = new ol.Map({
+    target: 'map',
+    layers: [base],
+    view: new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom: 17}),
+  });
+  map.addControl(new ol.control.Attribution({collapsible:false}));
+  map.addControl(new ol.control.Rotate());
+
+  // -------------------- Kaynaklar --------------------
+  const fmt = new ol.format.GeoJSON();
+  const indoorSrc  = new ol.source.Vector();
+  const outdoorSrc = new ol.source.Vector();
+  const bldSrc     = new ol.source.Vector();
+
+  const indoorLayer  = new ol.layer.VectorImage({source: indoorSrc,  style: featureStyle});
+  const outdoorLayer = new ol.layer.VectorImage({source: outdoorSrc, style: featureStyle});
+  const buildingLayer= new ol.layer.VectorImage({source: bldSrc,     style: buildingStyle});
+
+  map.addLayer(buildingLayer);
+  map.addLayer(indoorLayer);
+  map.addLayer(outdoorLayer);
+
+  // -------------------- Veri Yükleme --------------------
+  (async function loadAll(){
+    const bust = 'v='+Date.now();
+    const [indoor,outdoor,buildings] = await Promise.all([
+      fetch('indoor.json?'+bust).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FC',features:[]})),
+      fetch('outdoor.json?'+bust).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FC',features:[]})),
+      fetch('buildings.json?'+bust).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FC',features:[]})),
+    ]);
+    indoorSrc.addFeatures( fmt.readFeatures(indoor,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}) );
+    outdoorSrc.addFeatures(fmt.readFeatures(outdoor,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}) );
+    bldSrc.addFeatures(    fmt.readFeatures(buildings,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}) );
+
+    // Otele yakınlaş
+    fitHotel();
+  })();
+
+  function fitHotel(){
+    const ext = ol.extent.createEmpty();
+    if(!ol.extent.isEmpty(indoorSrc.getExtent()))  ol.extent.extend(ext, indoorSrc.getExtent());
+    if(!ol.extent.isEmpty(outdoorSrc.getExtent())) ol.extent.extend(ext, outdoorSrc.getExtent());
+    if(!ol.extent.isEmpty(bldSrc.getExtent()))     ol.extent.extend(ext, bldSrc.getExtent());
+    if(ol.extent.isEmpty(ext)) return;
+    map.getView().fit(ext,{padding:[120,20,140,20], maxZoom:19});
+  }
+  document.getElementById('btnFit').onclick=fitHotel;
+
+  // -------------------- Indoor/Outdoor toggles --------------------
+  const tglIndoor = document.getElementById('tglIndoor');
+  const tglOutdoor= document.getElementById('tglOutdoor');
+  tglIndoor.onchange = ()=> indoorLayer.setVisible(tglIndoor.checked);
+  tglOutdoor.onchange= ()=> outdoorLayer.setVisible(tglOutdoor.checked);
+
+  // -------------------- POI Stil (numaralı rozet) --------------------
+  function featureStyle(f){
+    const p=f.getProperties();
+    const g=f.getGeometry();
+    const isPoint = g.getType()==='Point';
+    const num = p.no ?? p.order ?? null; // indoor.json/outdoor.json içine no/order koyarsan numara çıkar
+    const cat = (p.category||'').toLowerCase();
+
+    if(isPoint){
+      // Numara varsa kırmızı rozet, yoksa mavi nokta
+      if(num!=null){
+        return new ol.style.Style({
+          image: new ol.style.RegularShape({
+            points: 20, radius: 14,
+            fill: new ol.style.Fill({color:'#ef4444'}),
+            stroke: new ol.style.Stroke({color:'#fff', width:2})
+          }),
+          text: new ol.style.Text({
+            text: String(num),
+            font:'600 12px system-ui, -apple-system, Segoe UI, Roboto',
+            fill: new ol.style.Fill({color:'#fff'})
+          })
+        });
+      }else{
+        return new ol.style.Style({
+          image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:'#2563eb'}), stroke:new ol.style.Stroke({color:'#fff',width:1.8})})
+        });
+      }
+    }else{
+      // Alanlar için nazik vurgular
+      return new ol.style.Style({
+        stroke:new ol.style.Stroke({color:'rgba(37,99,235,.9)', width:2}),
+        fill:new ol.style.Fill({color:'rgba(37,99,235,.12)'})
+      });
+    }
+  }
+
+  // -------------------- 2.5D Bina Stili (kabartma) --------------------
+  const DEG=Math.PI/180, SUN_AZ=315*DEG, SUN_ALT=55*DEG;
+  function getHeight(p){
+    const h  = Number(p.height)||0;
+    const lv = Number(p['building:levels']||p.levels||0);
+    return h || (lv>0 ? lv*3.2 : 8);
+  }
+  function offsetPolygon(poly, dx, dy){
+    const rings = poly.getCoordinates().map(ring => ring.map(([x,y])=>[x+dx,y+dy]));
+    return new ol.geom.Polygon(rings);
+  }
+  function buildingStyle(f){
+    const p=f.getProperties();
+    const poly = /** @type {ol.geom.Polygon} */ (f.getGeometry());
+    const h = getHeight(p);
+
+    const d  = h / Math.tan(SUN_ALT);
+    const dx = d * Math.sin(SUN_AZ);
+    const dy = d * Math.cos(SUN_AZ);
+
+    const roofCol = p.roofColor || [210,210,210,0.92];
+    const wallCol = p.wallColor || [180,180,180,0.85];
+
+    const shadow = new ol.style.Style({
+      geometry: offsetPolygon(poly, dx, dy),
+      fill: new ol.style.Fill({color:'rgba(0,0,0,0.10)'}),
+      stroke:new ol.style.Stroke({color:'rgba(0,0,0,0.08)', width:1})
+    });
+    const walls = new ol.style.Style({
+      geometry: poly,
+      stroke:new ol.style.Stroke({color:'rgba(0,0,0,0.35)', width: Math.min(3, Math.max(1.5, h/15))})
+    });
+    const roof = new ol.style.Style({
+      geometry: poly,
+      fill: new ol.style.Fill({color: roofCol}),
+      stroke:new ol.style.Stroke({color:'rgba(80,80,80,.40)', width:1})
+    });
+    const labelName = p.name || '';
+    const label = labelName ? new ol.style.Style({
+      geometry: poly.getInteriorPoint(),
+      text:new ol.style.Text({
+        text: labelName,
+        font:'600 12px system-ui,-apple-system, Segoe UI, Roboto',
+        fill:new ol.style.Fill({color:'#111'}),
+        backgroundFill:new ol.style.Fill({color:'rgba(255,255,255,.85)'}),
+        backgroundStroke:new ol.style.Stroke({color:'rgba(0,0,0,.2)',width:1}),
+        padding:[2,4,2,4],
+        overflow:true
       })
-    });
-    map.addControl(new ol.control.Attribution({collapsible:false}));
-    map.addControl(new ol.control.Rotate());
+    }): null;
 
-    /* ===================== 3D MODÜLÜ (deck.gl) ===================== */
-    (function(){
-      const btn3d = document.getElementById('btn3d');
-      const resetBtn = document.getElementById('reset');
-      const mapEl = document.getElementById('map');
+    return label ? [shadow,walls,roof,label] : [shadow,walls,roof];
+  }
 
-      let deckDiv = null;
-      let deckInstance = null;
-      let postRenderKey = null;
-      let buildings = null;
-
-      // CDN fallback
-      const DECK_CDNS = [
-        'https://cdn.jsdelivr.net/npm/deck.gl@8.9.36/dist.min.js',
-        'https://unpkg.com/deck.gl@8.9.36/dist.min.js'
-      ];
-      function loadScriptSequential(urls){
-        return new Promise((resolve,reject)=>{
-          const tryAt=(i)=>{
-            if(i>=urls.length){ reject(new Error('CDN blocked')); return; }
-            const s=document.createElement('script');
-            s.src=urls[i]; s.defer=true;
-            s.onload=()=>resolve(urls[i]);
-            s.onerror=()=>{ s.remove(); tryAt(i+1); };
-            document.head.appendChild(s);
-          };
-          tryAt(0);
-        });
-      }
-
-      // OL → deck viewState (drift yok; 512 world referansı)
-      function toViewState(){
-        const v = map.getView();
-        const [lon,lat] = ol.proj.toLonLat(v.getCenter());
-        const size = map.getSize() || [mapEl.clientWidth, mapEl.clientHeight];
-        const res  = v.getResolution() || 156543.033928;         // m/px (EPSG:3857)
-        const MPP_Z0_512 = 78271.51696402048;                    // 512px world z0 m/px
-        const zoom = Math.log2(MPP_Z0_512 / res);                // <-- doğru zoom
-
-        return {
-          longitude: lon, latitude: lat, zoom,
-          bearing: (-v.getRotation()*180/Math.PI),
-          pitch: 55,
-          width: size[0], height: size[1]
-        };
-      }
-
-      // Yükseklik & renk yardımcıları
-      const getHeight = f=>{
-        const p=f.properties||{};
-        const h  = Number(p.height)||0;
-        const lv = Number(p['building:levels']||p.levels||0);
-        return h || (lv>0 ? lv*3.2 : 8);
-      };
-      const wallColor = f=>(f.properties && f.properties.wallColor) || [180,180,180,235];
-      const roofColor = f=>(f.properties && f.properties.roofColor) || [210,210,210,245];
-
-      function makeLayers(){
-        if(!buildings) return [];
-        // Duvarlar
-        const walls = new deck.GeoJsonLayer({
-          id:'bld-walls',
-          data: buildings,
-          extruded:true,
-          wireframe:false,
-          pickable:false,
-          getElevation:getHeight,
-          getFillColor:wallColor,
-          getLineColor:[110,110,110],
-          getLineWidth:1,
-          // ÖNEMLİ: class değil, düz obje
-          material:{ ambient:0.6, diffuse:0.8, shininess:16 },
-          parameters:{ depthTest:true }
-        });
-        // Çatılar
-        const roofs = new deck.GeoJsonLayer({
-          id:'bld-roofs',
-          data: buildings,
-          extruded:false,
-          pickable:false,
-          filled:true,
-          stroked:true,
-          getFillColor:roofColor,
-          getLineColor:[100,100,100,180],
-          lineWidthMinPixels:1,
-          parameters:{ depthTest:true, depthMask:false, polygonOffsetUnits:1, polygonOffsetFactor:1 }
-        });
-        return [walls, roofs];
-      }
-
-      function start3D(){
-        deckDiv = document.createElement('div');
-        deckDiv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3';
-        mapEl.appendChild(deckDiv);
-
-        deckInstance = new deck.Deck({
-          parent: deckDiv,
-          controller: false, // kontrol OL’de
-          initialViewState: toViewState(),
-          layers: makeLayers(),
-          glOptions:{alpha:true, antialias:true},
-          parameters:{blend:true, clearColor:[0,0,0,0]},
-          effects:[
-            new deck.LightingEffect({
-              ambientLight: new deck.AmbientLight({intensity:0.7}),
-              directionalLights:[ new deck.DirectionalLight({direction:[-1,-1,-2], intensity:1.15}) ]
-            })
-          ]
-        });
-
-        // Her frame senkron
-        postRenderKey = map.on('postrender', ()=>{
-          if(deckInstance) deckInstance.setProps({viewState: toViewState()});
-        });
-        new ResizeObserver(()=>{ if(deckInstance) deckInstance.setProps({viewState: toViewState()}); }).observe(mapEl);
-      }
-
-      function stop3D(){
-        if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
-        if(deckInstance){ deckInstance.finalize(); deckInstance=null; }
-        if(deckDiv && deckDiv.parentNode){ deckDiv.parentNode.removeChild(deckDiv); deckDiv=null; }
-      }
-
-      async function toggle3D(){
-        if(deckInstance){ stop3D(); btn3d.textContent='3D: Kapalı'; return; }
-
-        btn3d.disabled=true; btn3d.textContent='3D: yükleniyor…';
-        try{
-          await loadScriptSequential(DECK_CDNS);                 // deck.gl
-          buildings = await fetch('buildings.json?v='+Date.now(), // kendi dosyan
-            {cache:'no-store'}).then(r=>r.json());
-          start3D();
-          btn3d.textContent='3D: Açık';
-        }catch(err){
-          console.error('3D load error:', err);
-          alert('3D binalar yüklenemedi (CDN veya buildings.json).');
-          stop3D();
-          btn3d.textContent='3D: Kapalı';
-        }finally{
-          btn3d.disabled=false;
-        }
-      }
-
-      btn3d.addEventListener('click', toggle3D);
-      resetBtn.addEventListener('click', ()=>{ if(deckInstance){ stop3D(); btn3d.textContent='3D: Kapalı'; }});
-    })();
+  // -------------------- Poster (opsiyonel) --------------------
+  let posterLayer=null;
+  async function togglePoster(){
+    const btn = document.getElementById('btnPoster');
+    if(posterLayer){
+      map.removeLayer(posterLayer); posterLayer=null;
+      btn.textContent='Poster: Kapalı';
+      return;
+    }
+    btn.disabled=true; btn.textContent='Poster: yükleniyor…';
+    try{
+      const pj = await fetch('poster.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
+      const [minLon,minLat,maxLon,maxLat] = pj.extent;
+      const extent = ol.proj.transformExtent([minLon,minLat,maxLon,maxLat],'EPSG:4326','EPSG:3857');
+      posterLayer = new ol.layer.Image({
+        source: new ol.source.ImageStatic({
+          url: pj.image,
+          imageExtent: extent,
+          interpolate: true
+        }),
+        opacity: 1
+      });
+      // Poster'i OSM'in ÜSTÜNE, POI'lerin ALTINA yerleştir:
+      map.getLayers().insertAt(1, posterLayer);
+      btn.textContent='Poster: Açık';
+    }catch(e){
+      console.warn('poster.json yok ya da hatalı:', e);
+      alert('poster.json bulunamadı veya hatalı. (image + extent gerekli)');
+      btn.textContent='Poster: Kapalı';
+    }finally{
+      btn.disabled=false;
+    }
+  }
+  document.getElementById('btnPoster').onclick=togglePoster;
   </script>
 </body>
 </html>
