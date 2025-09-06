@@ -2,10 +2,10 @@
   "type":"Feature",
   "properties":{
     "name":"Ana Bina",
-    "height":18,              // metre
+    "height":18,
     "building:levels":3,
     "wallColor":[176,170,160,235],
     "roofColor":[218,214,206,245]
   },
-  "geometry":{ "type":"Polygon", "coordinates":[ ... ] }
+  "geometry":{"type":"Polygon","coordinates":[[[31.8040,36.6001],[31.8045,36.6003],[31.8046,36.6000],[31.8041,36.5999],[31.8040,36.6001]]]}
 }
