@@ -727,8 +727,10 @@
     });
 
     applyLang();
+</script>
 
 <!-- === 3D BİNALAR (deck.gl) — düzgün ölçek + canlı senkron === -->
+<script>
 (function(){
   // Panelde buton
   const rows = document.querySelectorAll('.panel .row');
@@ -740,11 +742,15 @@
 
   // Deck tuvali: map div’inin içine (ölçüler %100 eşit olsun)
   const mapEl = document.getElementById('map');
-  mapEl.style.position = 'relative'; // emniyet
+  mapEl.style.position = 'relative';
   const deckDiv = document.createElement('div');
   deckDiv.id = 'deck3d';
   deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
   mapEl.appendChild(deckDiv);
+
+  // OL uyarısını susturmak için boyut güncelle (özellikle mobil emulator)
+  window.addEventListener('load', ()=> map.updateSize());
+  new ResizeObserver(()=> map.updateSize()).observe(mapEl);
 
   // CDN fallback’li yükleyici
   function loadScriptSequential(urls){
@@ -765,8 +771,7 @@
     'https://unpkg.com/deck.gl@8.9.36/dist.min.js'
   ];
 
-  // OL → deck görüntü durumu dönüştürücü
-  // Not: OSM (256px) → deck(Mapbox 512px) için zoom - 1 uygulanır
+  // OL → deck görünüm dönüştürücü (OSM 256px → deck 512px ölçek farkı için -1)
   const DECK_ZOOM_OFFSET = -1;
   const toViewState = ()=>{
     const v = map.getView();
@@ -789,9 +794,7 @@
 
   function makeLighting(){
     const amb = new deck.AmbientLight({color:[255,255,255], intensity: 0.7});
-    const dir = new deck.DirectionalLight({
-      color:[255,255,255], intensity: 1.0, direction: [-1,-1,-2]
-    });
+    const dir = new deck.DirectionalLight({color:[255,255,255], intensity: 1.0, direction: [-1,-1,-2]});
     return new deck.LightingEffect({ambientLight:amb, directionalLights:[dir]});
   }
 
@@ -803,7 +806,6 @@
       extruded: true,
       wireframe: false,
       pickable: false,
-      // Yükseklik önceliği: height (m) → building:levels/levels * 3.2 → 8
       getElevation: f=>{
         const p=f.properties||{};
         const h = Number(p.height)||0;
@@ -817,20 +819,17 @@
     });
   }
 
-  // Her karede senkron için postrender hook
-  const syncDeck = ()=>{
-    if (deckInstance) deckInstance.setProps({viewState: toViewState()});
-  };
+  // Her karede senkron
+  const syncDeck = ()=>{ if (deckInstance) deckInstance.setProps({viewState: toViewState()}); };
 
   async function toggle3D(){
-    if(deckInstance){ // KAPAT
+    if(deckInstance){ // Kapat
       if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
       deckInstance.finalize(); deckInstance = null;
       btn.textContent = '3D: Kapalı';
       return;
     }
-
-    // AÇ
+    // Aç
     btn.disabled = true; btn.textContent = '3D: yükleniyor…';
     try{
       await loadScriptSequential(DECK_CDNS);
@@ -844,10 +843,8 @@
         effects: [ makeLighting() ]
       });
 
-      // Görünüm değişirken her postrender frame’de güncelle
-      postRenderKey = map.on('postrender', syncDeck);
-      // Resize güvenliği
-      new ResizeObserver(()=> syncDeck()).observe(mapEl);
+      postRenderKey = map.on('postrender', syncDeck);      // canlı senkron
+      new ResizeObserver(()=> syncDeck()).observe(mapEl);  // resize güvenliği
 
       btn.textContent = '3D: Açık';
     }catch(e){
@@ -866,12 +863,15 @@
   const resetBtn = document.getElementById('reset');
   if(resetBtn){
     resetBtn.addEventListener('click', ()=>{
-      if(deckInstance){ if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
-        deckInstance.finalize(); deckInstance=null; btn.textContent='3D: Kapalı'; }
+      if(deckInstance){
+        if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
+        deckInstance.finalize(); deckInstance=null;
+        btn.textContent='3D: Kapalı';
+      }
     });
   }
 })();
+</script>
 
-  </script>
 </body>
 </html>
