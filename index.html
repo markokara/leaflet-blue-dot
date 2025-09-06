@@ -162,21 +162,52 @@
     const wallColor=f=>(f.properties&&f.properties.wallColor)||[180,180,180,235];
     const roofColor=f=>(f.properties&&f.properties.roofColor)||[210,210,210,245];
 
-    function makeLayers(){
-      if(!buildings) return [];
-      const walls=new deck.GeoJsonLayer({
-        id:'bld-walls', data:buildings, extruded:true, wireframe:false, pickable:false,
-        getElevation:getHeight, getFillColor:wallColor, getLineColor:[110,110,110], getLineWidth:1,
-        material:new deck.PhongMaterial({ambient:0.6,diffuse:0.8,shininess:16}),
-        parameters:{depthTest:true}
-      });
-      const roofs=new deck.GeoJsonLayer({
-        id:'bld-roofs', data:buildings, extruded:false, pickable:false, filled:true, stroked:true,
-        getFillColor:roofColor, getLineColor:[100,100,100,180], lineWidthMinPixels:1,
-        parameters:{depthTest:true, depthMask:false, polygonOffsetUnits:1, polygonOffsetFactor:1}
-      });
-      return [walls,roofs];
+    ffunction makeLayers(){
+  if(!buildings) return [];
+
+  // Duvarlar (extruded)
+  const walls = new deck.GeoJsonLayer({
+    id: 'bld-walls',
+    data: buildings,
+    extruded: true,
+    wireframe: false,
+    pickable: false,
+    getElevation: f => {
+      const p = f.properties || {};
+      const h  = Number(p.height) || 0;
+      const lv = Number(p['building:levels'] || p.levels || 0);
+      return h || (lv > 0 ? lv * 3.2 : 8);
+    },
+    getFillColor: f => (f.properties && f.properties.wallColor) || [180,180,180,235],
+    getLineColor: [110,110,110],
+    getLineWidth: 1,
+
+    // 🔧 BURASI ÖNEMLİ: Sınıf değil, düz obje veriyoruz
+    material: { ambient: 0.6, diffuse: 0.8, shininess: 16 },
+
+    parameters: { depthTest: true }
+  });
+
+  // Çatılar (ayrı katman – z-fighting olmasın)
+  const roofs = new deck.GeoJsonLayer({
+    id: 'bld-roofs',
+    data: buildings,
+    extruded: false,
+    pickable: false,
+    filled: true,
+    stroked: true,
+    getFillColor: f => (f.properties && f.properties.roofColor) || [210,210,210,245],
+    getLineColor: [100,100,100,180],
+    lineWidthMinPixels: 1,
+    parameters: {
+      depthTest: true,
+      depthMask: false,
+      polygonOffsetUnits: 1,
+      polygonOffsetFactor: 1
     }
+  });
+
+  return [walls, roofs];
 
     function start3D(){
       deckDiv=document.createElement('div');
