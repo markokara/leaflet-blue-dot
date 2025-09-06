@@ -586,5 +586,216 @@
     document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ results.style.display='none'; hidePopup(); } });
     applyLang();
   </script>
+<!-- === 3D BİNALAR (deck.gl) — bağımsız, haritayı etkilemez === -->
+<script>
+(function(){
+  // Panelde 3D butonu
+  const rows = document.querySelectorAll('.panel .row');
+  const controlsRow = rows[1] || rows[rows.length-1];
+  const btn3d = document.createElement('button');
+  btn3d.id = 'btn3d';
+  btn3d.textContent = '3D: Kapalı';
+  controlsRow.appendChild(btn3d);
+
+  // Deck katmanı: harita DIV'inin içinde, tıklamayı engellemeyecek
+  const mapEl = document.getElementById('map');
+  mapEl.style.position = 'relative';
+  const deckDiv = document.createElement('div');
+  deckDiv.id = 'deck3d';
+  deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
+  mapEl.appendChild(deckDiv);
+
+  // CDN fallback'li loader
+  function loadScriptSequential(urls){
+    return new Promise((resolve,reject)=>{
+      const tryAt=(i)=>{
+        if(i>=urls.length) return reject(new Error('CDN blocked'));
+        const s=document.createElement('script');
+        s.src = urls[i]; s.defer = true;
+        s.onload = ()=>resolve(urls[i]);
+        s.onerror = ()=>{ s.remove(); tryAt(i+1); };
+        document.head.appendChild(s);
+      };
+      tryAt(0);
+    });
+  }
+  const DECK_CDNS = [
+    'https://cdn.jsdelivr.net/npm/deck.gl@8.9.36/dist.min.js',
+    'https://unpkg.com/deck.gl@8.9.36/dist.min.js'
+  ];
+
+  // OL → deck viewState (OSM 256px → deck 512px = zoom -1)
+  const DECK_ZOOM_OFFSET = -1;
+  const toViewState = ()=>{
+    const v = map.getView();
+    const [lon,lat] = ol.proj.toLonLat(v.getCenter());
+    const sz = map.getSize() || [mapEl.clientWidth, mapEl.clientHeight];
+    return {
+      longitude: lon,
+      latitude: lat,
+      zoom: (v.getZoom()||0) + DECK_ZOOM_OFFSET,
+      bearing: (-v.getRotation()*180/Math.PI),
+      pitch: 48,
+      width: sz[0], height: sz[1]
+    };
+  };
+
+  // Yardımcılar
+  const M_PER_LEVEL = 3.2;
+  function ringCentroid(ring){
+    // ring: [[lon,lat]...]
+    let x=0,y=0,n=0; for(const c of ring){ x+=c[0]; y+=c[1]; n++; }
+    return n? [x/n, y/n] : [0,0];
+  }
+  function featureCentroidLL(f){
+    const g=f.geometry||{};
+    if(g.type==='Point') return g.coordinates;
+    if(g.type==='Polygon') return ringCentroid(g.coordinates[0]);
+    if(g.type==='MultiPolygon') return ringCentroid(g.coordinates[0][0]);
+    // Son çare: ilk koordinat
+    try{ return g.coordinates.flat(2)[0]; }catch{ return [0,0]; }
+  }
+
+  // Görsel kalite: ışık/efekt
+  function makeLighting(){
+    const amb = new deck.AmbientLight({color:[255,255,255], intensity: 0.7});
+    const dir = new deck.DirectionalLight({color:[255,255,255], intensity: 1.1, direction: [-1,-1,-2]});
+    return new deck.LightingEffect({ambientLight:amb, directionalLights:[dir]});
+  }
+  const MATERIAL = {ambient:0.6, diffuse:0.9, shininess:50, specularColor:[60,60,60]};
+
+  // Katman üreticileri
+  function makeExtrudedLayer(geojson){
+    return new deck.GeoJsonLayer({
+      id:'buildings-extruded',
+      data: geojson,
+      extruded:true,
+      wireframe:false,
+      pickable:false,
+      material: MATERIAL,
+      getElevation: f=>{
+        const p=f.properties||{};
+        const h = Number(p.height)||0;
+        const lv = Number(p['building:levels']||p.levels||0);
+        return h || (lv>0 ? lv*M_PER_LEVEL : 8);
+      },
+      // Yüksekliğe göre tonda gövde → daha "detay" hissi
+      getFillColor: f=>{
+        const p=f.properties||{};
+        const h = Number(p.height)|| (Number(p['building:levels']||p.levels||0)*M_PER_LEVEL) || 8;
+        const base = Math.max(140, Math.min(220, 160 + Math.round(h*0.8))); // 160..220 arası
+        return [base, base, base, 235];
+      },
+      getLineColor:[110,110,110],
+      getLineWidth:1,
+      lineWidthUnits:'pixels',
+      parameters:{depthTest:true}
+    });
+  }
+
+  function makeOutlineLayer(geojson){
+    return new deck.GeoJsonLayer({
+      id:'buildings-outline',
+      data: geojson,
+      stroked:true, filled:false,
+      pickable:false,
+      getLineColor:[90,90,90],
+      getLineWidth:1,
+      lineWidthUnits:'pixels',
+      parameters:{depthTest:true}
+    });
+  }
+
+  function makeModelsLayer(geojson){
+    // glTF tanımlı öğeleri dönüştür
+    const models = (geojson.features||[])
+      .filter(f=> f?.properties?.modelUrl)
+      .map(f=>{
+        const p=f.properties; const c=featureCentroidLL(f);
+        const scl = p.modelScale ?? 1;
+        return {
+          modelUrl:p.modelUrl,
+          position:c,
+          scale: Array.isArray(scl)? scl : [scl,scl,scl],
+          yaw:Number(p.yaw)||0, pitch:Number(p.pitch)||0, roll:Number(p.roll)||0
+        };
+      });
+    if(!models.length) return null;
+
+    return new deck.ScenegraphLayer({
+      id:'buildings-models',
+      data: models,
+      scenegraph: d=> d.modelUrl,
+      getPosition: d=> d.position,
+      // deck: [pitch, yaw, roll] derece
+      getOrientation: d=> [d.pitch||0, d.yaw||0, d.roll||0],
+      getScale: d=> d.scale,
+      _lighting:'pbr',
+      pickable:false,
+      parameters:{depthTest:true}
+    });
+  }
+
+  let deckInstance=null, buildings=null, postRenderKey=null, resizeObs=null;
+
+  const syncDeck = ()=>{ if(deckInstance) deckInstance.setProps({viewState: toViewState()}); };
+
+  async function enable3D(){
+    btn3d.disabled = true; btn3d.textContent = '3D: yükleniyor…';
+    try{
+      await loadScriptSequential(DECK_CDNS);
+      buildings = await fetch('buildings.json?v='+Date.now(), {cache:'no-store'}).then(r=>r.json()).catch(()=>({type:'FeatureCollection',features:[]}));
+
+      const layers = [ makeExtrudedLayer(buildings), makeOutlineLayer(buildings) ];
+      const modelLayer = makeModelsLayer(buildings); if(modelLayer) layers.push(modelLayer);
+
+      deckInstance = new deck.Deck({
+        parent: deckDiv,
+        controller:false,
+        initialViewState: toViewState(),
+        layers,
+        effects:[ makeLighting() ]
+      });
+
+      // OL render'ı ile senkron
+      postRenderKey = map.on('postrender', syncDeck);
+      // Resize güvenliği
+      if('ResizeObserver' in window){
+        resizeObs = new ResizeObserver(syncDeck); resizeObs.observe(mapEl);
+      }
+      // Olası ilk frame kaymasını toparla
+      setTimeout(syncDeck, 0);
+
+      btn3d.textContent = '3D: Açık';
+    }catch(err){
+      console.error('3D yüklenemedi:', err);
+      disable3D();
+      alert('3D binalar yüklenemedi (CDN veya buildings.json). Harita normal çalışmaya devam ediyor.');
+    }finally{
+      btn3d.disabled = false;
+    }
+  }
+
+  function disable3D(){
+    try{ if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; } }catch{}
+    try{ if(resizeObs){ resizeObs.disconnect(); resizeObs=null; } }catch{}
+    try{ if(deckInstance){ deckInstance.finalize(); deckInstance=null; } }catch{}
+    btn3d.textContent = '3D: Kapalı';
+  }
+
+  btn3d.addEventListener('click', ()=>{
+    if(deckInstance) disable3D();
+    else enable3D();
+  });
+
+  // "Sıfırla" tuşu 3D'yi de kapatsın; 2D asla etkilenmesin
+  const resetBtn = document.getElementById('reset');
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{ disable3D(); });
+  }
+
+})();
+</script>
+
 </body>
 </html>
