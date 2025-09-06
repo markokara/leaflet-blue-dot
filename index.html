@@ -1,87 +1,65 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Misafir – Indoor & Outdoor Harita (3D + glTF)</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
-  <style>
-    :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
-    html,body{height:100%;width:100%;margin:0}
-    body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
-    #map{
-      position:fixed; inset:0;
-      /* 0×0 görünmeme emniyeti */
-      min-height:360px; min-width:360px;
-    }
-    .ol-attribution{font-size:10px; opacity:.85}
-    .ol-attribution button{display:none}
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Misafir – Indoor & Outdoor Harita (3D + glTF)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+<style>
+  :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#fff }
+  html,body{height:100%; width:100%; margin:0}
+  body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:#f3f4f6}
+  #map{
+    position:fixed; inset:0;
+    /* 0×0 görünmeyi kesin engelle */
+    min-height:360px; min-width:360px;
+    background:#eaeaea;
+  }
+  .ol-attribution{font-size:10px; opacity:.85}
+  .ol-attribution button{display:none}
 
-    .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(780px,96vw); z-index:1000;}
-    .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
-    .p-8{padding:12px}
-    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-    .grow{flex:1 1 auto}
-    input[type="search"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px}
-    button{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
-    button:disabled{opacity:.6}
-    .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
-    .muted{color:var(--muted)}
-  </style>
+  .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(780px,96vw); z-index:1000}
+  .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
+  .p-8{padding:12px}
+  .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .grow{flex:1 1 auto}
+  input[type="search"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px}
+  button{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
+  button:disabled{opacity:.6}
+  .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
+  .muted{color:var(--muted)}
+</style>
 </head>
 <body>
 
-  <div id="map" aria-label="Harita"></div>
+<div id="map" aria-label="Harita"></div>
 
-  <div class="panel">
-    <div class="card p-8">
-      <div class="row">
-        <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
-        <button id="btn3d">3D: Kapalı</button>
-        <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
-        <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="reset">Sıfırla</button>
-        <span id="status" class="muted" style="margin-left:auto"></span>
-      </div>
-      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
+<div class="panel">
+  <div class="card p-8">
+    <div class="row">
+      <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
+      <button id="btn3d">3D: Kapalı</button>
+      <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
+      <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
+      <button id="reset">Sıfırla</button>
+      <span id="status" class="muted" style="margin-left:auto"></span>
     </div>
+    <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
   </div>
+</div>
 
 <script>
-/* ================== BOYUT & GÜVENLİK ================== */
+/* ====== BOYUT EMNİYETİ ====== */
 const mapEl = document.getElementById('map');
 function safeUpdateSize(){ try{ map.updateSize(); }catch{} }
 if ('ResizeObserver' in window) new ResizeObserver(safeUpdateSize).observe(mapEl);
 window.addEventListener('load', ()=> setTimeout(safeUpdateSize, 0));
 window.addEventListener('orientationchange', ()=> setTimeout(safeUpdateSize, 25));
 
-/* ================== KATLAR ================== */
+/* ====== STİLLER ====== */
 const fmt = new ol.format.GeoJSON();
-
-/* OSM + Carto fallback */
-function makeBaseGroup(){
-  const osm = new ol.layer.Tile({
-    source:new ol.source.OSM({crossOrigin:'anonymous'})
-  });
-  const carto = new ol.layer.Tile({
-    visible:false,
-    source:new ol.source.XYZ({
-      url:'https://{1-4}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      attributions:'&copy; OpenStreetMap contributors &copy; CARTO'
-    })
-  });
-  let fail=0;
-  osm.getSource().on('tileloaderror',()=>{ if(++fail>=6){ osm.setVisible(false); carto.setVisible(true); }});
-  return new ol.layer.Group({layers:[osm, carto]});
-}
-
-const indoorSrc  = new ol.source.Vector();
-const outdoorSrc = new ol.source.Vector();
-const indoorLyr  = new ol.layer.VectorImage({source:indoorSrc,  style:f=>styleFor(f)});
-const outdoorLyr = new ol.layer.VectorImage({source:outdoorSrc, style:f=>styleFor(f)});
-
-function styleFor(f){
+function featStyle(f){
   const g=f.getGeometry();
   if(g.getType()==='Point'){
     return new ol.style.Style({
@@ -93,14 +71,70 @@ function styleFor(f){
     fill:new ol.style.Fill({color:'rgba(37,99,235,.10)'})
   });
 }
+const indoorSrc  = new ol.source.Vector();
+const outdoorSrc = new ol.source.Vector();
+const indoorLyr  = new ol.layer.VectorImage({source:indoorSrc,  style:featStyle});
+const outdoorLyr = new ol.layer.VectorImage({source:outdoorSrc, style:featStyle});
 
+/* ====== TILE KATMANI: 4'lü FALLBACK ====== */
+const baseCandidates = [
+  {
+    name:'OSM',
+    layer:new ol.layer.Tile({source:new ol.source.OSM({crossOrigin:'anonymous'})})
+  },
+  {
+    name:'Carto',
+    layer:new ol.layer.Tile({source:new ol.source.XYZ({
+      url:'https://{1-4}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attributions:'&copy; OpenStreetMap &copy; CARTO'
+    }), visible:false})
+  },
+  {
+    name:'OSM.de',
+    layer:new ol.layer.Tile({source:new ol.source.XYZ({
+      url:'https://{a-c}.tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png',
+      attributions:'&copy; OpenStreetMap'
+    }), visible:false})
+  },
+  {
+    name:'OSM.fr HOT',
+    layer:new ol.layer.Tile({source:new ol.source.XYZ({
+      url:'https://{a-c}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+      attributions:'&copy; OpenStreetMap'
+    }), visible:false})
+  }
+];
+
+function tryBase(i=0){
+  const status = document.getElementById('status');
+  if(i>=baseCandidates.length){ status.textContent='Harita tabanı yüklenemedi (ağ engeli?)'; return; }
+  baseCandidates.forEach((c,j)=>c.layer.setVisible(j===i));
+  const src = baseCandidates[i].layer.getSource();
+  let ok=0, err=0, done=false;
+
+  function finish(){
+    if(done) return; done=true;
+    src.un('tileloadend', onOk); src.un('tileloaderror', onErr);
+  }
+  function onOk(){ ok++; if(ok===1){ finish(); status.textContent='Taban: '+baseCandidates[i].name; } }
+  function onErr(){ err++; if(err>=6 && ok===0){ finish(); tryBase(i+1); } }
+
+  status.textContent='Taban yükleniyor… ('+baseCandidates[i].name+')';
+  src.on('tileloadend', onOk);
+  src.on('tileloaderror', onErr);
+  // 3.5 sn’de hiç başarı yoksa sıradaki
+  setTimeout(()=>{ if(ok===0){ finish(); tryBase(i+1); } }, 3500);
+}
+
+/* ====== HARİTA ====== */
 const map = new ol.Map({
   target:'map',
-  layers:[ makeBaseGroup(), indoorLyr, outdoorLyr ],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16 })
+  layers:[ baseCandidates[0].layer, baseCandidates[1].layer, baseCandidates[2].layer, baseCandidates[3].layer, indoorLyr, outdoorLyr ],
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16}),
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addControl(new ol.control.Rotate());
+tryBase(0);
 
 /* Indoor/Outdoor verisini yükle */
 async function loadIO(){
@@ -112,7 +146,6 @@ async function loadIO(){
   indoorSrc.clear(); outdoorSrc.clear();
   indoorSrc.addFeatures(fmt.readFeatures(indoor, {featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
   outdoorSrc.addFeatures(fmt.readFeatures(outdoor,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
-
   const ext=ol.extent.extend(indoorSrc.getExtent(), outdoorSrc.getExtent());
   if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
 }
@@ -122,7 +155,7 @@ loadIO();
 document.getElementById('tglIndoor').onchange=()=> indoorLyr.setVisible(document.getElementById('tglIndoor').checked);
 document.getElementById('tglOutdoor').onchange=()=> outdoorLyr.setVisible(document.getElementById('tglOutdoor').checked);
 
-/* ================== 3D + glTF (deck.gl) ================== */
+/* ====== 3D + glTF (deck.gl) ====== */
 const deckGlue = (function(){
   const deckDiv = document.createElement('div');
   deckDiv.id='deck3d'; deckDiv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3';
@@ -134,15 +167,13 @@ const deckGlue = (function(){
   ];
   function loadSeq(urls){
     return new Promise((res,rej)=>{
-      const go=i=>{
-        if(i>=urls.length) return rej(new Error('CDN blocked'));
+      const go=i=>{ if(i>=urls.length) return rej(new Error('CDN blocked'));
         const s=document.createElement('script'); s.src=urls[i]; s.defer=true;
-        s.onload=()=>res(urls[i]); s.onerror=()=>{s.remove(); go(i+1);};
+        s.onload=()=>res(urls[i]); s.onerror=()=>{s.remove(); go(i+1);} ;
         document.head.appendChild(s);
       }; go(0);
     });
   }
-
   const ZOFF=-1;
   const viewState=()=>{
     const v=map.getView(); const [lon,lat]=ol.proj.toLonLat(v.getCenter());
@@ -152,7 +183,7 @@ const deckGlue = (function(){
   let deckI=null, hook=null, buildings=null;
   const sync=()=>{ if(deckI) deckI.setProps({viewState:viewState()}); };
 
-  // centroid (lon,lat)
+  // polygon centroid (lon,lat)
   function centroidLL(f){
     const g=f.geometry; if(!g) return [0,0];
     const ring = g.type==='Polygon' ? g.coordinates[0] : (g.type==='MultiPolygon' ? g.coordinates[0][0] : null);
@@ -199,11 +230,7 @@ const deckGlue = (function(){
     new ResizeObserver(sync).observe(mapEl);
     document.getElementById('status').textContent='';
   }
-  function disable(){
-    if(!deckI) return;
-    if(hook){ ol.Observable.unByKey(hook); hook=null; }
-    deckI.finalize(); deckI=null;
-  }
+  function disable(){ if(!deckI) return; if(hook){ ol.Observable.unByKey(hook); hook=null; } deckI.finalize(); deckI=null; }
   return {enable, disable, get enabled(){return !!deckI;}};
 })();
 
@@ -223,7 +250,7 @@ document.getElementById('btn3d').onclick=async (e)=>{
 /* Sıfırla */
 document.getElementById('reset').onclick=()=>{
   if(deckGlue.enabled){ deckGlue.disable(); document.getElementById('btn3d').textContent='3D: Kapalı'; }
-  loadIO();
+  loadIO(); tryBase(0); safeUpdateSize();
 };
 </script>
 </body>
