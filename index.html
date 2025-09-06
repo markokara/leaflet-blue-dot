@@ -727,8 +727,10 @@
     });
 
     applyLang();
+
+<!-- === 3D BİNALAR (deck.gl) — düzgün ölçek + canlı senkron === -->
 (function(){
-  // Kontrol butonunu paneldeki 2. satıra ekle
+  // Panelde buton
   const rows = document.querySelectorAll('.panel .row');
   const controlsRow = rows[1] || rows[rows.length-1];
   const btn = document.createElement('button');
@@ -736,20 +738,21 @@
   btn.textContent = '3D: Kapalı';
   controlsRow.appendChild(btn);
 
-  // Deck tuvali (map üstünde, tıklamaları geçirir)
+  // Deck tuvali: map div’inin içine (ölçüler %100 eşit olsun)
+  const mapEl = document.getElementById('map');
+  mapEl.style.position = 'relative'; // emniyet
   const deckDiv = document.createElement('div');
   deckDiv.id = 'deck3d';
-  deckDiv.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:500';
-  document.body.appendChild(deckDiv);
+  deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
+  mapEl.appendChild(deckDiv);
 
-  // Sıralı CDN yükleyici (unpkg yedek)
+  // CDN fallback’li yükleyici
   function loadScriptSequential(urls){
     return new Promise((resolve,reject)=>{
       const tryAt=(i)=>{
         if(i>=urls.length){ reject(new Error('CDN blocked')); return; }
         const s=document.createElement('script');
-        s.src = urls[i];
-        s.defer = true;
+        s.src = urls[i]; s.defer = true;
         s.onload = ()=>resolve(urls[i]);
         s.onerror = ()=>{ s.remove(); tryAt(i+1); };
         document.head.appendChild(s);
@@ -762,77 +765,94 @@
     'https://unpkg.com/deck.gl@8.9.36/dist.min.js'
   ];
 
-  function viewStateFromOL(){
+  // OL → deck görüntü durumu dönüştürücü
+  // Not: OSM (256px) → deck(Mapbox 512px) için zoom - 1 uygulanır
+  const DECK_ZOOM_OFFSET = -1;
+  const toViewState = ()=>{
     const v = map.getView();
     const [lon,lat] = ol.proj.toLonLat(v.getCenter());
+    const size = map.getSize() || [mapEl.clientWidth, mapEl.clientHeight];
     return {
       longitude: lon,
       latitude: lat,
-      zoom: v.getZoom(),
+      zoom: (v.getZoom()||0) + DECK_ZOOM_OFFSET,
       bearing: (-v.getRotation()*180/Math.PI),
-      pitch: 45
+      pitch: 45,
+      width: size[0],
+      height: size[1]
     };
-  }
+  };
 
   let deckInstance = null;
-  let bldgData = null;
+  let buildings = null;
+  let postRenderKey = null;
 
-  function makeBuildingsLayer(){
-    if(!bldgData) return null;
+  function makeLighting(){
+    const amb = new deck.AmbientLight({color:[255,255,255], intensity: 0.7});
+    const dir = new deck.DirectionalLight({
+      color:[255,255,255], intensity: 1.0, direction: [-1,-1,-2]
+    });
+    return new deck.LightingEffect({ambientLight:amb, directionalLights:[dir]});
+  }
+
+  function makeLayer(){
+    if(!buildings) return null;
     return new deck.GeoJsonLayer({
       id:'buildings-3d',
-      data: bldgData,                // GeoJSON (WGS84)
+      data: buildings,
       extruded: true,
       wireframe: false,
-      // Öncelik: height (metre) -> building:levels/levels * 3.2 -> 8m
+      pickable: false,
+      // Yükseklik önceliği: height (m) → building:levels/levels * 3.2 → 8
       getElevation: f=>{
         const p=f.properties||{};
         const h = Number(p.height)||0;
         const lv = Number(p['building:levels']||p.levels||0);
         return h || (lv>0 ? lv*3.2 : 8);
       },
-      getFillColor: [200,200,200,230],
-      getLineColor: [120,120,120],
-      pickable: false
+      getFillColor: [190,190,190,230],
+      getLineColor: [110,110,110],
+      getLineWidth: 1,
+      parameters: {depthTest: true}
     });
   }
 
-  const syncView = ()=> deckInstance && deckInstance.setProps({viewState: viewStateFromOL()});
+  // Her karede senkron için postrender hook
+  const syncDeck = ()=>{
+    if (deckInstance) deckInstance.setProps({viewState: toViewState()});
+  };
 
   async function toggle3D(){
-    // KAPAT
-    if(deckInstance){
-      deckInstance.finalize();
-      deckInstance = null;
+    if(deckInstance){ // KAPAT
+      if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
+      deckInstance.finalize(); deckInstance = null;
       btn.textContent = '3D: Kapalı';
       return;
     }
 
-    // AÇ: deck.gl + buildings.json yükle
-    btn.disabled = true;
-    btn.textContent = '3D: yükleniyor…';
+    // AÇ
+    btn.disabled = true; btn.textContent = '3D: yükleniyor…';
     try{
       await loadScriptSequential(DECK_CDNS);
-      // buildings.json ana klasörde olmalı (index.html ile aynı yerde)
-      bldgData = await fetch('buildings.json?v='+Date.now(), {cache:'no-store'}).then(r=>r.json());
+      buildings = await fetch('buildings.json?v='+Date.now(), {cache:'no-store'}).then(r=>r.json());
 
       deckInstance = new deck.Deck({
         parent: deckDiv,
         controller: false,
-        initialViewState: viewStateFromOL(),
-        layers: [ makeBuildingsLayer() ]
+        initialViewState: toViewState(),
+        layers: [ makeLayer() ],
+        effects: [ makeLighting() ]
       });
 
-      // OL görünümü değişirse deck’i senkronla
-      const v = map.getView();
-      v.on('change:center', syncView);
-      v.on('change:resolution', syncView);
-      v.on('change:rotation', syncView);
+      // Görünüm değişirken her postrender frame’de güncelle
+      postRenderKey = map.on('postrender', syncDeck);
+      // Resize güvenliği
+      new ResizeObserver(()=> syncDeck()).observe(mapEl);
 
       btn.textContent = '3D: Açık';
     }catch(e){
-      console.error(e);
-      alert('3D binalar yüklenemedi. (CDN veya buildings.json erişimi başarısız)');
+      console.error('3D load error', e);
+      alert('3D binalar yüklenemedi (CDN veya buildings.json).');
       if(deckInstance){ deckInstance.finalize(); deckInstance=null; }
       btn.textContent = '3D: Kapalı';
     }finally{
@@ -842,11 +862,12 @@
 
   btn.addEventListener('click', toggle3D);
 
-  // İsteğe bağlı: Sıfırla’da 3D’yi de kapat
+  // Sıfırla’da kapat
   const resetBtn = document.getElementById('reset');
   if(resetBtn){
     resetBtn.addEventListener('click', ()=>{
-      if(deckInstance){ deckInstance.finalize(); deckInstance=null; btn.textContent='3D: Kapalı'; }
+      if(deckInstance){ if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
+        deckInstance.finalize(); deckInstance=null; btn.textContent='3D: Kapalı'; }
     });
   }
 })();
