@@ -727,23 +727,22 @@
     });
 
     applyLang();
-/* === 3D TEST MODÜLÜ (sade) === */
 (function(){
-  // 2. satırdaki buton grubuna "3D Test" ekle
+  // Kontrol butonunu paneldeki 2. satıra ekle
   const rows = document.querySelectorAll('.panel .row');
   const controlsRow = rows[1] || rows[rows.length-1];
   const btn = document.createElement('button');
-  btn.id = 'test3d';
-  btn.textContent = '3D Test';
+  btn.id = 'btn3d';
+  btn.textContent = '3D: Kapalı';
   controlsRow.appendChild(btn);
 
-  // Deck için görünmez canvas katmanı
+  // Deck tuvali (map üstünde, tıklamaları geçirir)
   const deckDiv = document.createElement('div');
-  deckDiv.id = 'deck';
+  deckDiv.id = 'deck3d';
   deckDiv.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:500';
   document.body.appendChild(deckDiv);
 
-  // Sıralı CDN yükleyici
+  // Sıralı CDN yükleyici (unpkg yedek)
   function loadScriptSequential(urls){
     return new Promise((resolve,reject)=>{
       const tryAt=(i)=>{
@@ -776,65 +775,80 @@
   }
 
   let deckInstance = null;
+  let bldgData = null;
 
-  async function runTest(){
+  function makeBuildingsLayer(){
+    if(!bldgData) return null;
+    return new deck.GeoJsonLayer({
+      id:'buildings-3d',
+      data: bldgData,                // GeoJSON (WGS84)
+      extruded: true,
+      wireframe: false,
+      // Öncelik: height (metre) -> building:levels/levels * 3.2 -> 8m
+      getElevation: f=>{
+        const p=f.properties||{};
+        const h = Number(p.height)||0;
+        const lv = Number(p['building:levels']||p.levels||0);
+        return h || (lv>0 ? lv*3.2 : 8);
+      },
+      getFillColor: [200,200,200,230],
+      getLineColor: [120,120,120],
+      pickable: false
+    });
+  }
+
+  const syncView = ()=> deckInstance && deckInstance.setProps({viewState: viewStateFromOL()});
+
+  async function toggle3D(){
+    // KAPAT
+    if(deckInstance){
+      deckInstance.finalize();
+      deckInstance = null;
+      btn.textContent = '3D: Kapalı';
+      return;
+    }
+
+    // AÇ: deck.gl + buildings.json yükle
     btn.disabled = true;
     btn.textContent = '3D: yükleniyor…';
     try{
-      const used = await loadScriptSequential(DECK_CDNS);
-      console.log('deck.gl loaded from:', used);
+      await loadScriptSequential(DECK_CDNS);
+      // buildings.json ana klasörde olmalı (index.html ile aynı yerde)
+      bldgData = await fetch('buildings.json?v='+Date.now(), {cache:'no-store'}).then(r=>r.json());
 
-      // Deck başlat (global window.deck mevcut)
       deckInstance = new deck.Deck({
         parent: deckDiv,
         controller: false,
-        initialViewState: viewStateFromOL()
+        initialViewState: viewStateFromOL(),
+        layers: [ makeBuildingsLayer() ]
       });
 
-      // Merkezde ~50m x 50m deneme bloğu (yükseklik 20 m)
-      const center3857 = map.getView().getCenter();
-      const centerLL = ol.proj.toLonLat(center3857);
-      const dx = 0.0005, dy = 0.0005;
-      const testFeature = {
-        type:'Feature',
-        properties:{height:20},
-        geometry:{type:'Polygon', coordinates:[[
-          [centerLL[0]-dx, centerLL[1]-dy],
-          [centerLL[0]+dx, centerLL[1]-dy],
-          [centerLL[0]+dx, centerLL[1]+dy],
-          [centerLL[0]-dx, centerLL[1]+dy],
-          [centerLL[0]-dx, centerLL[1]-dy]
-        ]]}
-      };
+      // OL görünümü değişirse deck’i senkronla
+      const v = map.getView();
+      v.on('change:center', syncView);
+      v.on('change:resolution', syncView);
+      v.on('change:rotation', syncView);
 
-      const layer = new deck.GeoJsonLayer({
-        id:'test-block',
-        data:{type:'FeatureCollection', features:[testFeature]},
-        extruded:true,
-        getElevation: f=> f.properties.height,
-        getFillColor:[200,160,120,230],
-        getLineColor:[90,70,50],
-        pickable:false
-      });
-      deckInstance.setProps({layers:[layer]});
-
-      // OL görünümü değiştikçe 3D’yi senkronla
-      const sync = ()=> deckInstance.setProps({viewState: viewStateFromOL()});
-      map.getView().on('change:center', sync);
-      map.getView().on('change:resolution', sync);
-      map.getView().on('change:rotation', sync);
-
-      btn.textContent = '3D Test (deck.gl OK)';
-    }catch(err){
-      console.error('3D test failed:', err);
-      btn.textContent = '3D: yüklenmedi';
-      alert('3D kütüphanesi (deck.gl) yüklenmedi. Ağda cdn.jsdelivr.net veya unpkg.com engelleniyor olabilir.');
+      btn.textContent = '3D: Açık';
+    }catch(e){
+      console.error(e);
+      alert('3D binalar yüklenemedi. (CDN veya buildings.json erişimi başarısız)');
+      if(deckInstance){ deckInstance.finalize(); deckInstance=null; }
+      btn.textContent = '3D: Kapalı';
     }finally{
       btn.disabled = false;
     }
   }
 
-  btn.addEventListener('click', runTest);
+  btn.addEventListener('click', toggle3D);
+
+  // İsteğe bağlı: Sıfırla’da 3D’yi de kapat
+  const resetBtn = document.getElementById('reset');
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      if(deckInstance){ deckInstance.finalize(); deckInstance=null; btn.textContent='3D: Kapalı'; }
+    });
+  }
 })();
 
   </script>
