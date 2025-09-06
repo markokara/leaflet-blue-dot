@@ -6,57 +6,18 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          31.80507225570032,
-          36.597944163980856
-        ]
-      },
-      "properties": {
-        "name": "Dolfine Restourant",
-        "category": "restaurant",
-        "hours": "18:00 - 22:00",
-        "level": "",
-        "desc": "test",
-        "image": "http://info.lbresorts.com/wp-content/uploads/2025/08/google-new-seeklogo.png"
-      },
-      "id": "b436da9a-0cb0-4d5e-9309-db613f84fd8a"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.804043961681735,
-          36.598448574759544
-        ]
-      },
-      "properties": {
-        "name": "El Sombrera",
-        "category": "restaurant",
-        "desc": "çok leziz",
-        "desc_en": "delight"
-      },
-      "id": "fdf4280b-2c86-4599-b8a1-9130c888474a"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.804705713906483,
-          36.59966668046961
+          31.804463558197043,
+          36.59971576067281
         ]
       },
       "properties": {
         "name": "Main Pool",
         "category": "pool",
-        "name_tr": "Türkçe",
         "desc_tr": "Ana havuz sadece yetişkinler girebilir. Havuz kenarında bulunan Fanstasia Pool bardan rahatlıkla alkollü yada alkolsüz tüm içkiler servis edilmektedir.",
-        "name_en": "English",
         "desc_en": "The main pool is for adults only. All alcoholic and non-alcoholic drinks are readily served from the Fanstasia Pool bar located by the pool.",
-        "name_ru": "Russian",
         "desc_ru": "Основной бассейн только для взрослых. В баре Fanstasia Pool, расположенном у бассейна, легко подают все алкогольные и безалкогольные напитки."
       },
-      "id": "fef5b990-7665-4d9c-b624-c5a0577997a6"
+      "id": "ad9b2380-91f6-41da-8871-cfbb9d0ffece"
     }
   ]
 }
