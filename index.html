@@ -3,31 +3,25 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Misafir – Regnum Harita (3D Güçlendirilmiş)</title>
-
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<title>Misafir – Regnum Harita (3D Stabil)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
-<!-- deck.gl + osmtogeojson (3D için) -->
-<script src="https://unpkg.com/deck.gl@8.9.37/dist.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/osmtogeojson@3.0.0/osmtogeojson.js" crossorigin="anonymous"></script>
+<!-- 3D için UMD paketler (jsDelivr) -->
+<script defer src="https://cdn.jsdelivr.net/npm/deck.gl@8.9.36/dist.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0/osmtogeojson.js"></script>
 
 <style>
   :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#fff }
   html,body{height:100%;margin:0}
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eef2f7}
-  #map{position:fixed; inset:0; background:#eef2f7}
-
-  /* deck.gl tuvali OL üstüne biner */
+  #map{position:fixed; inset:0}
   #deck{position:fixed; inset:0; pointer-events:none; z-index:500}
 
   .ol-attribution{font-size:10px; opacity:.85}
   .ol-attribution button{display:none}
 
-  /* Alt panel: tek yerde kontroller */
   .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(820px,96vw); z-index:1001;}
   .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
   .p-8{padding:12px}
@@ -45,41 +39,32 @@
   .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:8px}
   .results .item small{color:var(--muted)}
   .results .item:hover{background:#f1f5f9}
-  .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
 
   .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:220px; box-shadow:var(--shadow); transform:translate(-50%,-100%); }
   .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#9ca3af}
   .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
   .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
-
-  /* Durum bandı */
   .banner{position:fixed; left:12px; top:12px; z-index:1100; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; box-shadow:var(--shadow); font-size:12px; display:none}
 </style>
 </head>
 <body>
 
 <div id="deck"></div>
-
 <div id="banner" class="banner"></div>
 
+<!-- tek panel (kısaltılmış: 3D testine odaklı) -->
 <div class="panel">
   <div class="card p-8 stack">
     <div class="row">
       <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…" />
       <button id="go" disabled>Git</button>
-      <select id="lang" aria-label="Language">
-        <option value="tr" selected>TR</option><option value="en">EN</option><option value="ru">RU</option><option value="de">DE</option><option value="pl">PL</option>
-      </select>
+      <select id="lang" aria-label="Language"><option value="tr" selected>TR</option><option value="en">EN</option></select>
     </div>
     <div class="row">
-      <button id="pick">Haritadan Hedef</button>
-      <button id="follow">🎯 İzle: Kapalı</button>
-      <button id="toggleDetails">Detaylar: Kapalı</button>
       <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
       <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
       <button id="toggle3d" disabled>3D: Yükleniyor…</button>
       <button id="reset">Sıfırla</button>
-      <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
     </div>
     <div id="results" class="results"></div>
     <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
@@ -96,114 +81,35 @@
 <div id="map" aria-label="Harita"></div>
 
 <script>
-/* ===== Yardımcılar ===== */
-const $ = id=>document.getElementById(id);
-const banner=$('banner');
-function showBanner(msg,ok=false){ banner.textContent=msg; banner.style.display='block'; banner.style.borderColor= ok?'#bde5bd':'#e5e7eb'; }
+const banner = document.getElementById('banner');
+const showBanner=(m,ok=false)=>{ banner.textContent=m; banner.style.display='block'; banner.style.borderColor=ok?'#bde5bd':'#e5e7eb'; };
+
+function webglOK(){ const c=document.createElement('canvas'); return !!(c.getContext('webgl2')||c.getContext('webgl')); }
+if(!webglOK()){ showBanner('WebGL kapalı: 3D görünmez. Lütfen tarayıcıda WebGL’i etkinleştirin.'); }
 
 /* ===== Otel sınırı + 2 km² görünür alan ===== */
 const HOTEL_LINESTRING=[[31.804711464001883,36.601378910907385],[31.80265403917545,36.600205665606055],[31.80228664188482,36.59927492200508],[31.801600833608916,36.59833761252443],[31.801902915826247,36.59820651938169],[31.801976395283475,36.59825240200732],[31.80195190213155,36.59832450322001],[31.80176412129427,36.59838349507211],[31.802433600800782,36.59922903998816],[31.80257239533279,36.599130721288105],[31.80225398434746,36.59869156289729],[31.80216417612081,36.59871122675925],[31.802074367895585,36.598567024988114],[31.802224229838373,36.59848223989192],[31.80225339759994,36.5985234212358],[31.802273513296484,36.59851292403289],[31.802366045503817,36.598640505329385],[31.802302681058052,36.5986703819312],[31.802622365198403,36.59910955921026],[31.80345107307025,36.598610964313664],[31.803677172118256,36.59816572643476],[31.80429383960228,36.598196944127224],[31.80458040764242,36.59811821860225],[31.804579740317706,36.59806502337595],[31.804257091554604,36.5976458632729],[31.804193143410373,36.597673695149325],[31.80408873290395,36.597539234701244],[31.80411664632132,36.59752526382472],[31.804081706016063,36.597486963756765],[31.804272117712202,36.59739431772135],[31.804297367166782,36.59742987797935],[31.804422728913238,36.59757244834],[31.804353251330753,36.59763151097012],[31.804489463059923,36.597799011162465],[31.804661637424203,36.59803352121111],[31.805088805694538,36.597730157319674],[31.80537489466451,36.597723591172766],[31.80583999813655,36.59762552952847],[31.806107325335518,36.59750653297091],[31.806473403555856,36.59740452304936],[31.80686759670624,36.59735637365469],[31.806913667981235,36.597251340203414],[31.80664923641001,36.59676774251092],[31.806309307935692,36.596630095343556],[31.806214444095104,36.596660118307824],[31.806133641410156,36.596639459347216],[31.806122453111215,36.59655321675558],[31.806348827441155,36.59652758112688],[31.80661976083391,36.59662385860061],[31.806765735505564,36.59671322837097],[31.807013449339593,36.597141815362505],[31.80729857330894,36.59733611410664],[31.807488502502736,36.59734390028464],[31.807592567311843,36.597572273028405],[31.807432387298377,36.597695328783004],[31.807550121020626,36.597946607765536],[31.807869969017418,36.59842181682616],[31.807913361565653,36.59867675781673],[31.80761858192966,36.59917495531856],[31.806728829965323,36.59968858202838],[31.806145311443345,36.59993243233974],[31.805477016291206,36.60049991840026],[31.80540132525539,36.60062280770822],[31.804707974907046,36.60137777375523]];
 const AREA_KM2=2;
-
-function lsToPoly3857(ls){ const ring=ls.slice(); if(ring[0][0]!==ring.at(-1)[0]||ring[0][1]!==ring.at(-1)[1]) ring.push(ring[0]); return new ol.geom.Polygon([ ring.map(c=>ol.proj.fromLonLat(c)) ]); }
-const HOTEL_POLY_3857 = lsToPoly3857(HOTEL_LINESTRING);
-const center = ol.extent.getCenter(HOTEL_POLY_3857.getExtent());
+function lsToPoly3857(ls){ const r=ls.slice(); if(r[0][0]!==r.at(-1)[0]||r[0][1]!==r.at(-1)[1]) r.push(r[0]); return new ol.geom.Polygon([ r.map(c=>ol.proj.fromLonLat(c)) ]); }
+const HOTEL_POLY_3857=lsToPoly3857(HOTEL_LINESTRING);
+const center=ol.extent.getCenter(HOTEL_POLY_3857.getExtent());
 const sideM=Math.sqrt(AREA_KM2*1_000_000), half=sideM/2;
 const CLIP_EXTENT=[center[0]-half,center[1]-half,center[0]+half,center[1]+half];
 
 /* ===== OL harita ===== */
 const base=new ol.layer.Tile({source:new ol.source.OSM({attributions:'© aihotelstech · © OpenStreetMap contributors'})});
 base.setExtent(CLIP_EXTENT);
-
-const indoorSource=new ol.source.Vector();
-const outdoorSource=new ol.source.Vector();
-const indoorLayer=new ol.layer.VectorImage({source:indoorSource,style:styleFactory('indoor')});
+const indoorSource=new ol.source.Vector(), outdoorSource=new ol.source.Vector();
+const indoorLayer=new ol.layer.VectorImage({source:indoorSource, style:styleFactory('indoor')});
 const outdoorLayer=new ol.layer.VectorImage({source:outdoorSource,style:styleFactory('outdoor')});
-
-const map=new ol.Map({ target:'map', layers:[base,indoorLayer,outdoorLayer], view:new ol.View({center:center,zoom:17,rotation:0,extent:CLIP_EXTENT}) });
+const map=new ol.Map({ target:'map', layers:[base, indoorLayer, outdoorLayer], view:new ol.View({center:center, zoom:17, rotation:0, extent:CLIP_EXTENT}) });
 map.addControl(new ol.control.Rotate());
 map.addControl(new ol.control.Attribution({collapsible:false}));
-
 const hotelLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[new ol.Feature(HOTEL_POLY_3857.clone())]}), style:new ol.style.Style({ stroke:new ol.style.Stroke({color:'#ef4444',width:2}), fill:new ol.style.Fill({color:'rgba(239,68,68,0.06)'}) }) });
 map.addLayer(hotelLayer);
 map.getView().fit(CLIP_EXTENT,{padding:[120,20,160,20], maxZoom:19});
 
-/* ===== WebGL kontrolü ===== */
-function webglOK(){ const c=document.createElement('canvas'); return !!(c.getContext('webgl2')||c.getContext('webgl')); }
-if(!webglOK()){ showBanner('Tarayıcıda WebGL devre dışı. Lütfen WebGL’i açın veya farklı bir tarayıcı deneyin.'); }
-
-/* ===== 3D: deck.gl + Overpass yedekli ===== */
-const deckGL = new deck.Deck({ parent: document.getElementById('deck'), views:[new deck.MapView({repeat:true})], controller:false, initialViewState:viewStateFromOL() });
-function viewStateFromOL(){ const v=map.getView(); const [lon,lat]=ol.proj.toLonLat(v.getCenter()); return {longitude:lon, latitude:lat, zoom:v.getZoom(), bearing:(-v.getRotation()*180/Math.PI), pitch:45}; }
-function syncDeck(){ deckGL.setProps({viewState:viewStateFromOL()}); }
-map.getView().on('change:center',syncDeck);
-map.getView().on('change:resolution',syncDeck);
-map.getView().on('change:rotation',syncDeck);
-window.addEventListener('resize',()=>deckGL.redraw(true));
-
-const OVERPASS_URLS=[
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.nchc.org.tw/api/interpreter',
-  'https://overpass-api.de/api/interpreter'
-];
-
-async function fetchOverpass(query){
-  for(const base of OVERPASS_URLS){
-    try{
-      const r=await fetch(base+'?data='+encodeURIComponent(query),{mode:'cors'});
-      if(r.ok){ return r.json(); }
-    }catch(e){ /* diğerine geç */ }
-  }
-  throw new Error('Overpass erişilemiyor');
-}
-
-let buildingsGeo=null;
-async function loadBuildings(){
-  if(typeof osmtogeojson!=='function'){ throw new Error('osmtogeojson yüklenmedi'); }
-  const minLL=ol.proj.toLonLat([CLIP_EXTENT[0],CLIP_EXTENT[1]]);
-  const maxLL=ol.proj.toLonLat([CLIP_EXTENT[2],CLIP_EXTENT[3]]);
-  const bbox=`${minLL[1]},${minLL[0]},${maxLL[1]},${maxLL[0]}`;
-  const query=`[out:json][timeout:25];(way["building"](${bbox});relation["building"](${bbox}););(._;>;);out body;`;
-  showBanner('3D binalar yükleniyor…');
-  const data=await fetchOverpass(query);
-  const gj=osmtogeojson(data);
-  gj.features=(gj.features||[]).filter(f=> f.geometry && (f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
-  gj.features.forEach(f=>{
-    const tags=(f.properties && (f.properties.tags||f.properties))||{};
-    const h=parseFloat(tags.height)||((parseFloat(tags['building:levels']||tags.levels)||0)*3.2);
-    f.properties._height=(isFinite(h)&&h>0)?h:8;
-  });
-  buildingsGeo=gj;
-  showBanner('3D binalar yüklendi.',true);
-}
-
-function applyBuildings(on){
-  const others=(deckGL.props.layers||[]).filter(l=>l.id!=='buildings-3d');
-  if(!on){ deckGL.setProps({layers:others}); return; }
-  const layer=new deck.GeoJsonLayer({
-    id:'buildings-3d', data:buildingsGeo, extruded:true, pickable:false, wireframe:false,
-    getElevation:f=>f.properties._height, getFillColor:f=>[176,179,184,220], getLineColor:[120,120,120,255], opacity:0.95
-  });
-  deckGL.setProps({layers:[...others, layer]});
-}
-
-(async function init3D(){
-  try{
-    await loadBuildings();
-    applyBuildings(true);
-    $('toggle3d').disabled=false;
-    $('toggle3d').textContent='3D: Açık';
-    let isOn=true;
-    $('toggle3d').onclick=()=>{ isOn=!isOn; $('toggle3d').textContent=isOn?'3D: Açık':'3D: Kapalı'; applyBuildings(isOn); };
-  }catch(err){
-    console.error(err);
-    $('toggle3d').disabled=true;
-    $('toggle3d').textContent='3D: Kapalı (Hata)';
-    showBanner('3D katman açılamadı: '+err.message);
-  }
-})();
-
-/* ===== POI/arama (kısaltılmış – öncekiyle aynı mantık) ===== */
+/* ===== POI stilleri (özet) ===== */
 let showAllDetails=false, searchIds=null;
 const FEATURED=new Set(['reception','restaurant','spa','pool','beach','bar','toilet','kidsclub','elevator','gate','parking','shuttle','shop']);
 function styleFactory(kind){
@@ -222,6 +128,7 @@ function styleFor(f,dim){
 }
 function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
 
+/* ===== JSON’ları yükle (otel içinde filtrele) ===== */
 const fmt=new ol.format.GeoJSON(); let allFeats=[];
 function insideHotel(f){ const g=f.getGeometry(); if(!g) return false; const t=g.getType(); if(t==='Point') return HOTEL_POLY_3857.intersectsCoordinate(g.getCoordinates()); return ol.extent.intersects(HOTEL_POLY_3857.getExtent(), g.getExtent()); }
 async function loadJSONs(){
@@ -237,57 +144,84 @@ async function loadJSONs(){
 }
 loadJSONs();
 
-/* Hover “flash” */
-function coordOf(f){ const g=f.getGeometry(); if(g.getType()==='Point') return g.getCoordinates(); if(g.getType()==='Polygon') return g.getInteriorPoint().getCoordinates(); return g.getFirstCoordinate(); }
-let lastHover=null;
-map.on('pointermove', (evt)=>{
-  let hovered=null;
-  map.forEachFeatureAtPixel(evt.pixel,(f,l)=>{ if(l===indoorLayer||l===outdoorLayer) hovered=f; });
-  if(hovered){ const id=hovered.ol_uid||hovered.getId(); if(id!==lastHover){ lastHover=id; flash(hovered);} } else lastHover=null;
-});
-function flash(feature){
-  const geom=feature.getGeometry();
-  const p=(geom.getType()==='Point')?geom.clone():new ol.geom.Point(coordOf(feature));
-  const duration=1200, start=Date.now();
-  const key=map.on('postrender', e=>{
-    const t=e.frameState.time-start, r=Math.min(t/duration,1), rad=5+28*ol.easing.easeOut(r), op=1-r;
-    const vc=ol.render.getVectorContext(e);
-    vc.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:rad, stroke:new ol.style.Stroke({color:`rgba(239,68,68,${op})`,width:3})}) }));
-    vc.drawGeometry(p); map.render(); if(t>duration) ol.Observable.unByKey(key);
+/* ===== 3D: deck.gl (CDN yüklendikten sonra) ===== */
+const deckDiv=document.getElementById('deck'); let deckInstance=null, buildingsGeo=null;
+function deckReady(){ return typeof window.deck!=='undefined' && typeof window.osmtogeojson==='function'; }
+async function waitForDeck(timeout=6000){
+  const t0=performance.now();
+  while(performance.now()-t0<timeout){ if(deckReady()) return true; await new Promise(r=>setTimeout(r,120)); }
+  return false;
+}
+(async function init3D(){
+  const btn=document.getElementById('toggle3d');
+  if(!(await waitForDeck())){ btn.textContent='3D: Kapalı (CDN)'; showBanner('3D kütüphaneleri yüklenemedi (CDN). İnternet/Firewall kontrol ediniz.'); return; }
+
+  // Deck instance (MapView kullanmadan)
+  deckInstance = new deck.Deck({
+    parent: deckDiv,
+    controller: false,
+    initialViewState: viewStateFromOL()
   });
-}
+  // OL görünümü değiştikçe deck’i senkronla
+  const sync=()=> deckInstance.setProps({viewState:viewStateFromOL()});
+  map.getView().on('change:center',sync);
+  map.getView().on('change:resolution',sync);
+  map.getView().on('change:rotation',sync);
 
-/* Popup (kısa) */
-const popupOverlay=new ol.Overlay({element:$('popup'), autoPan:{animation:{duration:200}}});
-map.addOverlay(popupOverlay);
-$('popup-closer').addEventListener('click',e=>{e.preventDefault(); $('popup').style.display='none'; popupOverlay.setPosition(undefined);});
-function showPopup(f,coord){
-  const p=f.getProperties(); const name=p.name_tr||p.name||'(isim yok)'; const cat=(p.category||'').toLowerCase(); const level=p.level||''; const hours=p.hours||'';
-  $('popup-content').innerHTML=`<div style="min-width:220px"><div style="font-weight:600;margin-bottom:6px">${name}</div>${cat?`<div class="badge">${cat}</div>`:''}${hours?`<div style="margin-top:6px"><small>Saat:</small> ${hours}</div>`:''}${level?`<div><small>Kat:</small> ${level}</div>`:''}</div>`;
-  $('popup').style.display='block'; popupOverlay.setPosition(coord);
-}
+  btn.disabled=false; btn.textContent='3D: Açık';
+  let on=true; btn.onclick=()=>{ on=!on; btn.textContent=on?'3D: Açık':'3D: Kapalı'; applyBuildings(on); };
 
-/* Katman görünürlükleri */
-$('tglIndoor').onchange=()=> indoorLayer.setVisible($('tglIndoor').checked);
-$('tglOutdoor').onchange=()=> outdoorLayer.setVisible($('tglOutdoor').checked);
-$('toggleDetails').onclick=()=>{ if($('toggleDetails').disabled) return; showAllDetails=!showAllDetails; $('toggleDetails').textContent=showAllDetails?'Detaylar: Açık':'Detaylar: Kapalı'; redraw(); };
+  try{
+    await loadBuildings(); applyBuildings(true); showBanner('3D binalar yüklendi.', true);
+  }catch(e){ btn.textContent='3D: Kapalı (Hata)'; showBanner('3D binalar alınamadı: '+e.message); }
+})();
 
-/* Hedef seçme (rota bir sonraki aşamada) */
-let destLayer=null,destPoint=null,pickMode=false;
-function setDestination(coord){
-  if(!destLayer){ destPoint=new ol.Feature(new ol.geom.Point(coord));
-    destPoint.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:7, fill:new ol.style.Fill({color:'#ef4444'}), stroke:new ol.style.Stroke({color:'#fff',width:1.8})}) }));
-    destLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[destPoint]}) }); map.addLayer(destLayer);
-  } else destPoint.getGeometry().setCoordinates(coord);
-  $('go').disabled=false;
+function viewStateFromOL(){ const v=map.getView(); const [lon,lat]=ol.proj.toLonLat(v.getCenter()); return {longitude:lon, latitude:lat, zoom:v.getZoom(), bearing:(-v.getRotation()*180/Math.PI), pitch:45}; }
+
+const OVERPASS_URLS=[
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.nchc.org.tw/api/interpreter',
+  'https://overpass-api.de/api/interpreter'
+];
+async function fetchOverpass(query){
+  for(const u of OVERPASS_URLS){
+    try{ const r=await fetch(u+'?data='+encodeURIComponent(query)); if(r.ok) return r.json(); }catch{}
+  }
+  throw new Error('Overpass erişilemiyor');
 }
-$('pick').onclick=()=>{ pickMode=!pickMode; $('pick').classList.toggle('active',pickMode); };
-map.on('click',evt=>{
-  if(pickMode){ setDestination(evt.coordinate); pickMode=false; $('pick').classList.remove('active'); return; }
-  let f=null; [indoorLayer,outdoorLayer].forEach(l=> map.forEachFeatureAtPixel(evt.pixel,(feat,lay)=>{ if(lay===l) f=feat; }));
-  if(f){ flash(f); showPopup(f,coordOf(f)); }
-});
-$('reset').onclick=()=>{ $('popup').style.display='none'; popupOverlay.setPosition(undefined); $('results').style.display='none'; $('q').value=''; searchIds=null; redraw(); if(destLayer){map.removeLayer(destLayer);destLayer=null;destPoint=null;} loadJSONs(); };
+async function loadBuildings(){
+  const minLL=ol.proj.toLonLat([CLIP_EXTENT[0],CLIP_EXTENT[1]]);
+  const maxLL=ol.proj.toLonLat([CLIP_EXTENT[2],CLIP_EXTENT[3]]);
+  const bbox=`${minLL[1]},${minLL[0]},${maxLL[1]},${maxLL[0]}`;
+  const q=`[out:json][timeout:25];(way["building"](${bbox});relation["building"](${bbox}););(._;>;);out body;`;
+  showBanner('3D binalar yükleniyor…');
+  const data=await fetchOverpass(q);
+  const gj=osmtogeojson(data);
+  gj.features=(gj.features||[]).filter(f=> f.geometry && (f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
+  gj.features.forEach(f=>{
+    const tags=(f.properties && (f.properties.tags||f.properties))||{};
+    const h=parseFloat(tags.height)||((parseFloat(tags['building:levels']||tags.levels)||0)*3.2);
+    f.properties._height=(isFinite(h)&&h>0)?h:8;
+  });
+  buildingsGeo=gj;
+}
+function applyBuildings(on){
+  if(!deckInstance || !buildingsGeo){ return; }
+  const others=(deckInstance.props.layers||[]).filter(l=>l.id!=='buildings-3d');
+  if(!on){ deckInstance.setProps({layers:others}); return; }
+  const layer=new deck.GeoJsonLayer({
+    id:'buildings-3d',
+    data:buildingsGeo,
+    extruded:true,
+    wireframe:false,
+    pickable:false,
+    getElevation:f=>f.properties._height,
+    getFillColor:f=>[176,179,184,220],
+    getLineColor:[120,120,120,255],
+    opacity:0.95
+  });
+  deckInstance.setProps({layers:[...others, layer]});
+}
 </script>
 </body>
 </html>
