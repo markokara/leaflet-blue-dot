@@ -112,6 +112,8 @@ document.getElementById('reset').onclick = ()=>{
    - #map içine şeffaf bir canvas eklenir (pointer-events:none).
    - OpenLayers görünümü her frame’de deck viewState’e aktarılır (postrender).
    - Kapatılınca finalize + DOM temizliği; harita asla bloklanmaz. */
+<!-- === 3D BİNALAR (deck.gl) — kayma yok + daha iyi görünüm === -->
+<script>
 (function(){
   const btn3d = document.getElementById('btn3d');
   const mapEl = document.getElementById('map');
@@ -130,84 +132,104 @@ document.getElementById('reset').onclick = ()=>{
       const tryAt=(i)=>{
         if(i>=urls.length){ reject(new Error('CDN blocked')); return; }
         const s=document.createElement('script');
-        s.src = urls[i]; s.defer = true;
-        s.onload = ()=>resolve(urls[i]);
-        s.onerror = ()=>{ s.remove(); tryAt(i+1); };
+        s.src=urls[i]; s.defer=true;
+        s.onload=()=>resolve(urls[i]);
+        s.onerror=()=>{ s.remove(); tryAt(i+1); };
         document.head.appendChild(s);
       };
       tryAt(0);
     });
   }
 
-  // OL → deck viewState (zoom ofseti: 512/256 = 1 seviye)
-  const DECK_ZOOM_OFFSET = -1;
+  // OL -> deck viewState: zoom'u resolution'dan hesapla (512'lik dünya)
   function toViewState(){
     const v = map.getView();
     const [lon,lat] = ol.proj.toLonLat(v.getCenter());
     const size = map.getSize() || [mapEl.clientWidth, mapEl.clientHeight];
+    const res  = v.getResolution() || 156543.033928; // m/px (EPSG:3857)
+    const MPP_Z0_512 = 78271.51696402048;           // 512 tile dünyada z0 m/px
+    const zoom = Math.log2(MPP_Z0_512 / res);       // KAYMA YOK
+
     return {
-      longitude: lon,
-      latitude: lat,
-      zoom: (v.getZoom()||0) + DECK_ZOOM_OFFSET,
+      longitude: lon, latitude: lat, zoom,
       bearing: (-v.getRotation()*180/Math.PI),
       pitch: 55,
-      width: size[0],
-      height: size[1]
+      width: size[0], height: size[1]
     };
   }
 
-  function buildingLayer(){
-    if(!buildings) return null;
-    return new deck.GeoJsonLayer({
-      id:'buildings-3d',
+  // Stil: yükseklik & renkler
+  const getHeight = f=>{
+    const p=f.properties||{};
+    const h = Number(p.height)||0;
+    const lv= Number(p['building:levels']||p.levels||0);
+    return h || (lv>0 ? lv*3.2 : 8);
+  };
+  const wallColor = f=>{
+    const p=f.properties||{};
+    return p.wallColor || [180,180,180,235];
+  };
+  const roofColor = f=>{
+    const p=f.properties||{};
+    return p.roofColor || [210,210,210,245];
+  };
+
+  function makeLayers(){
+    if(!buildings) return [];
+    // Duvarlar (extruded)
+    const walls = new deck.GeoJsonLayer({
+      id:'bld-walls',
       data: buildings,
-      extruded: true,
-      pickable: false,
-      // daha “temiz” görünüm için üst ve yan renkler
-      getFillColor: [185,185,185,235],
-      getLineColor: [110,110,110],
-      getLineWidth: 1,
-      wireframe: false,
-      // yükseklik önceliği: height → building:levels/levels * 3.2 → 8 m
-      getElevation: f=>{
-        const p=f.properties||{};
-        const h=Number(p.height)||0;
-        const lv=Number(p['building:levels']||p.levels||0);
-        return h || (lv>0 ? lv*3.2 : 8);
-      },
-      parameters:{
-        depthTest:true
-      }
+      extruded:true,
+      wireframe:false,
+      pickable:false,
+      getElevation:getHeight,
+      getFillColor:wallColor,
+      getLineColor:[110,110,110],
+      getLineWidth:1,
+      material: new deck.PhongMaterial({ambient:0.6, diffuse:0.8, shininess:16}),
+      parameters:{depthTest:true}
     });
+    // Çatı (düz poligon, z-fighting olmasın diye depthMask kapalı)
+    const roofs = new deck.GeoJsonLayer({
+      id:'bld-roofs',
+      data: buildings,
+      extruded:false,
+      pickable:false,
+      filled:true,
+      stroked:true,
+      getFillColor:roofColor,
+      getLineColor:[100,100,100,180],
+      lineWidthMinPixels:1,
+      parameters:{depthTest:true, depthMask:false, polygonOffsetUnits:1, polygonOffsetFactor:1}
+    });
+    return [walls, roofs];
   }
 
   function start3D(){
-    // tuval
     deckDiv = document.createElement('div');
-    deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
+    deckDiv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3';
     mapEl.appendChild(deckDiv);
 
     deckInstance = new deck.Deck({
       parent: deckDiv,
-      controller: false,                 // etkileşim OL’de
+      controller: false,                         // kontrol OL’de
       initialViewState: toViewState(),
-      layers: [ buildingLayer() ],
-      // ŞEFFAF arkaplan
-      glOptions: {alpha:true, antialias:true, preserveDrawingBuffer:false},
-      parameters: {blend:true, clearColor:[0,0,0,0]},
-      effects: [
+      layers: makeLayers(),
+      glOptions:{alpha:true, antialias:true},
+      parameters:{blend:true, clearColor:[0,0,0,0]},
+      effects:[
         new deck.LightingEffect({
           ambientLight: new deck.AmbientLight({intensity:0.7}),
-          directionalLights: [ new deck.DirectionalLight({direction:[-1,-1,-2], intensity:1.1}) ]
+          directionalLights:[ new deck.DirectionalLight({direction:[-1,-1,-2], intensity:1.15}) ]
         })
       ]
     });
 
-    // OL ile canlı senkron
+    // CANLI senkron: her karede deck'i güncelle
     postRenderUnsub = map.on('postrender', ()=>{
       deckInstance.setProps({viewState: toViewState()});
     });
-    // boyut değişirse
     new ResizeObserver(()=> deckInstance.setProps({viewState: toViewState()})).observe(mapEl);
   }
 
@@ -218,12 +240,7 @@ document.getElementById('reset').onclick = ()=>{
   }
 
   async function toggle(){
-    if(deckInstance){ // KAPAT
-      stop3D();
-      btn3d.textContent='3D: Kapalı';
-      return;
-    }
-    // AÇ
+    if(deckInstance){ stop3D(); btn3d.textContent='3D: Kapalı'; return; }
     btn3d.disabled=true; btn3d.textContent='3D: yükleniyor…';
     try{
       await loadScriptSequential(DECK_CDNS);
@@ -240,12 +257,9 @@ document.getElementById('reset').onclick = ()=>{
     }
   }
   btn3d.addEventListener('click', toggle);
-
-  // Sıfırla → 3D’yi de kapat
-  document.getElementById('reset').addEventListener('click', ()=>{
-    if(deckInstance){ stop3D(); btn3d.textContent='3D: Kapalı'; }
-  });
+  document.getElementById('reset').addEventListener('click', ()=>{ if(deckInstance){ stop3D(); btn3d.textContent='3D: Kapalı'; }});
 })();
 </script>
+
 </body>
 </html>
