@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Misafir – Indoor & Outdoor Harita (3D Binalar + glTF)</title>
+  <title>Misafir – Indoor & Outdoor Harita (3D + glTF)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <style>
@@ -12,27 +12,22 @@
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
     #map{
       position:fixed; inset:0;
-      /* 0x0 görünmeme emniyeti */
-      min-height:340px; min-width:340px;
+      /* 0×0 görünmeme emniyeti */
+      min-height:360px; min-width:360px;
     }
-
     .ol-attribution{font-size:10px; opacity:.85}
     .ol-attribution button{display:none}
 
     .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(780px,96vw); z-index:1000;}
     .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
     .p-8{padding:12px}
-    .row{display:flex; align-items:center; gap:8px}
-    .stack{display:flex; flex-direction:column; gap:8px}
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
     .grow{flex:1 1 auto}
     input[type="search"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px}
     button{padding:10px 12px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:10px; cursor:pointer}
-    button:active{transform:translateY(1px)}
-    button:disabled{opacity:.55; cursor:not-allowed}
-    select{padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
+    button:disabled{opacity:.6}
     .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
     .muted{color:var(--muted)}
-    .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
   </style>
 </head>
 <body>
@@ -40,314 +35,196 @@
   <div id="map" aria-label="Harita"></div>
 
   <div class="panel">
-    <div class="card p-8 stack">
+    <div class="card p-8">
       <div class="row">
-        <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…" />
-        <button id="go" disabled>Git</button>
-        <select id="lang" aria-label="Language">
-          <option value="tr" selected>TR</option>
-          <option value="en">EN</option>
-          <option value="ru">RU</option>
-          <option value="de">DE</option>
-          <option value="pl">PL</option>
-        </select>
-      </div>
-
-      <div class="row" style="flex-wrap:wrap">
-        <button id="pick">Haritadan Hedef</button>
-        <button id="follow">🎯 İzle: Kapalı</button>
+        <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
+        <button id="btn3d">3D: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-        <button id="btn3d">3D: Kapalı</button>
         <button id="reset">Sıfırla</button>
-        <span class="muted" id="status" style="margin-left:auto"></span>
+        <span id="status" class="muted" style="margin-left:auto"></span>
       </div>
-
       <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
     </div>
   </div>
 
-  <div id="acc" class="acc" style="display:none"></div>
-
 <script>
-/* ---------------- Harita kurulum ---------------- */
-const base = new ol.layer.Tile({
-  source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors', crossOrigin:'anonymous' })
-});
-const indoorSource  = new ol.source.Vector();
-const outdoorSource = new ol.source.Vector();
+/* ================== BOYUT & GÜVENLİK ================== */
+const mapEl = document.getElementById('map');
+function safeUpdateSize(){ try{ map.updateSize(); }catch{} }
+if ('ResizeObserver' in window) new ResizeObserver(safeUpdateSize).observe(mapEl);
+window.addEventListener('load', ()=> setTimeout(safeUpdateSize, 0));
+window.addEventListener('orientationchange', ()=> setTimeout(safeUpdateSize, 25));
+
+/* ================== KATLAR ================== */
 const fmt = new ol.format.GeoJSON();
-const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource,  style: f=>baseStyle(f,1) });
-const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: f=>baseStyle(f,1) });
+
+/* OSM + Carto fallback */
+function makeBaseGroup(){
+  const osm = new ol.layer.Tile({
+    source:new ol.source.OSM({crossOrigin:'anonymous'})
+  });
+  const carto = new ol.layer.Tile({
+    visible:false,
+    source:new ol.source.XYZ({
+      url:'https://{1-4}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attributions:'&copy; OpenStreetMap contributors &copy; CARTO'
+    })
+  });
+  let fail=0;
+  osm.getSource().on('tileloaderror',()=>{ if(++fail>=6){ osm.setVisible(false); carto.setVisible(true); }});
+  return new ol.layer.Group({layers:[osm, carto]});
+}
+
+const indoorSrc  = new ol.source.Vector();
+const outdoorSrc = new ol.source.Vector();
+const indoorLyr  = new ol.layer.VectorImage({source:indoorSrc,  style:f=>styleFor(f)});
+const outdoorLyr = new ol.layer.VectorImage({source:outdoorSrc, style:f=>styleFor(f)});
+
+function styleFor(f){
+  const g=f.getGeometry();
+  if(g.getType()==='Point'){
+    return new ol.style.Style({
+      image:new ol.style.Circle({radius:7, fill:new ol.style.Fill({color:'#f94144'}), stroke:new ol.style.Stroke({color:'#fff', width:2})})
+    });
+  }
+  return new ol.style.Style({
+    stroke:new ol.style.Stroke({color:'#2563eb', width:2}),
+    fill:new ol.style.Fill({color:'rgba(37,99,235,.10)'})
+  });
+}
 
 const map = new ol.Map({
   target:'map',
-  layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
+  layers:[ makeBaseGroup(), indoorLyr, outdoorLyr ],
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16 })
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addControl(new ol.control.Rotate());
 
-/* görünmeme güvenlikleri (0x0 container) */
-function safeUpdateSize(){
-  try{ map.updateSize(); }catch{}
-}
-if ('ResizeObserver' in window){
-  new ResizeObserver(safeUpdateSize).observe(document.getElementById('map'));
-}
-window.addEventListener('load', ()=> setTimeout(safeUpdateSize, 0));
-window.addEventListener('orientationchange', ()=> setTimeout(safeUpdateSize, 25));
-
-function baseStyle(f,dim){
-  const g=f.getGeometry();
-  if(g.getType()==='Point'){
-    return new ol.style.Style({
-      image:new ol.style.Circle({
-        radius:7,
-        fill:new ol.style.Fill({color:`rgba(249,65,68,${0.95*dim})`}),
-        stroke:new ol.style.Stroke({color:`rgba(193,18,31,${1*dim})`,width:2})
-      })
-    });
-  }
-  return new ol.style.Style({
-    stroke:new ol.style.Stroke({color:`rgba(37,99,235,${1*dim})`,width:2}),
-    fill:new ol.style.Fill({color:`rgba(37,99,235,${.10*dim})`})
-  });
-}
-
-/* Indoor/Outdoor yükle */
+/* Indoor/Outdoor verisini yükle */
 async function loadIO(){
   const bust='v='+Date.now();
   const [indoor, outdoor] = await Promise.all([
     fetch('indoor.json?'+bust,  {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]})),
     fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
   ]);
-  indoorSource.clear(); outdoorSource.clear();
-  indoorSource.addFeatures(fmt.readFeatures(indoor, {featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
-  outdoorSource.addFeatures(fmt.readFeatures(outdoor,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
+  indoorSrc.clear(); outdoorSrc.clear();
+  indoorSrc.addFeatures(fmt.readFeatures(indoor, {featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
+  outdoorSrc.addFeatures(fmt.readFeatures(outdoor,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'}));
 
-  const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+  const ext=ol.extent.extend(indoorSrc.getExtent(), outdoorSrc.getExtent());
   if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
 }
 loadIO();
 
 /* Katman görünürlüğü */
-const $=id=>document.getElementById(id);
-$('tglIndoor').onchange=()=> indoorLayer.setVisible($('tglIndoor').checked);
-$('tglOutdoor').onchange=()=> outdoorLayer.setVisible($('tglOutdoor').checked);
+document.getElementById('tglIndoor').onchange=()=> indoorLyr.setVisible(document.getElementById('tglIndoor').checked);
+document.getElementById('tglOutdoor').onchange=()=> outdoorLyr.setVisible(document.getElementById('tglOutdoor').checked);
 
-/* Konum + takip */
-let userLayer=null,userPoint=null,accCircle=null,follow=false,watchId=null;
-function ensureUserLayer(){
-  if(userLayer) return;
-  userPoint=new ol.Feature(new ol.geom.Point([0,0]));
-  userPoint.setStyle(new ol.style.Style({
-    image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:'#1d4ed8'}), stroke:new ol.style.Stroke({color:'#fff',width:1.8})})
-  }));
-  accCircle=new ol.Feature(new ol.geom.Circle([0,0],1));
-  accCircle.setStyle(new ol.style.Style({
-    stroke:new ol.style.Stroke({color:'#1d4ed8',width:1}),
-    fill:new ol.style.Fill({color:'rgba(29,78,216,.06)'})
-  }));
-  userLayer=new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userPoint]}) });
-  map.addLayer(userLayer);
-}
-(function startWatch(){
-  if(!('geolocation' in navigator)) return;
-  try{ if(watchId!==null) navigator.geolocation.clearWatch(watchId);}catch{}
-  watchId=navigator.geolocation.watchPosition(pos=>{
-    const c=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
-    ensureUserLayer();
-    userPoint.getGeometry().setCoordinates(c);
-    accCircle.getGeometry().setCenter(c);
-    accCircle.getGeometry().setRadius(pos.coords.accuracy||0);
-    const acc=$('acc');
-    acc.textContent="±"+Math.round(pos.coords.accuracy||0)+" m";
-    acc.style.display='block';
-    if(follow) map.getView().animate({center:c,duration:200});
-  },()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-})();
-$('follow').onclick=()=>{ follow=!follow; $('follow').textContent= follow? '🎯 İzle: Açık' : '🎯 İzle: Kapalı'; if(follow && userPoint) map.getView().setCenter(userPoint.getGeometry().getCoordinates()); };
-
-/* Reset */
-$('reset').onclick=()=>{
-  follow=false; $('follow').textContent='🎯 İzle: Kapalı';
-  loadIO();
-  if(deckGlue.enabled) deckGlue.disable();
-};
-
-/* ---------------- deck.gl 3D + glTF ---------------- */
+/* ================== 3D + glTF (deck.gl) ================== */
 const deckGlue = (function(){
-  const mapEl = document.getElementById('map');
-
   const deckDiv = document.createElement('div');
-  deckDiv.id = 'deck3d';
-  deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
-  mapEl.style.position='relative';
-  mapEl.appendChild(deckDiv);
+  deckDiv.id='deck3d'; deckDiv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3';
+  mapEl.style.position='relative'; mapEl.appendChild(deckDiv);
 
-  const DECK_CDNS = [
+  const CDNS = [
     'https://cdn.jsdelivr.net/npm/deck.gl@8.9.36/dist.min.js',
     'https://unpkg.com/deck.gl@8.9.36/dist.min.js'
   ];
-  function loadScriptSequential(urls){
-    return new Promise((resolve,reject)=>{
-      const step=i=>{
-        if(i>=urls.length) return reject(new Error('CDN blocked'));
-        const s=document.createElement('script');
-        s.src=urls[i]; s.defer=true;
-        s.onload=()=>resolve(urls[i]);
-        s.onerror=()=>{s.remove(); step(i+1);};
+  function loadSeq(urls){
+    return new Promise((res,rej)=>{
+      const go=i=>{
+        if(i>=urls.length) return rej(new Error('CDN blocked'));
+        const s=document.createElement('script'); s.src=urls[i]; s.defer=true;
+        s.onload=()=>res(urls[i]); s.onerror=()=>{s.remove(); go(i+1);};
         document.head.appendChild(s);
-      }; step(0);
+      }; go(0);
     });
   }
 
-  const DECK_ZOOM_OFFSET = -1; // OSM 256 -> deck 512
-  const toViewState = ()=>{
-    const v=map.getView();
-    const [lon,lat]=ol.proj.toLonLat(v.getCenter());
-    const size = map.getSize() || [mapEl.clientWidth, mapEl.clientHeight];
-    return {
-      longitude:lon, latitude:lat,
-      zoom:(v.getZoom()||0)+DECK_ZOOM_OFFSET,
-      bearing:(-v.getRotation()*180/Math.PI),
-      pitch: 45,
-      width:size[0], height:size[1]
-    };
+  const ZOFF=-1;
+  const viewState=()=>{
+    const v=map.getView(); const [lon,lat]=ol.proj.toLonLat(v.getCenter());
+    const size=map.getSize()||[mapEl.clientWidth,mapEl.clientHeight];
+    return {longitude:lon, latitude:lat, zoom:(v.getZoom()||0)+ZOFF, bearing:(-v.getRotation()*180/Math.PI), pitch:45, width:size[0], height:size[1]};
   };
+  let deckI=null, hook=null, buildings=null;
+  const sync=()=>{ if(deckI) deckI.setProps({viewState:viewState()}); };
 
-  let deckInstance=null, postRenderKey=null, buildings=null;
-
-  function lighting(){
-    const amb = new deck.AmbientLight({intensity:.7});
-    const dir = new deck.DirectionalLight({intensity:1.0, direction:[-1,-1,-2]});
-    return new deck.LightingEffect({ambientLight:amb, directionalLights:[dir]});
+  // centroid (lon,lat)
+  function centroidLL(f){
+    const g=f.geometry; if(!g) return [0,0];
+    const ring = g.type==='Polygon' ? g.coordinates[0] : (g.type==='MultiPolygon' ? g.coordinates[0][0] : null);
+    if(!ring) return [0,0];
+    let x=0,y=0,a=0;
+    for(let i=0;i<ring.length-1;i++){ const [x1,y1]=ring[i], [x2,y2]=ring[i+1]; const f=(x1*y2-x2*y1); x+=(x1+x2)*f; y+=(y1+y2)*f; a+=f; }
+    a*=0.5; if(Math.abs(a)<1e-12) return ring[0]; return [x/(6*a), y/(6*a)];
   }
 
-  // centroid hesap (LonLat)
-  function centroidLonLat(feat){
-    const g=feat.geometry;
-    if(!g) return [0,0];
-    const poly = g.type==='Polygon' ? g.coordinates[0] :
-                 (g.type==='MultiPolygon' ? g.coordinates[0][0] : null);
-    if(!poly || !poly.length) return [0,0];
-    let x=0,y=0, a=0;
-    for(let i=0;i<poly.length-1;i++){
-      const [x1,y1]=poly[i], [x2,y2]=poly[i+1];
-      const f=(x1*y2 - x2*y1);
-      x += (x1+x2)*f; y += (y1+y2)*f; a += f;
-    }
-    a = a*0.5;
-    if (Math.abs(a) < 1e-12) return poly[0]; // dejenere
-    return [x/(6*a), y/(6*a)];
-  }
-
-  function extrudedLayer(){
+  function geoLayer(){
     return new deck.GeoJsonLayer({
-      id:'buildings-extruded',
+      id:'b-extruded',
       data:buildings,
       extruded:true,
-      wireframe:false,
-      pickable:false,
-      material:{ambient:0.35, diffuse:0.7, shininess:12, specularColor:[60,60,60]},
-      getElevation:f=>{
-        const p=f.properties||{};
-        const h=Number(p.height)||0;
-        const lv=Number(p['building:levels']||p.levels||0);
-        return h || (lv>0 ? lv*3.2 : 8);
-      },
+      material:{ambient:.35, diffuse:.7, shininess:12},
+      getElevation:f=>{ const p=f.properties||{}; const h=+p.height||0; const lv=+p['building:levels']||+p.levels||0; return h || (lv>0? lv*3.2 : 8); },
       getFillColor:[185,185,185,235],
       getLineColor:[110,110,110],
       parameters:{depthTest:true}
     });
   }
-
-  // glTF sahneleri (modelUrl olanları)
-  function scenegraphLayer(){
-    const hasModels = (buildings.features||[]).some(f=>(f.properties||{}).modelUrl);
-    if(!hasModels) return null;
-
-    // model listesi için ayrı FeatureCollection
-    const models = (buildings.features||[]).filter(f=> (f.properties||{}).modelUrl);
-
+  function modelLayer(){
+    const feats=(buildings.features||[]).filter(f=>(f.properties||{}).modelUrl);
+    if(!feats.length) return null;
     return new deck.ScenegraphLayer({
-      id:'buildings-models',
-      data: models,
-      scenegraph: f => (f.properties||{}).modelUrl,
-      _lighting:'pbr',
-      sizeScale: 1,
-      pickable:false,
-      // Pozisyon: centroid veya anchor
-      getPosition: f=>{
-        const p=f.properties||{};
-        const ll = (typeof p.anchorLon==='number' && typeof p.anchorLat==='number')
-          ? [p.anchorLon, p.anchorLat]
-          : centroidLonLat(f);
-        const z = Number(p.z)||0;
-        return [ll[0], ll[1], z];
-      },
-      getOrientation: f=>{
-        const p=f.properties||{};
-        const yaw   = Number(p.yaw)||0;
-        const pitch = Number(p.pitch)||0;
-        const roll  = Number(p.roll)||0;
-        return [pitch, yaw, roll]; // [pitch,yaw,roll] -> derece
-      },
-      getScale: f=>{
-        const p=f.properties||{};
-        if (Array.isArray(p.scale) && p.scale.length===3) return p.scale;
-        const s = Number(p.scale)||1;
-        return [s,s,s];
-      },
+      id:'b-models', data:feats, scenegraph:f=>(f.properties||{}).modelUrl, _lighting:'pbr',
+      getPosition:f=>{ const p=f.properties||{}; const ll=(typeof p.anchorLon==='number'&&typeof p.anchorLat==='number')?[p.anchorLon,p.anchorLat]:centroidLL(f); const z=+p.z||0; return [ll[0],ll[1],z]; },
+      getOrientation:f=>{ const p=f.properties||{}; return [ +p.pitch||0, +p.yaw||0, +p.roll||0 ]; },
+      getScale:f=>{ const p=f.properties||{}; if(Array.isArray(p.scale)&&p.scale.length===3) return p.scale; const s=+p.scale||1; return [s,s,s]; },
       parameters:{depthTest:true}
     });
   }
 
-  const sync = ()=>{ if(deckInstance) deckInstance.setProps({viewState:toViewState()}); };
-
   async function enable(){
-    if(deckInstance) return;
-    $('status').textContent = '3D yükleniyor…';
-    await loadScriptSequential(DECK_CDNS);
+    if(deckI) return;
+    document.getElementById('status').textContent='3D yükleniyor…';
+    await loadSeq(CDNS);
     buildings = await fetch('buildings.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
-
-    const layers = [extrudedLayer()];
-    const sg = scenegraphLayer();
-    if(sg) layers.push(sg);
-
-    deckInstance = new deck.Deck({
-      parent: deckDiv,
-      controller:false,
-      initialViewState: toViewState(),
-      layers,
-      effects:[lighting()]
+    const layers=[geoLayer()]; const m=modelLayer(); if(m) layers.push(m);
+    deckI = new deck.Deck({ parent:deckDiv, controller:false, initialViewState:viewState(), layers,
+      effects:[ new deck.LightingEffect({ambientLight:new deck.AmbientLight({intensity:.7}), directionalLights:[new deck.DirectionalLight({intensity:1,direction:[-1,-1,-2]})]}) ]
     });
-    postRenderKey = map.on('postrender', sync);
+    hook = map.on('postrender', sync);
     new ResizeObserver(sync).observe(mapEl);
-    $('status').textContent = '';
+    document.getElementById('status').textContent='';
   }
   function disable(){
-    if(!deckInstance) return;
-    if(postRenderKey){ ol.Observable.unByKey(postRenderKey); postRenderKey=null; }
-    deckInstance.finalize(); deckInstance=null;
+    if(!deckI) return;
+    if(hook){ ol.Observable.unByKey(hook); hook=null; }
+    deckI.finalize(); deckI=null;
   }
-  return { enable, disable, get enabled(){ return !!deckInstance; } };
+  return {enable, disable, get enabled(){return !!deckI;}};
 })();
 
 /* 3D butonu */
-$('btn3d').addEventListener('click', async (e)=>{
-  const btn=e.currentTarget;
-  btn.disabled=true;
+document.getElementById('btn3d').onclick=async (e)=>{
+  const b=e.currentTarget; b.disabled=true;
   try{
-    if(deckGlue.enabled){ deckGlue.disable(); btn.textContent='3D: Kapalı'; }
-    else { await deckGlue.enable(); btn.textContent='3D: Açık'; }
+    if(deckGlue.enabled){ deckGlue.disable(); b.textContent='3D: Kapalı'; }
+    else { await deckGlue.enable(); b.textContent='3D: Açık'; }
   }catch(err){
     console.error(err);
-    $('status').textContent = '3D (deck.gl) ya da buildings.json yüklenemedi.';
-    btn.textContent='3D: Kapalı';
-  }finally{ btn.disabled=false; }
-});
+    document.getElementById('status').textContent='3D (deck.gl) veya buildings.json yüklenemedi';
+    b.textContent='3D: Kapalı';
+  }finally{ b.disabled=false; }
+};
+
+/* Sıfırla */
+document.getElementById('reset').onclick=()=>{
+  if(deckGlue.enabled){ deckGlue.disable(); document.getElementById('btn3d').textContent='3D: Kapalı'; }
+  loadIO();
+};
 </script>
 </body>
 </html>
