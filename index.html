@@ -3,14 +3,18 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Misafir – Indoor & Outdoor Harita (3D Binalar)</title>
+  <title>Misafir – Indoor & Outdoor Harita (3D Binalar + glTF)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <style>
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;width:100%;margin:0}
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
-    #map{position:fixed; inset:0; /* 0x0 emniyeti */ min-height:300px; min-width:320px}
+    #map{
+      position:fixed; inset:0;
+      /* 0x0 görünmeme emniyeti */
+      min-height:340px; min-width:340px;
+    }
 
     .ol-attribution{font-size:10px; opacity:.85}
     .ol-attribution button{display:none}
@@ -35,7 +39,6 @@
 
   <div id="map" aria-label="Harita"></div>
 
-  <!-- Tek panel -->
   <div class="panel">
     <div class="card p-8 stack">
       <div class="row">
@@ -53,30 +56,49 @@
       <div class="row" style="flex-wrap:wrap">
         <button id="pick">Haritadan Hedef</button>
         <button id="follow">🎯 İzle: Kapalı</button>
-        <button id="toggleDetails">Detaylar: Kapalı</button>
         <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
         <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
         <button id="btn3d">3D: Kapalı</button>
         <button id="reset">Sıfırla</button>
+        <span class="muted" id="status" style="margin-left:auto"></span>
       </div>
 
       <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
     </div>
   </div>
 
-  <!-- Konum doğruluk rozeti -->
   <div id="acc" class="acc" style="display:none"></div>
 
 <script>
-/* ================== OpenLayers temel harita ================== */
+/* ---------------- Harita kurulum ---------------- */
 const base = new ol.layer.Tile({
-  source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
+  source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors', crossOrigin:'anonymous' })
 });
 const indoorSource  = new ol.source.Vector();
 const outdoorSource = new ol.source.Vector();
 const fmt = new ol.format.GeoJSON();
+const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource,  style: f=>baseStyle(f,1) });
+const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: f=>baseStyle(f,1) });
 
-function styleFor(f,dim){
+const map = new ol.Map({
+  target:'map',
+  layers:[base, indoorLayer, outdoorLayer],
+  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
+});
+map.addControl(new ol.control.Attribution({collapsible:false}));
+map.addControl(new ol.control.Rotate());
+
+/* görünmeme güvenlikleri (0x0 container) */
+function safeUpdateSize(){
+  try{ map.updateSize(); }catch{}
+}
+if ('ResizeObserver' in window){
+  new ResizeObserver(safeUpdateSize).observe(document.getElementById('map'));
+}
+window.addEventListener('load', ()=> setTimeout(safeUpdateSize, 0));
+window.addEventListener('orientationchange', ()=> setTimeout(safeUpdateSize, 25));
+
+function baseStyle(f,dim){
   const g=f.getGeometry();
   if(g.getType()==='Point'){
     return new ol.style.Style({
@@ -92,18 +114,8 @@ function styleFor(f,dim){
     fill:new ol.style.Fill({color:`rgba(37,99,235,${.10*dim})`})
   });
 }
-const indoorLayer  = new ol.layer.VectorImage({ source: indoorSource,  style: f=>styleFor(f,1) });
-const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: f=>styleFor(f,1) });
 
-const map = new ol.Map({
-  target:'map',
-  layers:[base, indoorLayer, outdoorLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
-});
-map.addControl(new ol.control.Attribution({collapsible:false}));
-map.addControl(new ol.control.Rotate());
-
-/* JSON yükle (indoor/outdoor) */
+/* Indoor/Outdoor yükle */
 async function loadIO(){
   const bust='v='+Date.now();
   const [indoor, outdoor] = await Promise.all([
@@ -119,12 +131,12 @@ async function loadIO(){
 }
 loadIO();
 
-/* Katman görünürlükleri */
+/* Katman görünürlüğü */
 const $=id=>document.getElementById(id);
 $('tglIndoor').onchange=()=> indoorLayer.setVisible($('tglIndoor').checked);
 $('tglOutdoor').onchange=()=> outdoorLayer.setVisible($('tglOutdoor').checked);
 
-/* Canlı konum + takip */
+/* Konum + takip */
 let userLayer=null,userPoint=null,accCircle=null,follow=false,watchId=null;
 function ensureUserLayer(){
   if(userLayer) return;
@@ -161,18 +173,13 @@ $('follow').onclick=()=>{ follow=!follow; $('follow').textContent= follow? '🎯
 $('reset').onclick=()=>{
   follow=false; $('follow').textContent='🎯 İzle: Kapalı';
   loadIO();
-  // 3D açıksa kapat
   if(deckGlue.enabled) deckGlue.disable();
 };
 
-/* ================== 3D BİNALAR – deck.gl ================== */
-/* Bu bölüm OL görünümünü deck.gl WebMercator’a çevirir ve
-   zoom farkını (OSM256 ↔ 512) telafi eder. Deck tuvali #map içine eklenir,
-   postrender ile her karede senkronlanır → kayma olmaz. */
-
+/* ---------------- deck.gl 3D + glTF ---------------- */
 const deckGlue = (function(){
   const mapEl = document.getElementById('map');
-  /* deck tuvali */
+
   const deckDiv = document.createElement('div');
   deckDiv.id = 'deck3d';
   deckDiv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3';
@@ -217,15 +224,33 @@ const deckGlue = (function(){
     const dir = new deck.DirectionalLight({intensity:1.0, direction:[-1,-1,-2]});
     return new deck.LightingEffect({ambientLight:amb, directionalLights:[dir]});
   }
-  function layer(){
-    if(!buildings) return null;
+
+  // centroid hesap (LonLat)
+  function centroidLonLat(feat){
+    const g=feat.geometry;
+    if(!g) return [0,0];
+    const poly = g.type==='Polygon' ? g.coordinates[0] :
+                 (g.type==='MultiPolygon' ? g.coordinates[0][0] : null);
+    if(!poly || !poly.length) return [0,0];
+    let x=0,y=0, a=0;
+    for(let i=0;i<poly.length-1;i++){
+      const [x1,y1]=poly[i], [x2,y2]=poly[i+1];
+      const f=(x1*y2 - x2*y1);
+      x += (x1+x2)*f; y += (y1+y2)*f; a += f;
+    }
+    a = a*0.5;
+    if (Math.abs(a) < 1e-12) return poly[0]; // dejenere
+    return [x/(6*a), y/(6*a)];
+  }
+
+  function extrudedLayer(){
     return new deck.GeoJsonLayer({
-      id:'buildings-3d',
+      id:'buildings-extruded',
       data:buildings,
       extruded:true,
       wireframe:false,
       pickable:false,
-      material:{ambient:0.35, diffuse:0.7, shininess:16, specularColor:[60,60,60]},
+      material:{ambient:0.35, diffuse:0.7, shininess:12, specularColor:[60,60,60]},
       getElevation:f=>{
         const p=f.properties||{};
         const h=Number(p.height)||0;
@@ -237,24 +262,70 @@ const deckGlue = (function(){
       parameters:{depthTest:true}
     });
   }
+
+  // glTF sahneleri (modelUrl olanları)
+  function scenegraphLayer(){
+    const hasModels = (buildings.features||[]).some(f=>(f.properties||{}).modelUrl);
+    if(!hasModels) return null;
+
+    // model listesi için ayrı FeatureCollection
+    const models = (buildings.features||[]).filter(f=> (f.properties||{}).modelUrl);
+
+    return new deck.ScenegraphLayer({
+      id:'buildings-models',
+      data: models,
+      scenegraph: f => (f.properties||{}).modelUrl,
+      _lighting:'pbr',
+      sizeScale: 1,
+      pickable:false,
+      // Pozisyon: centroid veya anchor
+      getPosition: f=>{
+        const p=f.properties||{};
+        const ll = (typeof p.anchorLon==='number' && typeof p.anchorLat==='number')
+          ? [p.anchorLon, p.anchorLat]
+          : centroidLonLat(f);
+        const z = Number(p.z)||0;
+        return [ll[0], ll[1], z];
+      },
+      getOrientation: f=>{
+        const p=f.properties||{};
+        const yaw   = Number(p.yaw)||0;
+        const pitch = Number(p.pitch)||0;
+        const roll  = Number(p.roll)||0;
+        return [pitch, yaw, roll]; // [pitch,yaw,roll] -> derece
+      },
+      getScale: f=>{
+        const p=f.properties||{};
+        if (Array.isArray(p.scale) && p.scale.length===3) return p.scale;
+        const s = Number(p.scale)||1;
+        return [s,s,s];
+      },
+      parameters:{depthTest:true}
+    });
+  }
+
   const sync = ()=>{ if(deckInstance) deckInstance.setProps({viewState:toViewState()}); };
 
   async function enable(){
     if(deckInstance) return;
-    // lib + data
+    $('status').textContent = '3D yükleniyor…';
     await loadScriptSequential(DECK_CDNS);
     buildings = await fetch('buildings.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
-    // deck
+
+    const layers = [extrudedLayer()];
+    const sg = scenegraphLayer();
+    if(sg) layers.push(sg);
+
     deckInstance = new deck.Deck({
       parent: deckDiv,
       controller:false,
       initialViewState: toViewState(),
-      layers:[layer()],
+      layers,
       effects:[lighting()]
     });
-    // OL → deck her karede
     postRenderKey = map.on('postrender', sync);
     new ResizeObserver(sync).observe(mapEl);
+    $('status').textContent = '';
   }
   function disable(){
     if(!deckInstance) return;
@@ -273,7 +344,7 @@ $('btn3d').addEventListener('click', async (e)=>{
     else { await deckGlue.enable(); btn.textContent='3D: Açık'; }
   }catch(err){
     console.error(err);
-    alert('3D kütüphanesi (deck.gl) veya buildings.json yüklenemedi.');
+    $('status').textContent = '3D (deck.gl) ya da buildings.json yüklenemedi.';
     btn.textContent='3D: Kapalı';
   }finally{ btn.disabled=false; }
 });
