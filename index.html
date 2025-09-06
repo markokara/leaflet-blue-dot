@@ -727,8 +727,7 @@
     });
 
     applyLang();
-<!-- === 3D TEST MODÜLÜ (sade) === -->
-<script>
+/* === 3D TEST MODÜLÜ (sade) === */
 (function(){
   // 2. satırdaki buton grubuna "3D Test" ekle
   const rows = document.querySelectorAll('.panel .row');
@@ -785,8 +784,7 @@
       const used = await loadScriptSequential(DECK_CDNS);
       console.log('deck.gl loaded from:', used);
 
-      // Deck başlat
-      // window.deck globali geliyor (UMD)
+      // Deck başlat (global window.deck mevcut)
       deckInstance = new deck.Deck({
         parent: deckDiv,
         controller: false,
@@ -838,6 +836,7 @@
 
   btn.addEventListener('click', runTest);
 })();
-</script>
+
+  </script>
 </body>
 </html>
