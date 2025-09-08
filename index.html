@@ -55,9 +55,7 @@
     /* Konum doğruluk rozeti: SAĞ ALTA */
     .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
 
-    @media (max-width:520px){
-      .panel{bottom:8px}
-    }
+    @media (max-width:520px){ .panel{bottom:8px} }
   </style>
 </head>
 <body>
@@ -189,11 +187,7 @@
       shuttle:['shuttle','servis','bus'],
       gym:['gym','fitness','spor','siłownia']
     };
-    const KEYWORD_TO_CAT = (()=>{
-      const m={};
-      Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k));
-      return m;
-    })();
+    const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
 
     /* ========= Map ========= */
     const base = new ol.layer.Tile({
@@ -241,11 +235,18 @@
     const indoorLayer = new ol.layer.VectorImage({ source: indoorSource, style: styleFactory('indoor') });
     const outdoorLayer = new ol.layer.VectorImage({ source: outdoorSource, style: styleFactory('outdoor') });
 
+    // Başlangıçta 30° açı
+    const view = new ol.View({
+      center: ol.proj.fromLonLat([31.8046,36.6002]),
+      zoom:16,
+      rotation: Math.PI / 6  // 30 derece
+    });
+
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
-      // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
+      view
+      // Rotasyon etkileşimleri AÇIK. İki parmakla döndürülebilir, kompastan sıfırlanabilir.
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
     map.addControl(new ol.control.Rotate());
@@ -269,6 +270,7 @@
     /* ========= Veri (cache-bypass + “Sıfırla” ile yeniden yükle) ========= */
     const fmt=new ol.format.GeoJSON();
     let allFeats=[];
+    let HOTEL_EXTENT_PADDED=null;
 
     async function loadJSONs(){
       const bust = 'v=' + Date.now();
@@ -291,17 +293,36 @@
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
       if(allFeats.length){
-        const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-        if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
+        // Otel alanını hesapla ve biraz tampon ekle
+        const raw=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+        if(raw && raw.every(isFinite)){
+          const pad=30; // metre cinsinden
+          HOTEL_EXTENT_PADDED=[raw[0]-pad, raw[1]-pad, raw[2]+pad, raw[3]+pad];
+          lockToHotel(); // kilitle + 30° göster
+        }
       }
 
-      applyLang(); // arama/filtre sıfırlansın
+      applyLang();
       searchIds=null;
       results.style.display='none';
       setSearchUIState(false);
       redraw();
     }
     loadJSONs();
+
+    // ——— Sadece otel alanı: pan/zoom kilidi + başlangıç 30°
+    function lockToHotel(){
+      if(!HOTEL_EXTENT_PADDED) return;
+      view.setRotation(Math.PI/6); // 30°
+      view.fit(HOTEL_EXTENT_PADDED,{padding:[140,20,180,20], maxZoom:22, duration:0});
+      const zFull=view.getZoom();      // en uzak görünüm = otelin tamamı
+      view.setMinZoom(zFull);          // daha fazla uzaklaşma YOK
+      view.setMaxZoom(zFull+4);        // 4 kademe yakınlaşma SERBEST (istersen değiştir)
+      view.setExtent(HOTEL_EXTENT_PADDED); // merkez bu extenti terk etmez
+      view.setConstrainOnlyCenter(true);   // sadece merkezi kısıtla (daha doğal his)
+    }
+    // Ekran boyutu değişirse kilidi koru
+    new ResizeObserver(()=> lockToHotel()).observe(document.body);
 
     /* ========= Dil ========= */
     function applyLang(){
@@ -317,10 +338,7 @@
       if(currentPopupFeature && popupOverlay.getPosition()) popupContent.innerHTML=renderPopup(currentPopupFeature);
     }
     langSel.value=LANG;
-    langSel.addEventListener('change',()=>{
-      LANG=langSel.value;
-      applyLang();
-    });
+    langSel.addEventListener('change',()=>{ LANG=langSel.value; applyLang(); });
 
     /* ========= Arama ========= */
     function detectCategory(qs){
@@ -364,10 +382,7 @@
     q.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
         const first=results.querySelector('.item');
-        if(first){
-          first.click();
-          e.preventDefault();
-        }
+        if(first){ first.click(); e.preventDefault(); }
       }
     });
 
@@ -425,18 +440,11 @@
       redraw();
     };
 
-    function redraw(){
-      indoorLayer.changed();
-      outdoorLayer.changed();
-    }
+    function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
 
     /* ========= Katman toggles ========= */
-    tglIndoor.addEventListener('change',()=>{
-      indoorLayer.setVisible(tglIndoor.checked);
-    });
-    tglOutdoor.addEventListener('change',()=>{
-      outdoorLayer.setVisible(tglOutdoor.checked);
-    });
+    tglIndoor.addEventListener('change',()=> indoorLayer.setVisible(tglIndoor.checked));
+    tglOutdoor.addEventListener('change',()=> outdoorLayer.setVisible(tglOutdoor.checked));
 
     /* ========= Konum + takip ========= */
     let userLayer=null,userPoint=null,accCircle=null,followState=false,watchId=null;
@@ -495,17 +503,10 @@
     }
 
     function clearDestination(){
-      if(destLayer){
-        map.removeLayer(destLayer);
-        destLayer=null;
-        destPoint=null;
-      }
+      if(destLayer){ map.removeLayer(destLayer); destLayer=null; destPoint=null; }
     }
 
-    pickBtn.onclick=()=>{
-      pickMode=!pickMode;
-      pickBtn.classList.toggle('active',pickMode);
-    };
+    pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
 
     map.on('click',evt=>{
       if(pickMode){
@@ -516,13 +517,9 @@
       }
       currentPopupFeature=null;
       [indoorLayer,outdoorLayer].forEach(layer=>
-        map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{
-          if(lay===layer) currentPopupFeature=feature;
-        })
+        map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; })
       );
-      if(currentPopupFeature){
-        showPopup(currentPopupFeature, evt.coordinate);
-      } else hidePopup();
+      if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
     });
 
     function clearRouteAndBearing(){
@@ -554,7 +551,6 @@
           map.addLayer(routeLayer);
           map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:18});
 
-          // Yönergeleri yaz
           const km=(route.distance/1000).toFixed(2)+" km";
           const min=Math.round(route.duration/60)+" dk";
           dirSum.textContent=km;
@@ -579,10 +575,7 @@
 
     function stepText(s){
       const L=t();
-      const man=s.maneuver||{};
-      const type=man.type||'';
-      const mod=man.modifier||'';
-      const street=s.name||'';
+      const man=s.maneuver||{}; const type=man.type||''; const mod=man.modifier||''; const street=s.name||'';
       const onto=street? (L.nav.onto||'').replace('%s', street) : '';
       switch(type){
         case 'depart': return L.nav.depart + onto;
@@ -592,10 +585,8 @@
           if(mod==='right') return L.nav.turn_right + onto;
           return (L.nav.straight||'') + onto;
         case 'roundabout':
-          const ex=man.exit||1;
-          return (L.nav.roundabout||'').replace('%n', ex) + onto;
-        default:
-          return (L.nav.straight||'') + onto;
+          const ex=man.exit||1; return (L.nav.roundabout||'').replace('%n', ex) + onto;
+        default: return (L.nav.straight||'') + onto;
       }
     }
 
@@ -716,7 +707,7 @@
       searchIds=null;
       redraw();
       clearDestination(); // seçilen kırmızı hedefi de kaldır
-      loadJSONs(); // veriyi taze çek → telefon/PC cache farkı kalmaz
+      loadJSONs();        // veri ve kilidi tazele
     };
 
     document.addEventListener('keydown',e=>{
