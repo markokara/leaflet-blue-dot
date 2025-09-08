@@ -323,7 +323,7 @@
 }
 
     // 🔒 Sınırları kilitle
-    map.getView().setMinZoom(16);   // Misafir en fazla bu kadar uzaklaşabilir
+    map.getView().setMinZoom(18);   // Misafir en fazla bu kadar uzaklaşabilir
     map.getView().setMaxZoom(20);   // Çok fazla yakınlaştırma engeli
     map.getView().setExtent(ext);   // Pan + zoom sadece otel alanında geçerli
 
@@ -759,6 +759,10 @@
     });
 
     applyLang();
+  // Haritayı yatay (landscape) kilitle
+  if (screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock("landscape").catch(()=>{});
+}
   </script>
 </body>
 </html>
