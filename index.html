@@ -232,7 +232,7 @@
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
+      view:new ol.View({center: ol.proj.fromLonLat([33.8046,36.6002]), zoom:16, rotation:0})
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
     map.addControl(new ol.control.Rotate());
