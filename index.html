@@ -11,15 +11,13 @@
     html,body{height:100%;margin:0}
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
     #map {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vh;   /* ekranın yüksekliğini genişlik yap */
-    height: 100vw;  /* ekranın genişliğini yükseklik yap */
-    transform: rotate(0deg);  /* haritayı döndür */
-    transform-origin: center center;
+  position: fixed;
+  inset: 0;      /* ekranı tamamen kaplasın */
+  width: 100%;
+  height: 100%;
     }
 
+  
 
     /* Attribution küçük ve sade (lisansa uygun) */
     .ol-attribution{font-size:10px; opacity:.85}
@@ -257,7 +255,11 @@
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
+      view:new ol.View({
+  center: ol.proj.fromLonLat([31.8046,36.6002]),
+  zoom:16,
+  rotation: Math.PI / 2   // 90 derece yatay
+}),
       // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
