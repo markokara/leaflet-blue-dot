@@ -12,11 +12,9 @@
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
     #map{position:fixed; inset:0}
 
-    /* Attribution küçük ve sade (lisansa uygun) */
     .ol-attribution{font-size:10px; opacity:.85}
     .ol-attribution button{display:none}
 
-    /* Alt panel (tek yerde tüm kontroller) */
     .panel{position:fixed; left:50%; bottom:12px; transform:translateX(-50%); width:min(780px,96vw); z-index:1000;}
     .card{background:var(--bg); border:1px solid #e5e7eb; border-radius:14px; box-shadow:var(--shadow)}
     .p-8{padding:12px}
@@ -32,14 +30,12 @@
     .pill input{accent-color:#1d4ed8}
     .muted{color:var(--muted)}
 
-    /* Arama sonuçları */
     .results{background:#fff; border:1px solid #e5e7eb; border-radius:10px; max-height:36vh; overflow:auto; display:none}
     .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:8px}
     .results .item small{color:var(--muted)}
     .results .item:hover{background:#f1f5f9}
     .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
 
-    /* Yönerge kutusu */
     .dir{display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px}
     .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5e7eb}
     .dir .sum{font-weight:600}
@@ -47,12 +43,10 @@
     .step{display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed #e5e7eb}
     .step:last-child{border-bottom:none}
 
-    /* Popup */
     .ol-popup{position:absolute; background:#fff; padding:10px; border-radius:10px; border:1px solid #e5e7eb; min-width:220px; box-shadow:var(--shadow); transform:translate(-50%,-100%); }
     .ol-popup-closer{position:absolute; right:8px; top:6px; text-decoration:none; color:#9ca3af}
     .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
 
-    /* Konum doğruluk rozeti: SAĞ ALTA */
     .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
 
     @media (max-width:520px){
@@ -62,7 +56,6 @@
 </head>
 <body>
 
-  <!-- Tek panel -->
   <div class="panel">
     <div class="card p-8 stack">
       <div class="row">
@@ -104,10 +97,8 @@
     </div>
   </div>
 
-  <!-- Konum doğruluk rozeti -->
   <div id="acc" class="acc" style="display:none"></div>
 
-  <!-- Popup -->
   <div id="popup" class="ol-popup" style="display:none">
     <a href="#" id="popup-closer" class="ol-popup-closer">✕</a>
     <div id="popup-content"></div>
@@ -189,11 +180,11 @@
       shuttle:['shuttle','servis','bus'],
       gym:['gym','fitness','spor','siłownia']
     };
-    const KEYWORD_TO_CAT = (()=>{
-      const m={};
-      Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k));
-      return m;
-    })();
+    const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
+
+    /* ========= Otel için sabitler ========= */
+    const PAD = [140,20,160,20]; // panel/alt bar için fit padding
+    let HOTEL_EXTENT = null;     // otel alanı (EPSG:3857)
 
     /* ========= Map ========= */
     const base = new ol.layer.Tile({
@@ -244,8 +235,7 @@
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
-      // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
+      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0})
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
     map.addControl(new ol.control.Rotate());
@@ -266,7 +256,7 @@
       hint.style.display = active ? 'inline' : 'none';
     }
 
-    /* ========= Veri (cache-bypass + “Sıfırla” ile yeniden yükle) ========= */
+    /* ========= Veri (cache-bypass + reset ile yeniden yükle) ========= */
     const fmt=new ol.format.GeoJSON();
     let allFeats=[];
 
@@ -290,26 +280,27 @@
 
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
-      if (allFeats.length) {
-  const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-  if (ext && ext.every(isFinite)) {
-    // Otel sınırına küçük bir tampon (metre cinsinden, EPSG:3857)
-    const padded = ol.extent.buffer(ext, 8);
+      if(allFeats.length){
+        const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+        if(ext && ext.every(isFinite)){
+          // Otel sınırı + küçük pay (metre, EPSG:3857)
+          HOTEL_EXTENT = ol.extent.buffer(ext, 8);
 
-    const view = map.getView();
+          const view = map.getView();
 
-    // 🔒 Panning'i otel alanına kilitle
-    view.setExtent(padded);
+          // Panning'i otel alanına kilitle
+          view.setExtent(HOTEL_EXTENT);
 
-    // İlk görünümü otel alanına oturt
-    view.fit(padded, { padding:[140,20,160,20], maxZoom:19 });
+          // Taban katmanı da otel dışında çizmesin
+          base.setExtent(HOTEL_EXTENT);
 
-    // 🔒 Daha fazla uzaklaşıp çevreyi göremesin
-    view.setMinZoom(view.getZoom()); // şu anki (fit sonrası) zoom "en uzak" kabul
-    view.setMaxZoom(21);             // yakınlaşma üst sınırı (isteğe göre)
-  }
-}
+          // Başlangıç görünümü otel alanına sığdır
+          view.fit(HOTEL_EXTENT, { padding: PAD, maxZoom: 19 });
 
+          // Zoom-out'u kalıcı olarak kilitle
+          lockZoom();
+        }
+      }
 
       applyLang(); // arama/filtre sıfırlansın
       searchIds=null;
@@ -333,10 +324,7 @@
       if(currentPopupFeature && popupOverlay.getPosition()) popupContent.innerHTML=renderPopup(currentPopupFeature);
     }
     langSel.value=LANG;
-    langSel.addEventListener('change',()=>{
-      LANG=langSel.value;
-      applyLang();
-    });
+    langSel.addEventListener('change',()=>{ LANG=langSel.value; applyLang(); });
 
     /* ========= Arama ========= */
     function detectCategory(qs){
@@ -380,10 +368,7 @@
     q.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
         const first=results.querySelector('.item');
-        if(first){
-          first.click();
-          e.preventDefault();
-        }
+        if(first){ first.click(); e.preventDefault(); }
       }
     });
 
@@ -405,7 +390,7 @@
           redraw();
           const ext=ol.extent.createEmpty();
           feats.forEach(f=> ol.extent.extend(ext,f.getGeometry().getExtent()));
-          map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:18});
+          map.getView().fit(ext,{padding:PAD, maxZoom:18});
           results.style.display='none';
           setSearchUIState(true);
         };
@@ -447,12 +432,8 @@
     }
 
     /* ========= Katman toggles ========= */
-    tglIndoor.addEventListener('change',()=>{
-      indoorLayer.setVisible(tglIndoor.checked);
-    });
-    tglOutdoor.addEventListener('change',()=>{
-      outdoorLayer.setVisible(tglOutdoor.checked);
-    });
+    tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
+    tglOutdoor.addEventListener('change',()=>{ outdoorLayer.setVisible(tglOutdoor.checked); });
 
     /* ========= Konum + takip ========= */
     let userLayer=null,userPoint=null,accCircle=null,followState=false,watchId=null;
@@ -518,10 +499,7 @@
       }
     }
 
-    pickBtn.onclick=()=>{
-      pickMode=!pickMode;
-      pickBtn.classList.toggle('active',pickMode);
-    };
+    pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
 
     map.on('click',evt=>{
       if(pickMode){
@@ -532,13 +510,10 @@
       }
       currentPopupFeature=null;
       [indoorLayer,outdoorLayer].forEach(layer=>
-        map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{
-          if(lay===layer) currentPopupFeature=feature;
-        })
+        map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; })
       );
-      if(currentPopupFeature){
-        showPopup(currentPopupFeature, evt.coordinate);
-      } else hidePopup();
+      if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); }
+      else hidePopup();
     });
 
     function clearRouteAndBearing(){
@@ -568,9 +543,8 @@
             style:new ol.style.Style({stroke:new ol.style.Stroke({color:'#16a34a',width:4})})
           });
           map.addLayer(routeLayer);
-          map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:18});
+          map.getView().fit(line.getExtent(),{padding:PAD, maxZoom:18});
 
-          // Yönergeleri yaz
           const km=(route.distance/1000).toFixed(2)+" km";
           const min=Math.round(route.duration/60)+" dk";
           dirSum.textContent=km;
@@ -662,9 +636,8 @@
         ]
       });
       map.addLayer(bearingLayer);
-      map.getView().fit(line.getExtent(),{padding:[140,20,160,20], maxZoom:19});
+      map.getView().fit(line.getExtent(),{padding:PAD, maxZoom:19});
 
-      // Basit yönerge: düz çizgi
       dirSum.textContent=(dist>=1000?(dist/1000).toFixed(2)+' km':dist+' m');
       dirSub.textContent='';
       dirList.innerHTML='';
@@ -718,21 +691,41 @@
     function focusFeature(f,open){
       const g=f.getGeometry();
       const extent=g.getExtent();
-      map.getView().fit(extent,{padding:[140,20,160,20], maxZoom:18});
+      map.getView().fit(extent,{padding:PAD, maxZoom:18});
       const c=coordOfFeature(f);
       if(open) showPopup(f,c);
     }
 
+    /* ========= Zoom kilidi ve resize güvenliği ========= */
+    function lockZoom(){
+      if(!HOTEL_EXTENT) return;
+      const view = map.getView();
+      const z = view.getZoomForExtent(HOTEL_EXTENT, map.getSize());
+      view.setMinZoom(z);                 // daha fazla uzaklaşamaz
+      if (view.getZoom() < z) view.setZoom(z);
+    }
+
+    window.addEventListener('resize', () => {
+      map.updateSize();
+      lockZoom();
+    });
+    if (window.visualViewport) {
+      const vv = window.visualViewport;
+      vv.addEventListener('resize', () => { map.updateSize(); lockZoom(); });
+      vv.addEventListener('scroll', () => { map.updateSize(); lockZoom(); });
+    }
+
     /* ========= Reset ========= */
+    const collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
     resetBtn.onclick=()=>{
       hidePopup();
       clearRouteAndBearing();
       results.style.display='none';
-      q.value=''; // arama temizle
+      q.value='';
       searchIds=null;
       redraw();
-      clearDestination(); // seçilen kırmızı hedefi de kaldır
-      loadJSONs(); // veriyi taze çek → telefon/PC cache farkı kalmaz
+      clearDestination();
+      loadJSONs(); // tekrar yükle; kilitler yeniden uygulanır
     };
 
     document.addEventListener('keydown',e=>{
