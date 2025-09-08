@@ -208,7 +208,7 @@
     
     /* ========= Map ========= */
     const base = new ol.layer.Tile({
-      source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
+      source: new ol.source.OSM({ attributions: '© aihotelstech ' })
     });
 
     const indoorSource = new ol.source.Vector();
@@ -258,7 +258,7 @@
       view:new ol.View({
   center: ol.proj.fromLonLat([31.8046,36.6002]),
   zoom:16,
-  rotation: Math.PI / 1   // 90 derece yatay
+  rotation: Math.PI / 2   // 90 derece yatay
 }),
       // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
     });
