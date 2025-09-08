@@ -295,9 +295,15 @@
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
       if(allFeats.length){
-        const ext=ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-        if(ext && ext.every(isFinite)) map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
-      }
+  const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+  if(ext && ext.every(isFinite)){
+    // Otel sınırına otomatik zoom
+    map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
+
+    // 🔒 Sınırları kilitle
+    map.getView().setMinZoom(16);   // Misafir en fazla bu kadar uzaklaşabilir
+    map.getView().setMaxZoom(20);   // Çok fazla yakınlaştırma engeli
+    map.getView().setExtent(ext);   // Pan + zoom sadece otel alanında geçerli
 
       applyLang(); // arama/filtre sıfırlansın
       searchIds=null;
