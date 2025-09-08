@@ -295,10 +295,23 @@
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
       if(allFeats.length){
-  const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+  // Boş bir extent başlat
+  let ext = ol.extent.createEmpty();
+
+  // Indoor + Outdoor sınırlarını ext'e ekle
+  ol.extent.extend(ext, indoorSource.getExtent());
+  ol.extent.extend(ext, outdoorSource.getExtent());
+
   if(ext && ext.every(isFinite)){
-    // Otel sınırına otomatik zoom
-    map.getView().fit(ext,{padding:[140,20,160,20], maxZoom:19});
+    // Otel sınırına zoom yap
+    map.getView().fit(ext, {padding:[140,20,160,20], maxZoom:19});
+
+    // 🔒 Sınırları kilitle
+    map.getView().setMinZoom(16);   // Daha fazla uzaklaşamaz
+    map.getView().setMaxZoom(20);   // Çok fazla yakınlaşamaz
+    map.getView().setExtent(ext);   // Pan + zoom sadece otel alanında geçerli
+  }
+}
 
     // 🔒 Sınırları kilitle
     map.getView().setMinZoom(16);   // Misafir en fazla bu kadar uzaklaşabilir
