@@ -10,14 +10,7 @@
     :root{ --shadow:0 8px 24px rgba(0,0,0,.16); --muted:#6b7280; --bg:#ffffff }
     html,body{height:100%;margin:0}
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6}
-    #map {
-  position: fixed;
-  inset: 0;      /* ekranı tamamen kaplasın */
-  width: 100%;
-  height: 100%;
-    }
-
-  
+    #map{position:fixed; inset:0}
 
     /* Attribution küçük ve sade (lisansa uygun) */
     .ol-attribution{font-size:10px; opacity:.85}
@@ -202,13 +195,9 @@
       return m;
     })();
 
-
-
-
-    
     /* ========= Map ========= */
     const base = new ol.layer.Tile({
-      source: new ol.source.OSM({ attributions: '© aihotelstech ' })
+      source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
     });
 
     const indoorSource = new ol.source.Vector();
@@ -255,11 +244,7 @@
     const map = new ol.Map({
       target:'map',
       layers:[base, indoorLayer, outdoorLayer],
-      view:new ol.View({
-  center: ol.proj.fromLonLat([31.8046,36.6002]),
-  zoom:16,
-  rotation: Math.PI / 0   // 90 derece yatay
-}),
+      view:new ol.View({center: ol.proj.fromLonLat([31.8046,36.6002]), zoom:16, rotation:0}),
       // Rotasyon etkileşimleri AÇIK (varsayılan). İki parmakla çevirebilirsiniz, kompastan sıfırlayabilirsiniz.
     });
     map.addControl(new ol.control.Attribution({collapsible:false}));
@@ -305,24 +290,26 @@
 
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
-      if(allFeats.length){
-  // Boş bir extent başlat
-  let ext = ol.extent.createEmpty();
+      if (allFeats.length) {
+  const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
+  if (ext && ext.every(isFinite)) {
+    // Otel sınırına küçük bir tampon (metre cinsinden, EPSG:3857)
+    const padded = ol.extent.buffer(ext, 8);
 
-  // Indoor + Outdoor sınırlarını ext'e ekle
-  ol.extent.extend(ext, indoorSource.getExtent());
-  ol.extent.extend(ext, outdoorSource.getExtent());
+    const view = map.getView();
 
-  if(ext && ext.every(isFinite)){
-    // Otel sınırına zoom yap
-    map.getView().fit(ext, {padding:[140,20,160,20], maxZoom:19});
+    // 🔒 Panning'i otel alanına kilitle
+    view.setExtent(padded);
 
-    // 🔒 Sınırları kilitle
-    map.getView().setMinZoom(17);   // Daha fazla uzaklaşamaz
-    map.getView().setMaxZoom(20);   // Çok fazla yakınlaşamaz
-    map.getView().setExtent(ext);   // Pan + zoom sadece otel alanında geçerli
+    // İlk görünümü otel alanına oturt
+    view.fit(padded, { padding:[140,20,160,20], maxZoom:19 });
+
+    // 🔒 Daha fazla uzaklaşıp çevreyi göremesin
+    view.setMinZoom(view.getZoom()); // şu anki (fit sonrası) zoom "en uzak" kabul
+    view.setMaxZoom(21);             // yakınlaşma üst sınırı (isteğe göre)
   }
 }
+
 
       applyLang(); // arama/filtre sıfırlansın
       searchIds=null;
