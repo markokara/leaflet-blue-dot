@@ -49,9 +49,7 @@
 
     .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
 
-    @media (max-width:520px){
-      .panel{bottom:8px}
-    }
+    @media (max-width:520px){ .panel{bottom:8px} }
   </style>
 </head>
 <body>
@@ -109,53 +107,27 @@
   <script>
     /* ========= i18n ========= */
     const I18N = {
-      tr:{
-        searchPH:"Ara: restoran, spa, havuz…",
-        go:"Git",
-        ui:{
-          pick:"Haritadan Hedef",
-          followOn:"İzle: Açık",
-          followOff:"İzle: Kapalı",
-          detailsOn:"Detaylar: Açık",
-          detailsOff:"Detaylar: Kapalı",
-          reset:"Sıfırla",
-          hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor",
-          clearRoute:"Rota Temizle"
-        },
+      tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
+        ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı",
+             detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla",
+             hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor", clearRoute:"Rota Temizle" },
         labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe", duration:"Süre"},
-        cats:{
-          pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan",
-          toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör",
-          gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu"
-        },
-        nav:{
-          depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam",
-          roundabout:"Göbekte %n. çıkış", onto:" → %s"
-        }
+        cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan",
+               toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör",
+               gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" },
+        nav:{ depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam",
+              roundabout:"Göbekte %n. çıkış", onto:" → %s" }
       },
-      en:{
-        searchPH:"Search: restaurant, spa, pool…",
-        go:"Go",
-        ui:{
-          pick:"Pick on Map",
-          followOn:"Follow: On",
-          followOff:"Follow: Off",
-          detailsOn:"Details: On",
-          detailsOff:"Details: Off",
-          reset:"Reset",
-          hint:"🔎 Search is active: only matches are shown",
-          clearRoute:"Clear Route"
-        },
+      en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go",
+        ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off",
+             detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset",
+             hint:"🔎 Search is active: only matches are shown", clearRoute:"Clear Route" },
         labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance", duration:"Duration"},
-        cats:{
-          pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop",
-          toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator",
-          gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"
-        },
-        nav:{
-          depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight",
-          roundabout:"At roundabout take exit %n", onto:" onto %s"
-        }
+        cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop",
+               toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator",
+               gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" },
+        nav:{ depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight",
+              roundabout:"At roundabout take exit %n", onto:" onto %s" }
       }
     };
     let LANG = localStorage.getItem("lang") || "tr";
@@ -182,15 +154,14 @@
     };
     const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
 
-    /* ========= Otel için sabitler ========= */
-    const PAD = [140,20,160,20]; // panel/alt bar için fit padding
-    let HOTEL_EXTENT = null;     // otel alanı (EPSG:3857)
+    /* ========= Otel sabitleri ========= */
+    const PAD = [140,20,160,20];   // fit padding
+    let HOTEL_EXTENT = null;       // EPSG:3857
 
     /* ========= Map ========= */
     const base = new ol.layer.Tile({
       source: new ol.source.OSM({ attributions: '© aihotelstech · © OpenStreetMap contributors' })
     });
-
     const indoorSource = new ol.source.Vector();
     const outdoorSource = new ol.source.Vector();
 
@@ -211,13 +182,11 @@
         return styleFor(f,1);
       };
     }
-
     function styleFor(f,dim){
       const g=f.getGeometry();
       if(g.getType()==='Point'){
         return new ol.style.Style({
-          image:new ol.style.Circle({
-            radius:7,
+          image:new ol.style.Circle({ radius:7,
             fill:new ol.style.Fill({color:`rgba(249,65,68,${0.95*dim})`}),
             stroke:new ol.style.Stroke({color:`rgba(193,18,31,${1*dim})`,width:2})
           })
@@ -256,7 +225,7 @@
       hint.style.display = active ? 'inline' : 'none';
     }
 
-    /* ========= Veri (cache-bypass + reset ile yeniden yükle) ========= */
+    /* ========= Veri ========= */
     const fmt=new ol.format.GeoJSON();
     let allFeats=[];
 
@@ -267,8 +236,7 @@
         fetch('outdoor.json?'+bust, {cache:'no-store'}).then(r=>r.ok?r.json():{type:'FeatureCollection',features:[]}).catch(()=>({type:'FeatureCollection',features:[]}))
       ]);
 
-      indoorSource.clear();
-      outdoorSource.clear();
+      indoorSource.clear(); outdoorSource.clear();
 
       const add=(src,gj,kind)=>{
         const fs=fmt.readFeatures(gj,{featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'});
@@ -281,32 +249,48 @@
       allFeats = indoorSource.getFeatures().concat(outdoorSource.getFeatures());
 
       if(allFeats.length){
-        const ext = ol.extent.extend(indoorSource.getExtent(), outdoorSource.getExtent());
-        if(ext && ext.every(isFinite)){
-          // Otel sınırı + küçük pay (metre, EPSG:3857)
+        // birleşik extent
+        let ext = ol.extent.createEmpty();
+        if(indoorSource.getFeatures().length) ol.extent.extend(ext, indoorSource.getExtent());
+        if(outdoorSource.getFeatures().length) ol.extent.extend(ext, outdoorSource.getExtent());
+
+        if(!ol.extent.isEmpty(ext)){
+          // küçük tampon (metre cinsinden; EPSG:3857)
           HOTEL_EXTENT = ol.extent.buffer(ext, 8);
 
-          const view = map.getView();
+          // Zoom-out kilidi için "padding'i düşülmüş" iç boyutla en uzak zoom'u hesapla
+          const size = map.getSize();
+          const innerSize = [
+            Math.max(8, size[0] - (PAD[1] + PAD[3])),
+            Math.max(8, size[1] - (PAD[0] + PAD[2]))
+          ];
+          const oldView = map.getView();
+          const fitZoom = oldView.getZoomForExtent(HOTEL_EXTENT, innerSize);
 
-          // Panning'i otel alanına kilitle
-          view.setExtent(HOTEL_EXTENT);
+          // 🔒 Yeni View: extent vererek panning'i otel alanına kısıtla
+          const newView = new ol.View({
+            extent: HOTEL_EXTENT,
+            center: ol.extent.getCenter(HOTEL_EXTENT),
+            zoom: fitZoom,
+            minZoom: fitZoom,       // daha uzak zoom yok
+            maxZoom: 21,
+            rotation: oldView.getRotation()
+          });
+          map.setView(newView);
 
-          // Taban katmanı da otel dışında çizmesin
+          // OSM karolarını da bu alanla sınırlı çiz
           base.setExtent(HOTEL_EXTENT);
-
-          // Başlangıç görünümü otel alanına sığdır
-          view.fit(HOTEL_EXTENT, { padding: PAD, maxZoom: 19 });
-
-          // Zoom-out'u kalıcı olarak kilitle
-          lockZoom();
         }
       }
 
-      applyLang(); // arama/filtre sıfırlansın
+      applyLang();
       searchIds=null;
       results.style.display='none';
       setSearchUIState(false);
       redraw();
+
+      // minZoom'u ekran değişimine uyarlamak için ilk kilitleme
+      lockZoom();
     }
     loadJSONs();
 
@@ -338,11 +322,7 @@
     q.addEventListener('input', ()=>{
       const val=(q.value||'').trim();
       if(!val){
-        searchIds=null;
-        redraw();
-        results.style.display='none';
-        setSearchUIState(false);
-        return;
+        searchIds=null; redraw(); results.style.display='none'; setSearchUIState(false); return;
       }
       const qn=norm(val);
       const maybeCat=detectCategory(val);
@@ -351,10 +331,8 @@
         const p=f.getProperties();
         const cat=(p.category||'').toLowerCase();
         if(maybeCat && cat===maybeCat) return true;
-
         const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
         if(names.some(n=>n.includes(qn))) return true;
-
         const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
         return ex.some(d=>d.includes(qn));
       });
@@ -426,10 +404,7 @@
       redraw();
     };
 
-    function redraw(){
-      indoorLayer.changed();
-      outdoorLayer.changed();
-    }
+    function redraw(){ indoorLayer.changed(); outdoorLayer.changed(); }
 
     /* ========= Katman toggles ========= */
     tglIndoor.addEventListener('change',()=>{ indoorLayer.setVisible(tglIndoor.checked); });
@@ -490,37 +465,24 @@
       }
       go.disabled=false;
     }
-
     function clearDestination(){
-      if(destLayer){
-        map.removeLayer(destLayer);
-        destLayer=null;
-        destPoint=null;
-      }
+      if(destLayer){ map.removeLayer(destLayer); destLayer=null; destPoint=null; }
     }
-
     pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
 
     map.on('click',evt=>{
-      if(pickMode){
-        setDestination(evt.coordinate);
-        pickMode=false;
-        pickBtn.classList.remove('active');
-        return;
-      }
+      if(pickMode){ setDestination(evt.coordinate); pickMode=false; pickBtn.classList.remove('active'); return; }
       currentPopupFeature=null;
       [indoorLayer,outdoorLayer].forEach(layer=>
         map.forEachFeatureAtPixel(evt.pixel,(feature,lay)=>{ if(lay===layer) currentPopupFeature=feature; })
       );
-      if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); }
-      else hidePopup();
+      if(currentPopupFeature){ showPopup(currentPopupFeature, evt.coordinate); } else hidePopup();
     });
 
     function clearRouteAndBearing(){
       if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
       if(bearingLayer){map.removeLayer(bearingLayer);bearingLayer=null;}
-      dirBox.style.display='none';
-      dirList.innerHTML='';
+      dirBox.style.display='none'; dirList.innerHTML='';
     }
 
     function routeToDestination(){
@@ -547,8 +509,7 @@
 
           const km=(route.distance/1000).toFixed(2)+" km";
           const min=Math.round(route.duration/60)+" dk";
-          dirSum.textContent=km;
-          dirSub.textContent='· '+min;
+          dirSum.textContent=km; dirSub.textContent='· '+min;
 
           const steps=(route.legs?.[0]?.steps)||[];
           dirList.innerHTML='';
@@ -561,9 +522,7 @@
             dirList.appendChild(el);
           });
           dirBox.style.display='block';
-        }else{
-          drawBearingLine();
-        }
+        }else{ drawBearingLine(); }
       }).catch(()=> drawBearingLine());
     }
 
@@ -646,14 +605,12 @@
 
     /* ========= Popup ========= */
     let currentPopupFeature=null;
-
     function coordOfFeature(f){
       const g=f.getGeometry();
       if(g.getType()==='Point') return g.getCoordinates();
       if(g.getType()==='Polygon') return g.getInteriorPoint().getCoordinates();
       return g.getFirstCoordinate();
     }
-
     function renderPopup(f){
       const p=f.getProperties(), L=t();
       const name = p['name_'+LANG] || p.name || '';
@@ -663,7 +620,6 @@
       const level = p['level_'+LANG] || p.level || '';
       const desc = p['desc_'+LANG] || p.desc || '';
       const img = p['image_'+LANG] || p.image || '';
-
       return `
         <div style="min-width:220px">
           <div style="font-weight:600;margin-bottom:6px">${name}</div>
@@ -675,7 +631,6 @@
         </div>
       `;
     }
-
     function showPopup(f,coord){
       currentPopupFeature=f;
       popupContent.innerHTML=renderPopup(f);
@@ -687,7 +642,6 @@
       popupOverlay.setPosition(undefined);
       currentPopupFeature=null;
     }
-
     function focusFeature(f,open){
       const g=f.getGeometry();
       const extent=g.getExtent();
@@ -699,16 +653,17 @@
     /* ========= Zoom kilidi ve resize güvenliği ========= */
     function lockZoom(){
       if(!HOTEL_EXTENT) return;
-      const view = map.getView();
-      const z = view.getZoomForExtent(HOTEL_EXTENT, map.getSize());
-      view.setMinZoom(z);                 // daha fazla uzaklaşamaz
-      if (view.getZoom() < z) view.setZoom(z);
+      const v = map.getView();
+      const size = map.getSize();
+      const innerSize = [
+        Math.max(8, size[0] - (PAD[1] + PAD[3])),
+        Math.max(8, size[1] - (PAD[0] + PAD[2]))
+      ];
+      const z = v.getZoomForExtent(HOTEL_EXTENT, innerSize);
+      v.setMinZoom(z);
+      if (v.getZoom() < z) v.setZoom(z);
     }
-
-    window.addEventListener('resize', () => {
-      map.updateSize();
-      lockZoom();
-    });
+    window.addEventListener('resize', () => { map.updateSize(); lockZoom(); });
     if (window.visualViewport) {
       const vv = window.visualViewport;
       vv.addEventListener('resize', () => { map.updateSize(); lockZoom(); });
@@ -724,14 +679,11 @@
       searchIds=null;
       redraw();
       clearDestination();
-      loadJSONs(); // tekrar yükle; kilitler yeniden uygulanır
+      loadJSONs(); // kilitler yeniden kurulur
     };
 
     document.addEventListener('keydown',e=>{
-      if(e.key==='Escape'){
-        results.style.display='none';
-        hidePopup();
-      }
+      if(e.key==='Escape'){ results.style.display='none'; hidePopup(); }
     });
 
     applyLang();
