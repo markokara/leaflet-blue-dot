@@ -242,14 +242,35 @@
       rotation: Math.PI / 6  // 30 derece
     });
 
-    const map = new ol.Map({
-      target:'map',
-      layers:[base, indoorLayer, outdoorLayer],
-      view
-      // Rotasyon etkileşimleri AÇIK. İki parmakla döndürülebilir, kompastan sıfırlanabilir.
-    });
-    map.addControl(new ol.control.Attribution({collapsible:false}));
-    map.addControl(new ol.control.Rotate());
+     // Otelin koordinat sınırları (yaklaşık bounding box)
+  const hotelExtent = ol.proj.transformExtent(
+    [31.8015, 36.5980, 31.8080, 36.6035], // Long Beach Hotel alanı (lon/lat minX,minY,maxX,maxY)
+    'EPSG:4326', 'EPSG:3857'
+  );
+
+  const map = new ol.Map({
+    target: 'map',
+    layers: [base, indoorLayer, outdoorLayer],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([31.8046, 36.6002]), // otel merkezi
+      zoom: 17,
+      minZoom: 16,
+      maxZoom: 19,
+      rotation: Math.PI / 6, // 30 derece döndür
+      extent: hotelExtent // sadece otel alanı içinde gezilebilir
+    }),
+    controls: ol.control.defaults().extend([
+      new ol.control.Rotate(),
+      new ol.control.Attribution({ collapsible: false })
+    ])
+  });
+
+  // Oteli ekrana tam sığdır
+  map.getView().fit(hotelExtent, {
+    padding: [80, 20, 120, 20],
+    maxZoom: 18,
+    duration: 800
+  });
 
     /* ========= UI ========= */
     const $ = id=>document.getElementById(id);
