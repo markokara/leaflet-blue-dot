@@ -15,9 +15,27 @@
         "category": "pool",
         "desc_tr": "Ana havuz sadece yetişkinler girebilir. Havuz kenarında bulunan Fanstasia Pool bardan rahatlıkla alkollü yada alkolsüz tüm içkiler servis edilmektedir.",
         "desc_en": "The main pool is for adults only. All alcoholic and non-alcoholic drinks are readily served from the Fanstasia Pool bar located by the pool.",
-        "desc_ru": "Основной бассейн только для взрослых. В баре Fanstasia Pool, расположенном у бассейна, легко подают все алкогольные и безалкогольные напитки."
+        "desc_ru": "Основной бассейн только для взрослых. В баре Fanstasia Pool, расположенном у бассейна, легко подают все алкогольные и безалкогольные напитки.",
+        "image": "https://www.cdc.gov/healthy-swimming/media/images/SwimmingpoolimagesizedforDFE_1.jpg"
       },
       "id": "ad9b2380-91f6-41da-8871-cfbb9d0ffece"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.806411083262027,
+          36.59861133705357
+        ]
+      },
+      "properties": {
+        "name": "Tuvalet",
+        "category": "wc",
+        "desc": "test",
+        "desc_ru": "test"
+      },
+      "id": "870d3c2d-8690-4653-a398-c79e3c63be81"
     }
   ]
 }
