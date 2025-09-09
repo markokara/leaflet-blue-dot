@@ -135,13 +135,13 @@ const SYNONYMS = {
 const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
 
 /* ======= MapLibre ======= */
-const maxBounds = [[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]];
+
 const map = new maplibregl.Map({
   container:'map',
   style:`https://api.maptiler.com/maps/streets/style.json?key=ym4UWHwsNK61YUsmqi5C`,
   center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2, (HOTEL_BBOX[1]+HOTEL_BBOX[3])/2],
   zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING,
-  attributionControl:false, maxZoom:21, maxBounds
+  attributionControl:false, maxZoom:21
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
