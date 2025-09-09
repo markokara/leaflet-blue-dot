@@ -140,11 +140,22 @@ const STYLES = {
 };
 
 let map = new maplibregl.Map({
-  container:'map',
-  style: STYLES.demo,
-  center: START_CENTER,
-  zoom: START_ZOOM,
-  pitch: 45,           // 🎯 45°
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© OpenStreetMap contributors'
+      }
+    },
+    layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+  },
+  center: [33.8046, 36.6002],
+  zoom: 16,
+  pitch: 45,
   bearing: 0,
   antialias: true
 });
