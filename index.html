@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Misafir – MapLibre GL (3D/Pitch/Rotation)</title>
 
-  <!-- MapLibre GL -->
   <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
 
@@ -27,6 +26,7 @@
     button:disabled{opacity:.55; cursor:not-allowed}
     select{padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fff}
     .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff}
+    .pill input{accent-color:#1d4ed8}
     .muted{color:var(--muted)}
     .results{background:#fff; border:1px solid #e5e7eb; border-radius:10px; max-height:36vh; overflow:auto; display:none}
     .results .item{padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:8px}
@@ -40,13 +40,11 @@
     .step{display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed #e5e7eb}
     .step:last-child{border-bottom:none}
     .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
-    .popup{font:13px/1.35 system-ui; padding:4px 2px}
     @media (max-width:520px){ .panel{bottom:8px} }
   </style>
 </head>
 <body>
 
-  <!-- Kontrol paneli (seninle aynı UI) -->
   <div class="panel">
     <div class="card p-8 stack">
       <div class="row">
@@ -59,7 +57,13 @@
           <option value="de">DE</option>
           <option value="pl">PL</option>
         </select>
+        <select id="basemap" title="Base map">
+          <option value="demo" selected>OSM (key'siz)</option>
+          <option value="streets">MapTiler Streets</option>
+          <option value="satellite">MapTiler Satellite</option>
+        </select>
       </div>
+
       <div class="row" style="flex-wrap:wrap">
         <button id="pick">Haritadan Hedef</button>
         <button id="follow">🎯 İzle: Kapalı</button>
@@ -88,225 +92,233 @@
   </div>
 
   <div id="acc" class="acc" style="display:none"></div>
-
-  <!-- Map -->
   <div id="map" aria-label="Harita"></div>
 
-  <script>
-  /* ====== Basit i18n (senin metinlerin kısaltılmış hali) ====== */
-  const I18N={tr:{ui:{pick:"Haritadan Hedef",followOn:"İzle: Açık",followOff:"İzle: Kapalı",detailsOn:"Detaylar: Açık",detailsOff:"Detaylar: Kapalı",reset:"Sıfırla",hint:"🔎 Arama açık: sadece eşleşenler",clearRoute:"Rota Temizle"},
-    labels:{name:"İsim",category:"Tür",level:"Kat",hours:"Saat"},
-    nav:{depart:"Başla",arrive:"Varış",turn_left:"Sola dön",turn_right:"Sağa dön",straight:"Düz devam",roundabout:"Göbekte %n. çıkış",onto:" → %s"},
-    cats:{pool:"Havuz",restaurant:"Restoran",spa:"Spa",bar:"Bar",cafe:"Kafe",shop:"Dükkan",toilet:"WC",reception:"Resepsiyon",beach:"Plaj",kidsclub:"Çocuk Kulübü",elevator:"Asansör",gate:"Kapı",parking:"Otopark",shuttle:"Servis",gym:"Spor Salonu"}},
-  en:{ui:{pick:"Pick on Map",followOn:"Follow: On",followOff:"Follow: Off",detailsOn:"Details: On",detailsOff:"Details: Off",reset:"Reset",hint:"🔎 Search active",clearRoute:"Clear Route"},
-    labels:{name:"Name",category:"Type",level:"Level",hours:"Hours"},
-    nav:{depart:"Depart",arrive:"Arrive",turn_left:"Turn left",turn_right:"Turn right",straight:"Go straight",roundabout:"At roundabout take exit %n",onto:" onto %s"},
-    cats:{pool:"Pool",restaurant:"Restaurant",spa:"Spa",bar:"Bar",cafe:"Cafe",shop:"Shop",toilet:"Toilet",reception:"Reception",beach:"Beach",kidsclub:"Kids Club",elevator:"Elevator",gate:"Gate",parking:"Parking",shuttle:"Shuttle",gym:"Gym"}}};
-  let LANG=localStorage.getItem('lang')||'tr'; const t=()=>(I18N[LANG]||I18N.tr);
+<script>
+/* ========= i18n (senin sözlüğün) ========= */
+const I18N = {
+  tr:{ searchPH:"Ara: restoran, spa, havuz…", go:"Git",
+    ui:{ pick:"Haritadan Hedef", followOn:"İzle: Açık", followOff:"İzle: Kapalı", detailsOn:"Detaylar: Açık", detailsOff:"Detaylar: Kapalı", reset:"Sıfırla", hint:"🔎 Arama açık: sadece eşleşenler gösteriliyor", clearRoute:"Rota Temizle" },
+    labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama", dist:"Mesafe", duration:"Süre"},
+    cats:{ pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu" },
+    nav:{ depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s" }
+  },
+  en:{ searchPH:"Search: restaurant, spa, pool…", go:"Go",
+    ui:{ pick:"Pick on Map", followOn:"Follow: On", followOff:"Follow: Off", detailsOn:"Details: On", detailsOff:"Details: Off", reset:"Reset", hint:"🔎 Search is active: only matches are shown", clearRoute:"Clear Route" },
+    labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description", dist:"Distance", duration:"Duration"},
+    cats:{ pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym" },
+    nav:{ depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s" }
+  }
+};
+let LANG=localStorage.getItem("lang")||"tr";
+const t = () => I18N[LANG]||I18N.tr;
 
-  /* ====== 1) MapLibre GL Başlat ====== */
-  // MapTiler stilini kullanıyoruz (kendi key'inizi koyun) veya kendi style.json'ınızın URL'ini verin.
-  const STYLE_URL = "https://api.maptiler.com/maps/streets/style.json?key=ym4UWHwsNK61YUsmqi5C";
+/* ========= Yardımcılar ========= */
+const $ = id=>document.getElementById(id);
+function applyLang(){
+  const L=t();
+  $('q').placeholder=L.searchPH;
+  $('go').textContent=L.go;
+  $('pick').textContent=L.ui.pick;
+  $('follow').textContent = follow ? L.ui.followOn : L.ui.followOff;
+  $('toggleDetails').textContent = showAll ? L.ui.detailsOn : L.ui.detailsOff;
+  $('reset').textContent=L.ui.reset;
+  $('clearRoute').textContent=L.ui.clearRoute;
+  localStorage.setItem('lang',LANG);
+}
 
-  const map = new maplibregl.Map({
-    container:'map',
-    style: STYLE_URL,
-    center:[33.8046,36.6002],   // lon,lat
-    zoom:16,
-    pitch:30,                   // 30° eğim 🎯
-    bearing:0,                  // rotation
-    antialias:true
+/* ========= HARİTA ========= */
+const START_CENTER=[33.8046,36.6002]; // lon,lat (sabit – otomatik fit YOK)
+const START_ZOOM=16;
+
+const STYLE_DEMO = "https://demotiles.maplibre.org/style.json"; // key'siz
+const MT_KEY = "YOUR_MAPTILER_KEY"; // varsa koy
+const STYLES = {
+  demo: STYLE_DEMO,
+  streets: `https://api.maptiler.com/maps/streets/style.json?key=${MT_KEY}`,
+  satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MT_KEY}`
+};
+
+let map = new maplibregl.Map({
+  container:'map',
+  style: STYLES.demo,
+  center: START_CENTER,
+  zoom: START_ZOOM,
+  pitch: 45,           // 🎯 45°
+  bearing: 0,
+  antialias: true
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}));
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}));
+
+/* ========= Base map değiştirici ========= */
+$('basemap').addEventListener('change',()=>{
+  const s = STYLES[$('basemap').value];
+  map.setStyle(s);            // stil değişse de center/zoom/pitch korunur
+  map.once('styledata',()=>{  // kaynak/katmanlar stil sonrası tekrar eklenir
+    mountDataLayers();
+    if (routeDrawn) drawRouteGeoJSON(lastRouteGeoJSON);
   });
+});
 
-  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}));
-  map.addControl(new maplibregl.ScaleControl({unit:'metric'}));
+/* ========= ÜST KATMANLAR: indoor/outdoor ========= */
+const indoorUrl='indoor.json', outdoorUrl='outdoor.json';
+function addGeoSource(id,url){
+  if(map.getSource(id)) map.removeSource(id);
+  map.addSource(id,{type:'geojson', data:url});
+}
+function addLayersFor(id,color='#2563eb'){
+  // Polygon
+  map.addLayer({ id:`${id}-fill`, type:'fill', source:id,
+    filter:['==',['geometry-type'],'Polygon'],
+    paint:{'fill-color':color,'fill-opacity':0.12}
+  });
+  map.addLayer({ id:`${id}-stroke`, type:'line', source:id,
+    filter:['==',['geometry-type'],'Polygon'],
+    paint:{'line-color':color,'line-width':2}
+  });
+  // Line
+  map.addLayer({ id:`${id}-line`, type:'line', source:id,
+    filter:['==',['geometry-type'],'LineString'],
+    paint:{'line-color':color,'line-width':2}
+  });
+  // Point
+  map.addLayer({ id:`${id}-pt`, type:'circle', source:id,
+    filter:['==',['geometry-type'],'Point'],
+    paint:{'circle-radius':7,'circle-color':'#f94144','circle-stroke-color':'#fff','circle-stroke-width':2}
+  });
+}
+function mountDataLayers(){
+  addGeoSource('indoor', indoorUrl);
+  addGeoSource('outdoor', outdoorUrl);
+  addLayersFor('indoor','#2563eb');
+  addLayersFor('outdoor','#2563eb');
 
-  /* ====== 2) Indoor/Outdoor GeoJSON kaynakları ====== */
-  // Sizin indoor.json / outdoor.json dosyalarınızı MapLibre'a source+layer olarak ekliyoruz.
-  function addGeoJsonLayer(id, url, kind){
-    fetch(url+'?v='+(Date.now())).then(r=>r.json()).then(gj=>{
-      // kaynak
-      if(map.getSource(id)) map.removeSource(id);
-      map.addSource(id,{type:'geojson', data: gj});
-      // polygon
-      map.addLayer({
-        id:`${id}-poly`, source:id, type:'fill',
-        filter:['==',['geometry-type'],'Polygon'],
-        paint:{'fill-color':'#2563eb','fill-opacity':0.12}
-      });
-      map.addLayer({
-        id:`${id}-poly-outline`, source:id, type:'line',
-        filter:['==',['geometry-type'],'Polygon'],
-        paint:{'line-color':'#2563eb','line-width':2}
-      });
-      // line
-      map.addLayer({
-        id:`${id}-line`, source:id, type:'line',
-        filter:['==',['geometry-type'],'LineString'],
-        paint:{'line-color':'#2563eb','line-width':2}
-      });
-      // point
-      map.addLayer({
-        id:`${id}-pt`, source:id, type:'circle',
-        filter:['==',['geometry-type'],'Point'],
-        paint:{
-          'circle-radius':7,
-          'circle-color':'#f94144',
-          'circle-stroke-color':'#fff',
-          'circle-stroke-width':2
-        }
-      });
-
-      // popup (temel)
-      const popup = new maplibregl.Popup({closeButton:true, className:'popup'});
-      ['-pt','-poly'].forEach(suffix=>{
-        map.on('click', `${id}${suffix}`, (e)=>{
-          const f=e.features[0]; const p=f.properties||{};
-          const L=t();
-          const cat=(p.category||'').toLowerCase(); const label=(L.cats?.[cat]||p.category||'');
-          const name=p[`name_${LANG}`]||p.name||'';
-          const hours=p[`hours_${LANG}`]||p.hours||''; const level=p[`level_${LANG}`]||p.level||'';
-          popup.setLngLat(e.lngLat).setHTML(`
-            <div><b>${name}</b></div>
-            ${label?`<div class="badge">${label}</div>`:''}
-            ${hours?`<div><small>${L.labels.hours}:</small> ${hours}</div>`:''}
+  // tıklama → popup
+  const popup=new maplibregl.Popup({closeButton:true});
+  ['indoor-pt','indoor-fill','outdoor-pt','outdoor-fill'].forEach(id=>{
+    if(map.getLayer(id)){
+      map.on('click', id, e=>{
+        const p=e.features[0].properties||{}; const L=t();
+        const name=p[`name_${LANG}`]||p.name||'';
+        const cat=(p.category||'').toLowerCase();
+        const catLabel=L.cats?.[cat]||p.category||'';
+        const hours=p[`hours_${LANG}`]||p.hours||''; const level=p[`level_${LANG}`]||p.level||'';
+        popup.setLngLat(e.lngLat).setHTML(`
+          <div style="min-width:200px">
+            <div style="font-weight:600">${name}</div>
+            ${catLabel?`<div style="display:inline-block;padding:.15rem .45rem;border-radius:999px;background:#eef2ff;border:1px solid #dfe6ff;font-size:12px">${catLabel}</div>`:''}
+            ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
             ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
-          `).addTo(map);
-        });
-        map.on('mouseenter', `${id}${suffix}`, ()=> map.getCanvas().style.cursor='pointer');
-        map.on('mouseleave', `${id}${suffix}`, ()=> map.getCanvas().style.cursor='');
+          </div>
+        `).addTo(map);
       });
-
-      // extent'e oturt (ilk yüklemede)
-      if(gj.features?.length){
-        const bbox = turf.bbox(gj); // turf ile bbox (aşağıda mini turf cdn'i ekleyeceğiz)
-        map.fitBounds([[bbox[0],bbox[1]],[bbox[2],bbox[3]]],{padding:{top:140,right:20,bottom:160,left:20}, maxZoom:21});
-      }
-    }).catch(()=>{ /* yoksay */ });
-  }
-
-  // Turf (yalnızca bbox için hafif import)
-  const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js'; document.head.appendChild(s);
-
-  map.on('load', ()=>{
-    addGeoJsonLayer('indoor','indoor.json','indoor');
-    addGeoJsonLayer('outdoor','outdoor.json','outdoor');
+      map.on('mouseenter',id,()=>map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave',id,()=>map.getCanvas().style.cursor='');
+    }
   });
+}
+map.on('load', mountDataLayers);
 
-  /* ====== 3) Katman toggles ====== */
-  const $=id=>document.getElementById(id);
-  $('tglIndoor').addEventListener('change',()=>toggleGroup('indoor', $('tglIndoor').checked));
-  $('tglOutdoor').addEventListener('change',()=>toggleGroup('outdoor', $('tglOutdoor').checked));
-  function toggleGroup(prefix, visible){
-    ['-poly','-poly-outline','-line','-pt'].forEach(s=>{
-      const id = prefix+s;
-      if(map.getLayer(id)) map.setLayoutProperty(id,'visibility', visible?'visible':'none');
-    });
-  }
-
-  /* ====== 4) Konum izleme + hedef seçimi ====== */
-  let follow=false, userMarker=null, destMarker=null, pickMode=false;
-
-  $('follow').onclick=()=>{
-    follow=!follow;
-    $('follow').textContent = follow ? t().ui.followOn : t().ui.followOff;
-  };
-  $('pick').onclick=()=>{ pickMode=!pickMode; $('pick').classList.toggle('active',pickMode); };
-
-  // kullanıcı konumunu sürekli izle
-  if('geolocation' in navigator){
-    navigator.geolocation.watchPosition(pos=>{
-      const lng=pos.coords.longitude, lat=pos.coords.latitude;
-      if(!userMarker){
-        userMarker = new maplibregl.Marker({color:'#1d4ed8'}).setLngLat([lng,lat]).addTo(map);
-      }else userMarker.setLngLat([lng,lat]);
-      $('acc').textContent = '±'+Math.round(pos.coords.accuracy||0)+' m';
-      $('acc').style.display='block';
-      if(follow) map.easeTo({center:[lng,lat], duration:200});
-    },()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-  }
-
-  map.on('click', (e)=>{
-    if(!pickMode) return;
-    if(!destMarker) destMarker = new maplibregl.Marker({color:'#ef4444'}).addTo(map);
-    destMarker.setLngLat(e.lngLat);
-    $('go').disabled=false;
-    pickMode=false; $('pick').classList.remove('active');
+/* ========= Katman toggle & detay ========= */
+function setGroupVisible(prefix,visible){
+  ['-fill','-stroke','-line','-pt'].forEach(s=>{
+    const id=prefix+s; if(map.getLayer(id)) map.setLayoutProperty(id,'visibility', visible?'visible':'none');
   });
+}
+$('tglIndoor').onchange=()=> setGroupVisible('indoor',$('tglIndoor').checked);
+$('tglOutdoor').onchange=()=> setGroupVisible('outdoor',$('tglOutdoor').checked);
 
-  /* ====== 5) OSRM ile rota (foot) ====== */
-  let routeId='route-line';
-  $('go').onclick=()=> routeToDest();
-  $('clearRoute').onclick=()=> clearRoute();
-  function clearRoute(){
-    if(map.getLayer(routeId)) map.removeLayer(routeId);
-    if(map.getSource(routeId)) map.removeSource(routeId);
-    $('dir').style.display='none';
-    $('dirList').innerHTML=''; $('dirSum').textContent='–'; $('dirSub').textContent='';
-  }
-
-  function routeToDest(){
-    if(!userMarker || !destMarker){ alert(LANG==='tr'?'Konum ve hedef gerekli.':'Need location and destination.'); return; }
-    clearRoute();
-    const a=userMarker.getLngLat(), b=destMarker.getLngLat();
-    const url=`https://router.project-osrm.org/route/v1/foot/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&steps=true`;
-    fetch(url).then(r=>r.json()).then(d=>{
-      const route=d?.routes?.[0]; if(!route) return drawBearing(a,b);
-      map.addSource(routeId,{type:'geojson', data: {type:'Feature', geometry: route.geometry}});
-      map.addLayer({id:routeId, source:routeId, type:'line', paint:{'line-color':'#16a34a','line-width':4}});
-      const coords=route.geometry.coordinates; const bounds=new maplibregl.LngLatBounds(coords[0],coords[0]); coords.forEach(c=>bounds.extend(c));
-      map.fitBounds(bounds,{padding:{top:140,right:20,bottom:160,left:20}, maxZoom:18});
-      $('dir').style.display='block';
-      $('dirSum').textContent=(route.distance/1000).toFixed(2)+' km';
-      $('dirSub').textContent='· '+Math.round(route.duration/60)+' dk';
-      const L=t(); const steps=(route.legs?.[0]?.steps)||[]; const list=$('dirList'); list.innerHTML='';
-      steps.forEach((s,i)=>{
-        const man=s.maneuver||{}; const type=man.type||'', mod=man.modifier||''; const street=s.name||'';
-        const onto= street ? (L.nav.onto||'').replace('%s',street) : '';
-        let txt=L.nav.straight||'';
-        if(type==='depart') txt=L.nav.depart+onto;
-        else if(type==='arrive') txt=L.nav.arrive;
-        else if(type==='turn'){ if(mod==='left') txt=L.nav.turn_left+onto; else if(mod==='right') txt=L.nav.turn_right+onto; else txt=(L.nav.straight||'')+onto;}
-        else if(type==='roundabout'){ const ex=man.exit||1; txt=(L.nav.roundabout||'').replace('%n',ex)+onto; }
-        const dist = s.distance>=1000 ? (s.distance/1000).toFixed(2)+' km' : Math.round(s.distance)+' m';
-        const el=document.createElement('div'); el.className='step'; el.innerHTML=`<div>${i+1}.</div><div><div>${txt}</div><div class="muted" style="font-size:12px">${dist}</div></div>`;
-        list.appendChild(el);
-      });
-    }).catch(()=> drawBearing(a,b));
-  }
-
-  function drawBearing(a,b){
-    // basit bearing çizgisi (OSRM yoksa)
-    const gj={type:'Feature', geometry:{type:'LineString', coordinates:[[a.lng,a.lat],[b.lng,b.lat]]}};
-    map.addSource(routeId,{type:'geojson', data:gj});
-    map.addLayer({id:routeId, source:routeId, type:'line', paint:{'line-color':'#16a34a','line-width':4}});
-    const bounds=new maplibregl.LngLatBounds([a.lng,a.lat],[b.lng,b.lat]);
-    map.fitBounds(bounds,{padding:{top:140,right:20,bottom:160,left:20}, maxZoom:19});
-    $('dir').style.display='block'; $('dirSum').textContent='';
-  }
-
-  /* ====== 6) Dil / Reset ====== */
-  $('lang').value=LANG;
-  $('lang').addEventListener('change',()=>{ LANG=$('lang').value; localStorage.setItem('lang',LANG); });
-
-  $('reset').onclick=()=>{
-    clearRoute();
-    if(destMarker){ destMarker.remove(); destMarker=null; }
-    $('q').value=''; $('go').disabled=true;
-    addGeoJsonLayer('indoor','indoor.json','indoor');
-    addGeoJsonLayer('outdoor','outdoor.json','outdoor');
-  };
-
-  // Detay toggle (sade): point dışındakileri gizle/göster
-  let showAll=false;
-  $('toggleDetails').onclick=()=>{
-    showAll=!showAll; $('toggleDetails').textContent = showAll? t().ui.detailsOn : t().ui.detailsOff;
-    ['indoor','outdoor'].forEach(p=>{
-      ['-poly','-poly-outline','-line'].forEach(s=>{
-        if(map.getLayer(p+s)) map.setLayoutProperty(p+s,'visibility', showAll?'visible':'none');
-      });
+let showAll=false;
+$('toggleDetails').onclick=()=>{
+  showAll=!showAll;
+  $('toggleDetails').textContent = showAll ? t().ui.detailsOn : t().ui.detailsOff;
+  // showAll=false ise sadece noktaları göster
+  ['indoor','outdoor'].forEach(p=>{
+    ['-fill','-stroke','-line'].forEach(s=>{
+      if(map.getLayer(p+s)) map.setLayoutProperty(p+s,'visibility', showAll?'visible':'none');
     });
-  };
-  </script>
+  });
+};
+
+/* ========= Konum + Hedef seçimi ========= */
+let follow=false, userMarker=null, accEl=$('acc'), pickMode=false, destMarker=null;
+$('follow').onclick=()=>{ follow=!follow; $('follow').textContent = follow? t().ui.followOn : t().ui.followOff; };
+
+if('geolocation' in navigator){
+  navigator.geolocation.watchPosition(pos=>{
+    const lng=pos.coords.longitude, lat=pos.coords.latitude;
+    if(!userMarker) userMarker=new maplibregl.Marker({color:'#1d4ed8'}).setLngLat([lng,lat]).addTo(map);
+    else userMarker.setLngLat([lng,lat]);
+    accEl.textContent="±"+Math.round(pos.coords.accuracy||0)+" m"; accEl.style.display='block';
+    if(follow) map.easeTo({center:[lng,lat], duration:200});
+  },()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+}
+
+$('pick').onclick=()=>{ pickMode=!pickMode; $('pick').classList.toggle('active',pickMode); };
+map.on('click',e=>{
+  if(!pickMode) return;
+  if(!destMarker) destMarker=new maplibregl.Marker({color:'#ef4444'}).addTo(map);
+  destMarker.setLngLat(e.lngLat);
+  $('go').disabled=false;
+  pickMode=false; $('pick').classList.remove('active');
+});
+
+/* ========= Rota (OSRM) ========= */
+let routeDrawn=false, lastRouteGeoJSON=null;
+$('clearRoute').onclick=clearRoute;
+$('go').onclick=routeToDestination;
+
+function clearRoute(){
+  if(map.getLayer('route')) map.removeLayer('route');
+  if(map.getSource('route')) map.removeSource('route');
+  $('dir').style.display='none'; $('dirList').innerHTML=''; $('dirSum').textContent='–'; $('dirSub').textContent='';
+  routeDrawn=false; lastRouteGeoJSON=null;
+}
+function drawRouteGeoJSON(gj){
+  if(!gj) return;
+  if(map.getSource('route')) map.removeSource('route');
+  map.addSource('route',{type:'geojson', data: gj});
+  if(!map.getLayer('route')) map.addLayer({id:'route',type:'line',source:'route',paint:{'line-color':'#16a34a','line-width':4}});
+  const coords=gj.geometry.coordinates;
+  const b=new maplibregl.LngLatBounds(coords[0],coords[0]); coords.forEach(c=>b.extend(c));
+  map.fitBounds(b,{padding:{top:140,right:20,bottom:160,left:20}, maxZoom:18});
+  routeDrawn=true; lastRouteGeoJSON=gj;
+}
+function routeToDestination(){
+  if(!userMarker || !destMarker){ alert(LANG==='tr'?'Konum ve hedef gerekli.':'Need location and destination.'); return; }
+  clearRoute();
+  const a=userMarker.getLngLat(), b=destMarker.getLngLat();
+  const url=`https://router.project-osrm.org/route/v1/foot/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&steps=true`;
+  fetch(url).then(r=>r.json()).then(d=>{
+    const route=d?.routes?.[0];
+    if(!route){ drawBearing(a,b); return; }
+    drawRouteGeoJSON(route.geometry);
+    $('dir').style.display='block';
+    $('dirSum').textContent=(route.distance/1000).toFixed(2)+' km';
+    $('dirSub').textContent='· '+Math.round(route.duration/60)+' dk';
+    const L=t(), steps=(route.legs?.[0]?.steps)||[], list=$('dirList');
+    steps.forEach((s,i)=>{
+      const man=s.maneuver||{}, type=man.type||'', mod=man.modifier||''; const street=s.name||'';
+      const onto= street ? (L.nav.onto||'').replace('%s',street) : '';
+      let txt=L.nav.straight||''; if(type==='depart') txt=L.nav.depart+onto; else if(type==='arrive') txt=L.nav.arrive;
+      else if(type==='turn'){ if(mod==='left') txt=L.nav.turn_left+onto; else if(mod==='right') txt=L.nav.turn_right+onto; else txt=(L.nav.straight||'')+onto; }
+      else if(type==='roundabout'){ const ex=man.exit||1; txt=(L.nav.roundabout||'').replace('%n',ex)+onto; }
+      const dist = s.distance>=1000 ? (s.distance/1000).toFixed(2)+' km' : Math.round(s.distance)+' m';
+      const el=document.createElement('div'); el.className='step'; el.innerHTML=`<div>${i+1}.</div><div><div>${txt}</div><div class="muted" style="font-size:12px">${dist}</div></div>`;
+      list.appendChild(el);
+    });
+  }).catch(()=> drawBearing(a,b));
+}
+function drawBearing(a,b){
+  const gj={type:'Feature', geometry:{type:'LineString', coordinates:[[a.lng,a.lat],[b.lng,b.lat]]}};
+  drawRouteGeoJSON(gj);
+}
+
+/* ========= Arama/dil ========= */
+$('lang').value=LANG;
+$('lang').addEventListener('change',()=>{ LANG=$('lang').value; applyLang(); });
+applyLang();
+</script>
 </body>
 </html>
