@@ -68,8 +68,19 @@
   .badge{display:inline-block; padding:.15rem .45rem; border-radius:999px; background:#eef2ff; border:1px solid #dfe6ff; font-size:12px}
 
   /* ====== HASSASİYET GÖSTERGESİ ====== */
-  .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+  acc{
+  position:fixed; right:12px; top:12px; /* sağ ALTA almak istersen: top'u sil, bottom:12px ekle */
+  z-index:1000;
+  background:#fff; border:1px solid #e5e7eb;
+  border-radius:999px; padding:6px 10px; font-size:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+}
 
+/* sonuç listesi harita/panel üstünde görünsün */
+.results{
+  position:relative;
+  z-index:1001;
+}
   @media (max-width:520px){ .panel{bottom:8px} }
 </style>
 </head>
@@ -93,13 +104,13 @@
     </div>
 
     <!-- 2) İKİNCİ SIRA: HEDEF SEÇİMİ + TAKİP + DETAY + FİLTRELER + SIFIRLA -->
-    <div class="row">
+    <div class="row" id="controlsRow2">
       <button id="pick">Haritadan Hedef</button>
-      <button id="follow">🎯 İzle: Kapalı</button>
-      <button id="toggleDetails">Detaylar: Kapalı</button>
+      <button id="reset">Sıfırla</button>
       <label class="pill"><input type="checkbox" id="tglIndoor" checked>Indoor</label>
       <label class="pill"><input type="checkbox" id="tglOutdoor" checked>Outdoor</label>
-      <button id="reset">Sıfırla</button>
+      <button id="follow">📍 Konumum: Kapalı</button>
+      <button id="toggleDetails">Detaylar: Kapalı</button>
       <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
     </div>
 
@@ -412,18 +423,65 @@ tglOutdoor.addEventListener('change',()=>{ map.setLayoutProperty('outdoor-fill',
 /* =======================================
    ===== KONUM İZLEME (BLUE DOT) =========
    ======================================= */
-let followState=false, lastPos=null;
+/* ======= Konum izleme (blue dot) — Stabil + Otomatik izin tetikleme ======= */
+let followState=false, lastPosRaw=null, smooth=null;
+const MAX_ACC=35;  // ±35 m üzeri ölçümü alma
+const MIN_MOVE=3;  // <3 m oynama → yut
+const ALPHA=0.25;  // EMA katsayısı
+
+// 'me' kaynağı/katmanı yoksa garantiye al
+if(!map.getSource('me')){
+  map.addSource('me', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({
+    id:'me-pt', type:'circle', source:'me',
+    paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}
+  });
+}
+
+// Bazı tarayıcılarda izin penceresini tetiklemek için bir defalık çağrı
+if('geolocation' in navigator){
+  try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
+}
+
+const accEl = document.getElementById('acc');
+function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000;
+  const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]);
+  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+
 if('geolocation' in navigator){
   navigator.geolocation.watchPosition(p=>{
-    lastPos=p;
-    const me={type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:[p.coords.longitude,p.coords.latitude]}}]};
-    map.getSource('me').setData(me);
-    acc.textContent="±"+Math.round(p.coords.accuracy||0)+" m"; acc.style.display='block';
-    if(followState) map.easeTo({center:[p.coords.longitude,p.coords.latitude]});
-  },()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-}
-followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = followState ? t().ui.followOn : t().ui.followOff; if(followState && lastPos) map.easeTo({center:[lastPos.coords.longitude,lastPos.coords.latitude]}); };
+    const accM=Math.round(p.coords.accuracy||999);
+    if(accM>MAX_ACC) return; // çok kötü ölçüm → görmezden gel
+    const raw=[p.coords.longitude,p.coords.latitude];
 
+    if(lastPosRaw && hav(lastPosRaw,raw)<MIN_MOVE) return; // zıplama yok say
+    lastPosRaw=raw;
+
+    // EMA yumuşatma
+    if(!smooth) smooth={lng:raw[0],lat:raw[1]};
+    else{
+      smooth.lng = ALPHA*raw[0] + (1-ALPHA)*smooth.lng;
+      smooth.lat = ALPHA*raw[1] + (1-ALPHA)*smooth.lat;
+    }
+
+    // Blue dot & ± rozet
+    map.getSource('me').setData({
+      type:'FeatureCollection',
+      features:[{type:'Feature',geometry:{type:'Point',coordinates:[smooth.lng,smooth.lat]}}]
+    });
+    if(accEl){ accEl.textContent = "±"+accM+" m"; accEl.style.display='block'; }
+
+    if(followState){ map.easeTo({center:[smooth.lng,smooth.lat]}); }
+  }, console.warn, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+}
+
+const followBtn = document.getElementById('follow');
+followBtn.onclick=()=>{
+  followState=!followState;
+  followBtn.textContent = followState ? '🎯 İzle: Açık' : '🎯 İzle: Kapalı';
+};
 /* =======================================
    ======= HEDEF / ROTA OLUŞTURMA ========
    ======================================= */
