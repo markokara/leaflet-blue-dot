@@ -398,7 +398,7 @@ tglOutdoor.onchange=()=>{ ['outdoor-fill','outdoor-line','outdoor-pts'].forEach(
 
 /* ======= BLUE DOT (stabil filtreleme) ======= */
 let followState=false, lastRaw=null, lastFiltered=null, lastKnown=null;
-const MAX_ACC=35, MIN_MOVE=3, ALPHA=0.28, BUF=6;
+const MAX_ACC=25, MIN_MOVE=4, ALPHA=0.22, BUF=6;
 const goodBuf=[]; // son iyi ölçümler (acc<=MAX_ACC)
 
 function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000; const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]); const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(h))); }
