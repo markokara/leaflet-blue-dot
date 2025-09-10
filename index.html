@@ -37,10 +37,11 @@
 
   /* ALT PANEL (bottom sheet) */
   .panel{
-    position:fixed; left:50%; bottom:12px;
-    transform: translate(-50%, var(--panel-ty, 0px));
-    transition: transform .2s ease;
-    width:min(860px,96vw); z-index:1000;
+  position:fixed; left:50%;
+  bottom:0; /* <-- alt çizgiye sabitle */
+  transform: translate(-50%, var(--panel-ty, 0px));
+  transition: transform .2s ease;
+  width:min(860px,96vw); z-index:1000;
   }
   .card{background:var(--bg-soft); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
   .p-8{padding:10px}
@@ -86,6 +87,22 @@
   .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
 
   @media (max-width:520px){ .panel{bottom:8px} }
+
+/* tutacak görünümü */
+.grab{
+  width:56px; height:6px;
+  background:#9fd3b3; border-radius:999px; margin:8px auto 0;
+  cursor:grab; box-shadow:inset 0 0 0 1px #83c7a1;
+}
+
+/* Search + Git her zaman yan yana kalsın */
+.row.searchrow{
+  display:grid;
+  grid-template-columns: 1fr auto; /* input geniş, buton dar */
+  gap:8px;
+}
+.row.searchrow #go{ min-width:64px; }
+
 </style>
 </head>
 <body>
@@ -101,11 +118,12 @@
 <!-- ALT PANEL -->
 <div class="panel" id="sheet">
   <div class="card">
+    <div class="grab" id="grab" aria-label="Paneli aç/kapa"></div>
     <div class="grab" id="grab" aria-label="Paneli sürükle"></div>
     <div class="p-8 stack" id="sheetContent">
 
       <!-- 1) SEARCH + GİT (yan yana) -->
-      <div class="row">
+      <div class="row searchrow"">
         <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
         <button id="go" title="Seçili hedefe rota">Git</button>
       </div>
@@ -491,37 +509,46 @@ resetBtn.onclick=()=>{
 };
 
 /* BOTTOM SHEET: çek-bırak (drag) + tıkla aç/kapa */
+/* BOTTOM SHEET: drag + click-to-toggle + kapalıyken tutacak görünsün */
 (function(){
-  const sheet=$('sheet'), grab=$('grab');
+  const sheet=document.getElementById('sheet');
+  const grab =document.getElementById('grab');
+  const H_GRAB=24; // kapalıyken görünmesini istediğin yükseklik
+
   let startY=null, startTy=0, maxTy=0;
   const setTy=v=> sheet.style.setProperty('--panel-ty', v+'px');
   const getTy=()=> parseFloat(getComputedStyle(sheet).getPropertyValue('--panel-ty'))||0;
-  const computeMax=()=> Math.min(window.innerHeight*0.55, 420);
-  window.addEventListener('resize', ()=>{ maxTy=computeMax(); setTy(Math.min(getTy(), maxTy)); });
-  maxTy=computeMax();
+
+  function computeMax(){
+    const h = sheet.getBoundingClientRect().height || 320;
+    const byHeight   = Math.max(0, h - (H_GRAB+8));      // tutacak hep görünsün
+    const byViewport = Math.min(window.innerHeight*0.6, 520);
+    return Math.min(byHeight, byViewport);
+  }
+  function recalc(){ maxTy=computeMax(); setTy(Math.min(getTy(), maxTy)); }
+
+  window.addEventListener('resize', recalc);
+  // İlk yüklemede kapalı başlat → tutacak kesin görünür
+  requestAnimationFrame(()=>{ recalc(); setTy(maxTy); });
 
   // sürükle
-  grab.addEventListener('pointerdown', e=>{
-    startY=e.clientY; startTy=getTy(); grab.setPointerCapture(e.pointerId);
-  });
+  grab.addEventListener('pointerdown', e=>{ startY=e.clientY; startTy=getTy(); grab.setPointerCapture(e.pointerId); });
   grab.addEventListener('pointermove', e=>{
     if(startY==null) return;
-    const dy=e.clientY-startY; let ty=Math.max(0, Math.min(maxTy, startTy+dy));
-    setTy(ty);
+    const dy=e.clientY-startY;
+    setTy( Math.max(0, Math.min(maxTy, startTy+dy)) );
   });
-  function endDrag(){
-    if(startY==null) return;
-    const ty=getTy(); setTy( ty>maxTy*0.5 ? maxTy : 0 ); startY=null;
-  }
+  function endDrag(){ if(startY==null) return; const ty=getTy(); setTy( ty>maxTy*0.5 ? maxTy : 0 ); startY=null; }
   grab.addEventListener('pointerup', endDrag);
   grab.addEventListener('pointercancel', endDrag);
 
-  // *** İSTEDİĞİN: tek tıkla aç/kapa ***
+  // tek tıkla aç/kapa
   grab.addEventListener('click', ()=>{ const ty=getTy(); setTy( ty===0 ? maxTy : 0 ); });
 
-  // Arama kutusuna tıklanınca otomatik aç
-  q.addEventListener('focus', ()=> setTy(0));
+  // aramaya dokununca otomatik aç
+  document.getElementById('q').addEventListener('focus', ()=> setTy(0));
 })();
+
 
 /* popup & yardımcılar */
 let popup;
