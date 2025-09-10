@@ -6,25 +6,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          31.804463558197043,
-          36.59971576067281
-        ]
-      },
-      "properties": {
-        "name": "Main Pool",
-        "category": "pool",
-        "desc_tr": "Ana havuz sadece yetişkinler girebilir. Havuz kenarında bulunan Fanstasia Pool bardan rahatlıkla alkollü yada alkolsüz tüm içkiler servis edilmektedir.",
-        "desc_en": "The main pool is for adults only. All alcoholic and non-alcoholic drinks are readily served from the Fanstasia Pool bar located by the pool.",
-        "desc_ru": "Основной бассейн только для взрослых. В баре Fanstasia Pool, расположенном у бассейна, легко подают все алкогольные и безалкогольные напитки.",
-        "image": "https://www.cdc.gov/healthy-swimming/media/images/SwimmingpoolimagesizedforDFE_1.jpg"
-      },
-      "id": "ad9b2380-91f6-41da-8871-cfbb9d0ffece"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           31.806411083262027,
           36.59861133705357
         ]
@@ -36,6 +17,111 @@
         "desc_ru": "test"
       },
       "id": "870d3c2d-8690-4653-a398-c79e3c63be81"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.804431353781712,
+          36.600639181555735
+        ]
+      },
+      "properties": {
+        "name": "Terrazza Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "вкусные коктейли",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1
+      },
+      "id": "3c4dbf20-ee5a-4807-8e23-6082388da3c9"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80752948876942,
+          36.59890955426802
+        ]
+      },
+      "properties": {
+        "name": "Viila Bar",
+        "category": "bar",
+        "desc": "Lezzetli kokteyller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_en": "Delicious cocktails"
+      },
+      "id": "28bf9c8f-6049-4300-8161-81dc7b178a7f"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80473043448248,
+          36.5994703863779
+        ]
+      },
+      "properties": {
+        "name": "Pool Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "Lezzetli Kokteyller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_ru": "Вкусные коктейли"
+      },
+      "id": "8f355810-5807-4385-bb96-cfefcf831ec8"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.803189185723358,
+          36.59940532747241
+        ]
+      },
+      "properties": {
+        "name": "Snack Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "Lezzetli Kokteller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "desc_en": "Delicious cocktails"
+      },
+      "id": "3ee51b28-771f-425c-bc20-f3b90ddb8c32"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.804430271931484,
+          36.598813480694105
+        ]
+      },
+      "properties": {
+        "name": "Mare Snack Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "Lezzetli Kokteyller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_ru": "Вкусные коктейли"
+      },
+      "id": "30269878-c68e-466f-8303-ce3fcaefe6c8"
     }
   ]
 }
