@@ -103,6 +103,16 @@
 }
 .row.searchrow #go{ min-width:64px; }
 
+
+/* 2. satır kompakt butonlar */
+.row.ctlsA button{ padding:9px 12px; }
+
+/* 3. satır en altta: buton + iki chip tek sıra */
+.row.ctlsB{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.row.ctlsB .chip{ padding:6px 10px; }
+
 </style>
 </head>
 <body>
@@ -122,16 +132,22 @@
     <div class="grab" id="grab" aria-label="Paneli sürükle"></div>
     <div class="p-8 stack" id="sheetContent">
 
-      <!-- 1) SEARCH + GİT (yan yana) -->
-      <div class="row searchrow"">
+            <!-- 1) SEARCH + GİT (yan yana) -->
+      <div class="row searchrow">
         <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
         <button id="go" title="Seçili hedefe rota">Git</button>
       </div>
 
-      <!-- 2) HEDEF SEÇ + SIFIRLA + IN/OUT + KONUM -->
-      <div class="row">
+      <!-- 2) HEDEF SEÇ + KONUMUM + SIFIRLA (aynı satır) -->
+      <div class="row ctlsA">
         <button id="pick">Haritadan Hedef</button>
+        <button id="follow">📍 Konumum: Kapalı</button>
         <button id="reset">Sıfırla</button>
+      </div>
+
+      <!-- 3) EN ALTA: DETAYLAR + IN/OUT (yan yana, minimal) -->
+      <div class="row ctlsB">
+        <button id="toggleDetails">Detaylar: Kapalı</button>
 
         <label class="chip" title="Indoor">
           <input type="checkbox" id="tglIndoor" checked>
@@ -142,17 +158,23 @@
           <span>OUT</span><span class="tick">✓</span>
         </label>
 
-        <button id="follow">📍 Konumum: Kapalı</button>
         <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
-      </div>
-
-      <!-- 3) DETAYLAR -->
-      <div class="row">
-        <button id="toggleDetails">Detaylar: Kapalı</button>
       </div>
 
       <!-- ARAMA SONUÇLARI -->
       <div id="results" class="results"></div>
+
+      <!-- ROTA / ADIM ADIM -->
+      <div id="dir" class="dir">
+        <div class="hdr">
+          <div><span class="sum" id="dirSum">–</span> <span class="muted" id="dirSub"></span></div>
+          <div class="row">
+            <button id="collapseDir">▲</button>
+            <button id="clearRoute">Rota Temizle</button>
+          </div>
+        </div>
+        <div class="list" id="dirList"></div>
+      </div>
 
       <!-- ROTA -->
       <div id="dir" class="dir">
