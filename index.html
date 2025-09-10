@@ -27,7 +27,15 @@
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
   #map{position:fixed; inset:0}
 
-  /* ALT PANEL (bottom sheet davranışı) */
+  /* DİL (sol-üst yüzer) */
+  .lang-float{
+    position:fixed; left:12px; top:12px; z-index:1001;
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    box-shadow:var(--shadow); padding:6px 8px;
+  }
+  .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
+
+  /* ALT PANEL (bottom sheet) */
   .panel{
     position:fixed; left:50%; bottom:12px;
     transform: translate(-50%, var(--panel-ty, 0px));
@@ -35,7 +43,7 @@
     width:min(860px,96vw); z-index:1000;
   }
   .card{background:var(--bg-soft); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
-  .p-8{padding:12px}
+  .p-8{padding:10px}
   .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .stack{display:flex; flex-direction:column; gap:10px}
   .grow{flex:1 1 auto}
@@ -43,18 +51,16 @@
   /* panel tutacak */
   .grab{width:44px; height:5px; background:#b9d8c8; border-radius:999px; margin:8px auto 0; cursor:grab}
 
-  /* FORM / BUTON */
+  /* FORM / BUTONLAR */
   input[type="search"]{
-    width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:var(--field)
+    width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--field)
   }
-  select,button{
-    padding:10px 12px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field)
-  }
+  button{padding:9px 11px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field); white-space:nowrap}
   button:active{transform:translateY(1px)}
   button:disabled{opacity:.55; cursor:not-allowed}
   .muted{color:var(--muted)}
 
-  /* IN/OUT kısaltma + ✓ */
+  /* IN/OUT kısaltma + ✓ (küçük) */
   .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--chip); font-size:13px}
   .chip input{accent-color:var(--brand-2)}
   .chip .tick{opacity:.18; transition:.15s}
@@ -76,39 +82,39 @@
   .step:last-child{border-bottom:none}
   .badge{display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#edf7f3; border:1px solid var(--border); font-size:12px}
 
-  /* ± METRE ROZETİ */
-  .acc{position:fixed; right:12px; top:12px; z-index:1000; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+  /* ± METRE ROZETİ — sağ alt */
+  .acc{position:fixed; right:12px; bottom:12px; z-index:1000; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
 
   @media (max-width:520px){ .panel{bottom:8px} }
 </style>
 </head>
 <body>
 
+<!-- DİL: sol-üst -->
+<div class="lang-float"><select id="lang" aria-label="Dil">
+  <option value="tr" selected>TR</option><option value="en">EN</option>
+  <option value="ru">RU</option><option value="de">DE</option><option value="pl">PL</option>
+</select></div>
+
 <div id="map" aria-label="Harita"></div>
 
+<!-- ALT PANEL -->
 <div class="panel" id="sheet">
   <div class="card">
     <div class="grab" id="grab" aria-label="Paneli sürükle"></div>
     <div class="p-8 stack" id="sheetContent">
-      <!-- 1) DİL + ARAMA + GİT (yan yana) -->
+
+      <!-- 1) SEARCH + GİT (yan yana) -->
       <div class="row">
-        <select id="lang" aria-label="Dil">
-          <option value="tr" selected>TR</option><option value="en">EN</option>
-          <option value="ru">RU</option><option value="de">DE</option><option value="pl">PL</option>
-        </select>
         <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
         <button id="go" title="Seçili hedefe rota">Git</button>
       </div>
 
-      <!-- 2) HEDEF SEÇ + SIFIRLA -->
+      <!-- 2) HEDEF SEÇ + SIFIRLA + IN/OUT + KONUM -->
       <div class="row">
         <button id="pick">Haritadan Hedef</button>
         <button id="reset">Sıfırla</button>
-        <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
-      </div>
 
-      <!-- 3) IN / OUT + KONUMUM -->
-      <div class="row">
         <label class="chip" title="Indoor">
           <input type="checkbox" id="tglIndoor" checked>
           <span>IN</span><span class="tick">✓</span>
@@ -117,10 +123,12 @@
           <input type="checkbox" id="tglOutdoor" checked>
           <span>OUT</span><span class="tick">✓</span>
         </label>
+
         <button id="follow">📍 Konumum: Kapalı</button>
+        <span class="muted" id="hint" style="display:none">🔎 Arama açık</span>
       </div>
 
-      <!-- 4) DETAY -->
+      <!-- 3) DETAYLAR -->
       <div class="row">
         <button id="toggleDetails">Detaylar: Kapalı</button>
       </div>
@@ -140,18 +148,19 @@
         <div class="list" id="dirList"></div>
       </div>
 
-      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors</div>
+      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © MapTiler</div>
     </div>
   </div>
 </div>
 
+<!-- ± METRE ROZETİ (sağ alt) -->
 <div id="acc" class="acc" style="display:none"></div>
 
 <script>
 /* ======= AYARLAR ======= */
 const MAPTILER_KEY = "YOUR_MAPTILER_KEY";  // ← anahtarını gir
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // [minLon,minLat,maxLon,maxLat]
-const PADDING = {top:140,right:20,bottom:180,left:20};
+const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 /* ======= i18n ======= */
@@ -301,7 +310,7 @@ async function loadJSONs(){
 function applyLang(){
   const L=t();
   q.placeholder=L.searchPH;  goBtn.textContent=L.go;
-  pickBtn.textContent=L.ui.pick; resetBtn.textContent=L.ui.reset;
+  $('pick').textContent=L.ui.pick; $('reset').textContent=L.ui.reset;
   followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
   toggleDetails.textContent = showAllDetails ? L.ui.detailsOn : L.ui.detailsOff;
   clearRouteBtn.textContent=L.ui.clearRoute;
@@ -369,39 +378,59 @@ toggleDetails.onclick=()=>{ showAllDetails=!showAllDetails; toggleDetails.textCo
 tglIndoor.onchange =()=>{ ['indoor-fill','indoor-line','indoor-pts'].forEach(id=> map.setLayoutProperty(id,'visibility', tglIndoor.checked?'visible':'none')); };
 tglOutdoor.onchange=()=>{ ['outdoor-fill','outdoor-line','outdoor-pts'].forEach(id=> map.setLayoutProperty(id,'visibility', tglOutdoor.checked?'visible':'none')); };
 
-/* ======= BLUE DOT (stabil + masaüstü görünürlük) ======= */
-let followState=false, lastRaw=null, smooth=null, lastKnown=null;
-const MAX_ACC=35, MIN_MOVE=3, ALPHA=0.25;
+/* ======= BLUE DOT (stabil filtreleme) ======= */
+let followState=false, lastRaw=null, lastFiltered=null, lastKnown=null;
+const MAX_ACC=35, MIN_MOVE=3, ALPHA=0.28, BUF=6;
+const goodBuf=[]; // son iyi ölçümler (acc<=MAX_ACC)
+
+function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000; const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]); const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(h))); }
 
 // izin penceresini tetikle
 if('geolocation' in navigator){
   try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
 }
-function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000; const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]); const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(h))); }
 
 if('geolocation' in navigator){
   navigator.geolocation.watchPosition(p=>{
     const accM=Math.round(p.coords.accuracy||999);
     const raw=[p.coords.longitude,p.coords.latitude];
-
-    // küçük zıplamaları yut
-    if(lastRaw && hav(lastRaw,raw)<MIN_MOVE && accM<=MAX_ACC) return;
     lastRaw=raw;
 
-    // EMA
-    if(!smooth) smooth={lng:raw[0],lat:raw[1]};
-    else{ smooth.lng=ALPHA*raw[0]+(1-ALPHA)*smooth.lng; smooth.lat=ALPHA*raw[1]+(1-ALPHA)*smooth.lat; }
-    const display=[smooth.lng,smooth.lat];
+    // iyi örnekleri buffer'a koy
+    if(accM<=MAX_ACC){
+      goodBuf.push({lng:raw[0],lat:raw[1],w:1/((accM||1)**2)});
+      if(goodBuf.length>BUF) goodBuf.shift();
+    }
 
-    // dot + acc (kötü doğrulukta gri olarak yine göster)
+    // Ağırlıklı ortalama → cand
+    let cand=raw;
+    if(goodBuf.length){
+      let sx=0,sy=0,sw=0;
+      goodBuf.forEach(s=>{ sx+=s.lng*s.w; sy+=s.lat*s.w; sw+=s.w; });
+      cand=[sx/sw, sy/sw];
+    }
+
+    // EMA ile yumuşatma
+    if(!lastFiltered) lastFiltered={lng:cand[0],lat:cand[1]};
+    else{
+      lastFiltered.lng = ALPHA*cand[0] + (1-ALPHA)*lastFiltered.lng;
+      lastFiltered.lat = ALPHA*cand[1] + (1-ALPHA)*lastFiltered.lat;
+    }
+    const display=[lastFiltered.lng,lastFiltered.lat];
+
+    // küçük zıplamaları yut
+    if(lastKnown && hav(lastKnown, display)<MIN_MOVE && accM>MAX_ACC) {
+      // kötü ölçüm ve hareket yok → konumu sabit tut
+    }else{
+      lastKnown=display;
+    }
+
+    // dot + acc (kötü doğrulukta gri)
     map.getSource('me').setData({
       type:'FeatureCollection',
       features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:display}}]
     });
     acc.textContent="±"+accM+" m"; acc.style.display='block';
-
-    // iyi doğruluksa lastKnown güncelle → rotada kullan
-    if(accM<=MAX_ACC) lastKnown=display;
 
     if(followState) map.easeTo({center:display});
   }, console.warn, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
@@ -452,7 +481,7 @@ goBtn.onclick = async ()=>{
 clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
 
-/* RESET — hepsini sıfırla (çalışıyor) */
+/* RESET — hepsini sıfırla */
 resetBtn.onclick=()=>{
   closePopup(); clearRoute(); clearDestination();
   q.value=''; searchActive=false; searchIds=[]; results.style.display='none'; hint.style.display='none';
@@ -461,7 +490,7 @@ resetBtn.onclick=()=>{
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
 };
 
-/* BOTTOM SHEET: çek-bırak (drag) */
+/* BOTTOM SHEET: çek-bırak (drag) + tıkla aç/kapa */
 (function(){
   const sheet=$('sheet'), grab=$('grab');
   let startY=null, startTy=0, maxTy=0;
@@ -471,6 +500,7 @@ resetBtn.onclick=()=>{
   window.addEventListener('resize', ()=>{ maxTy=computeMax(); setTy(Math.min(getTy(), maxTy)); });
   maxTy=computeMax();
 
+  // sürükle
   grab.addEventListener('pointerdown', e=>{
     startY=e.clientY; startTy=getTy(); grab.setPointerCapture(e.pointerId);
   });
@@ -485,7 +515,12 @@ resetBtn.onclick=()=>{
   }
   grab.addEventListener('pointerup', endDrag);
   grab.addEventListener('pointercancel', endDrag);
+
+  // *** İSTEDİĞİN: tek tıkla aç/kapa ***
   grab.addEventListener('click', ()=>{ const ty=getTy(); setTy( ty===0 ? maxTy : 0 ); });
+
+  // Arama kutusuna tıklanınca otomatik aç
+  q.addEventListener('focus', ()=> setTy(0));
 })();
 
 /* popup & yardımcılar */
@@ -564,3 +599,4 @@ function bboxFromFeatures(fs){
 </script>
 </body>
 </html>
+
