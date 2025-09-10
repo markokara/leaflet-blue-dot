@@ -287,19 +287,6 @@ map.on('load', async ()=>{
   map.addSource('route', {type:'geojson', data:emptyFC()});
   map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}});
 
- await loadJSONs();
-  applyLang();
-
-  // === STREETS stilindeki tüm katman id'lerini yazdır ===
-  console.log("Katman listesi:", map.getStyle().layers.map(l => l.id));
-
-  // === POI katmanlarını gizle ===
-  map.getStyle().layers.forEach(l=>{
-    if(/poi/i.test(l.id)){          // id'sinde 'poi' geçen her şey
-      map.setLayoutProperty(l.id, 'visibility', 'none');
-    }
-  });
-});
 
   // BLUE DOT — accuracy bazlı renk
   map.addSource('me', {type:'geojson', data:emptyFC()});
