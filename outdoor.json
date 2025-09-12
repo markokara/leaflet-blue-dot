@@ -169,7 +169,7 @@
       },
       "properties": {
         "area_m2": 1491,
-        "fill": "0000ff",
+        "fill": "0D9CE4",
         "name": "eklenen havuz",
         "category": "pool",
         "hours": "09:00 - 17:00",
@@ -177,46 +177,12 @@
         "icon": "https://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
         "icon_sz": 24,
         "height": 3,
+        "levels": 1,
+        "building:levels": 1,
         "name_en": "ingilizce",
         "desc_en": "hello word"
       },
       "id": "f0690af3-406e-4b05-838c-a1cd74be3848"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            31.013797525275674,
-            36.86066868022047
-          ],
-          [
-            31.014312234327186,
-            36.86064906988558
-          ],
-          [
-            31.01427546939493,
-            36.86045296625974
-          ],
-          [
-            31.01387105514017,
-            36.860433355869475
-          ],
-          [
-            31.01382203523051,
-            36.86067848538606
-          ]
-        ]
-      },
-      "properties": {
-        "len_m": 132,
-        "name": "test",
-        "category": "bar",
-        "icon": "https://cdn-icons-png.flaticon.com/512/3523/3523885.png",
-        "icon_sz": 24
-      },
-      "id": "63843796-9e62-4751-b854-19ea1bbc6001"
     }
   ]
 }
