@@ -183,6 +183,47 @@
         "desc_en": "hello word"
       },
       "id": "f0690af3-406e-4b05-838c-a1cd74be3848"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.805768950414468,
+              36.59886106855906
+            ],
+            [
+              31.805961111398346,
+              36.5988224903237
+            ],
+            [
+              31.805938939133277,
+              36.59876313919234
+            ],
+            [
+              31.80577634144015,
+              36.59878984719897
+            ],
+            [
+              31.805768950414468,
+              36.59886106855906
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 182,
+        "name": "havuz deneme",
+        "category": "pool",
+        "desc": "tets budur",
+        "stroke": "0D9CE4",
+        "fill": "0D9CE4",
+        "icon": "https://cdn-icons-png.flaticon.com/512/194/194929.png",
+        "icon_sz": 24
+      },
+      "id": "2ff4f552-c90a-4d1a-b022-bd9cdba7fafa"
     }
   ]
 }
