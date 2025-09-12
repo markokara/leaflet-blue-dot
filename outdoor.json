@@ -122,6 +122,101 @@
         "desc_ru": "Вкусные коктейли"
       },
       "id": "30269878-c68e-466f-8303-ce3fcaefe6c8"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.802653023505176,
+          36.59931476001738
+        ]
+      },
+      "properties": {
+        "name": "Costa Dock Restaurant",
+        "category": "restaurant"
+      },
+      "id": "2abd2c5a-ced4-4928-a347-e553b3833bea"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.014916499530536,
+              36.86084146233658
+            ],
+            [
+              31.01551631595026,
+              36.860861050497945
+            ],
+            [
+              31.01551631595026,
+              36.8606945509666
+            ],
+            [
+              31.014965464136232,
+              36.8606749627626
+            ],
+            [
+              31.014916499530536,
+              36.86084146233658
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 1491,
+        "fill": "0000ff",
+        "name": "eklenen havuz",
+        "category": "pool",
+        "hours": "09:00 - 17:00",
+        "desc": "Yüzme havuzu\n\nhttps://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
+        "icon": "https://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
+        "icon_sz": 24,
+        "height": 3,
+        "name_en": "ingilizce",
+        "desc_en": "hello word"
+      },
+      "id": "f0690af3-406e-4b05-838c-a1cd74be3848"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            31.013797525275674,
+            36.86066868022047
+          ],
+          [
+            31.014312234327186,
+            36.86064906988558
+          ],
+          [
+            31.01427546939493,
+            36.86045296625974
+          ],
+          [
+            31.01387105514017,
+            36.860433355869475
+          ],
+          [
+            31.01382203523051,
+            36.86067848538606
+          ]
+        ]
+      },
+      "properties": {
+        "len_m": 132,
+        "name": "test",
+        "category": "bar",
+        "icon": "https://cdn-icons-png.flaticon.com/512/3523/3523885.png",
+        "icon_sz": 24
+      },
+      "id": "63843796-9e62-4751-b854-19ea1bbc6001"
     }
   ]
 }
