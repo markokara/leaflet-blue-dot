@@ -6,17 +6,22 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          31.806411083262027,
-          36.59861133705357
+          31.804430271931484,
+          36.598813480694105
         ]
       },
       "properties": {
-        "name": "Tuvalet",
-        "category": "wc",
-        "desc": "test",
-        "desc_ru": "test"
+        "name": "Mare Snack Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "Lezzetli Kokteyller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_ru": "Вкусные коктейли"
       },
-      "id": "870d3c2d-8690-4653-a398-c79e3c63be81"
+      "id": "30269878-c68e-466f-8303-ce3fcaefe6c8"
     },
     {
       "type": "Feature",
@@ -44,27 +49,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          31.80752948876942,
-          36.59890955426802
-        ]
-      },
-      "properties": {
-        "name": "Viila Bar",
-        "category": "bar",
-        "desc": "Lezzetli kokteyller",
-        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
-        "height": 3,
-        "levels": 1,
-        "building:levels": 1,
-        "desc_en": "Delicious cocktails"
-      },
-      "id": "28bf9c8f-6049-4300-8161-81dc7b178a7f"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           31.80473043448248,
           36.5994703863779
         ]
@@ -81,108 +65,6 @@
         "desc_ru": "Вкусные коктейли"
       },
       "id": "8f355810-5807-4385-bb96-cfefcf831ec8"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.803189185723358,
-          36.59940532747241
-        ]
-      },
-      "properties": {
-        "name": "Snack Bar",
-        "category": "bar",
-        "level": "0",
-        "desc": "Lezzetli Kokteller",
-        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
-        "desc_en": "Delicious cocktails"
-      },
-      "id": "3ee51b28-771f-425c-bc20-f3b90ddb8c32"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.804430271931484,
-          36.598813480694105
-        ]
-      },
-      "properties": {
-        "name": "Mare Snack Bar",
-        "category": "bar",
-        "level": "0",
-        "desc": "Lezzetli Kokteyller",
-        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
-        "height": 3,
-        "levels": 1,
-        "building:levels": 1,
-        "desc_ru": "Вкусные коктейли"
-      },
-      "id": "30269878-c68e-466f-8303-ce3fcaefe6c8"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.802653023505176,
-          36.59931476001738
-        ]
-      },
-      "properties": {
-        "name": "Costa Dock Restaurant",
-        "category": "restaurant"
-      },
-      "id": "2abd2c5a-ced4-4928-a347-e553b3833bea"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              31.014916499530536,
-              36.86084146233658
-            ],
-            [
-              31.01551631595026,
-              36.860861050497945
-            ],
-            [
-              31.01551631595026,
-              36.8606945509666
-            ],
-            [
-              31.014965464136232,
-              36.8606749627626
-            ],
-            [
-              31.014916499530536,
-              36.86084146233658
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "area_m2": 1491,
-        "fill": "D0B60D",
-        "name": "eklenen havuz",
-        "category": "pool",
-        "hours": "09:00 - 17:00",
-        "desc": "Yüzme havuzu\n\nhttps://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
-        "icon": "https://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
-        "icon_sz": 24,
-        "height": 3,
-        "levels": 1,
-        "building:levels": 1,
-        "name_en": "ingilizce",
-        "desc_en": "hello word"
-      },
-      "id": "f0690af3-406e-4b05-838c-a1cd74be3848"
     },
     {
       "type": "Feature",
@@ -218,12 +100,139 @@
         "name": "havuz deneme",
         "category": "pool",
         "desc": "tets budur",
-        "stroke": "D0B60D",
-        "fill": "D0B60D",
+        "stroke": "0D9CE4",
+        "fill": "0D9CE4",
         "icon": "https://cdn-icons-png.flaticon.com/512/194/194929.png",
         "icon_sz": 24
       },
       "id": "2ff4f552-c90a-4d1a-b022-bd9cdba7fafa"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.806411083262027,
+          36.59861133705357
+        ]
+      },
+      "properties": {
+        "name": "Tuvalet",
+        "category": "wc",
+        "desc": "test",
+        "desc_ru": "test"
+      },
+      "id": "870d3c2d-8690-4653-a398-c79e3c63be81"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80752948876942,
+          36.59890955426802
+        ]
+      },
+      "properties": {
+        "name": "Viila Bar",
+        "category": "bar",
+        "desc": "Lezzetli kokteyller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_en": "Delicious cocktails"
+      },
+      "id": "28bf9c8f-6049-4300-8161-81dc7b178a7f"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.014916499530536,
+              36.86084146233658
+            ],
+            [
+              31.01504468596328,
+              36.860845648512054
+            ],
+            [
+              31.01551631595026,
+              36.860861050497945
+            ],
+            [
+              31.01551631595026,
+              36.8606945509666
+            ],
+            [
+              31.01513968460455,
+              36.86068115801561
+            ],
+            [
+              31.014965464136232,
+              36.8606749627626
+            ],
+            [
+              31.014916499530536,
+              36.86084146233658
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 1491,
+        "fill": "D0880D",
+        "name": "eklenen havuz",
+        "category": "pool",
+        "hours": "09:00 - 17:00",
+        "desc": "Yüzme havuzu\n\nhttps://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
+        "icon": "https://www.youtube.com/watch?v=gplmNVSbwAs&ab_channel=BodyByMark",
+        "icon_sz": 24,
+        "height": 3,
+        "levels": 1,
+        "building:levels": 1,
+        "name_en": "ingilizce",
+        "desc_en": "hello word",
+        "stroke": "0DD088"
+      },
+      "id": "f0690af3-406e-4b05-838c-a1cd74be3848"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.802653023505176,
+          36.59931476001738
+        ]
+      },
+      "properties": {
+        "name": "Costa Dock Restaurant",
+        "category": "restaurant"
+      },
+      "id": "2abd2c5a-ced4-4928-a347-e553b3833bea"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.803189185723358,
+          36.59940532747241
+        ]
+      },
+      "properties": {
+        "name": "Snack Bar",
+        "category": "bar",
+        "level": "0",
+        "desc": "Lezzetli Kokteller",
+        "image": "https://www.bizevdeyokuz.com/wp-content/uploads/kokteyl-bar.jpg",
+        "desc_en": "Delicious cocktails"
+      },
+      "id": "3ee51b28-771f-425c-bc20-f3b90ddb8c32"
     }
   ]
 }
