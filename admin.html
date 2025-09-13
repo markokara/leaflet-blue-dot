@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Admin – Indoor/Outdoor + Paths (Yol) Editör</title>
+<title>Admin – Indoor/Outdoor + Paths Editör</title>
 
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
-<!-- Çizim aracı (Mapbox-GL-Draw, MapLibre ile uyumlu) -->
+<!-- Çizim: Mapbox-GL-Draw (MapLibre uyumlu) -->
 <link href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css" rel="stylesheet"/>
 <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
 
@@ -22,8 +22,9 @@
   .row>*{flex:1 1 auto; min-width:120px}
   button,select,input[type="file"]{padding:10px 12px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer}
   .pill{padding:4px 8px; font-size:12px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe}
+  .hint{position:fixed; top:10px; left:50%; transform:translateX(-50%); background:#111; color:#fff; font-size:12px; padding:6px 10px; border-radius:8px; z-index:12; display:none}
   .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:11}
-  .card{background:#fff; width:min(760px,92vw); padding:14px; border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.35)}
+  .card{background:#fff; width:min(780px,92vw); padding:14px; border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.35)}
   .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .grid label{font-size:12px; color:#555}
   .grid input,.grid select,.grid textarea{padding:10px; border:1px solid #ddd; border-radius:8px; width:100%}
@@ -31,7 +32,7 @@
   .actions{display:flex; justify-content:space-between; gap:8px; margin-top:10px}
   .danger{border-color:#ffb3b3; background:#fff0f0}
   .primary{border-color:#b3d7ff; background:#f0f7ff}
-  .hint{position:fixed; top:10px; left:50%; transform:translateX(-50%); background:#111; color:#fff; font-size:12px; padding:6px 10px; border-radius:8px; z-index:12; display:none}
+  .toggle{display:flex; align-items:center; gap:8px}
 </style>
 </head>
 <body>
@@ -49,7 +50,9 @@
     <button id="btnLine" class="primary">➕ Çizgi</button>
     <button id="btnPoly" class="primary">➕ Poligon</button>
     <button id="btnSelect">☑ Seç / Özellik</button>
-    <span class="pill">Seçili öğeye çift tık: düzenle</span>
+    <button id="btnDuplicate">📄 Kopyala</button>
+    <label class="toggle"><input type="checkbox" id="toggle3d"> 3D Önizleme</label>
+    <span class="pill">Seçili öğeye <b>çift tık</b>: Özellik formu — <b>Ctrl+D</b>: Kopya</span>
   </div>
   <div class="row">
     <button id="dlIndoor">⤓ indoor.json</button>
@@ -60,55 +63,62 @@
   </div>
 </div>
 
-<!-- Özellik düzenleme -->
+<!-- Özellik formu -->
 <div id="modal" class="modal" aria-hidden="true">
   <div class="card">
     <h3>Özellikler</h3>
     <div class="grid">
       <div><label>İsim</label><input id="name"></div>
-      <div><label>Kategori (örn: restaurant, bar, pool, path, shuttle)</label><input id="category"></div>
+      <div><label>Kategori (restaurant, bar, pool, building, path…)</label><input id="category" placeholder="pool"></div>
       <div><label>Saatler</label><input id="hours"></div>
-      <div><label>Seviye/Kat (örn: 0,1,B1)</label><input id="level"></div>
-      <div style="grid-column:1/-1"><label>Açıklama</label><textarea id="desc" placeholder="Metin içine tam URL yazarsan misafir panelde tıklanır."></textarea></div>
-      <div style="grid-column:1/-1"><label>Fotoğraf/İkon URL</label><input id="image" placeholder="https://.../foto.jpg (veya png/svg)"></div>
+      <div><label>Seviye/Kat</label><input id="level" placeholder="0, 1, B1"></div>
+
+      <div style="grid-column:1/-1"><label>Açıklama</label>
+        <textarea id="desc" placeholder="Tam URL yazarsan misafir panelde tıklanır."></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf/İkon URL</label><input id="image" placeholder="https://.../foto.jpg"></div>
+
       <div><label>Dolgu Rengi (hex)</label><input id="fill" placeholder="09DCE4"></div>
       <div><label>Çizgi Rengi (hex)</label><input id="stroke" placeholder="1b7a5b"></div>
-      <div><label>Çizgi Kalınlığı (px)</label><input id="stroke_w" type="number" min="0" step="0.5" value="2"></div>
+      <div><label>Çizgi Kalınlığı (px)</label><input id="stroke_w" type="number" step="0.5" value="2"></div>
       <div><label>İkon Boyutu (px)</label><input id="icon_sz" type="number" min="8" step="1" value="22"></div>
+
       <div><label>Yükseklik (m)</label><input id="height" type="number" step="0.5" placeholder="3"></div>
       <div><label>Kat Sayısı</label><input id="levels" type="number" step="1" placeholder="1"></div>
-      <div><label>İç mekân mı?</label>
-        <select id="indoor">
-          <option value="auto" selected>Geometriye göre (target)</option>
-          <option value="true">Evet (indoor)</option>
-          <option value="false">Hayır (outdoor)</option>
-        </select>
-      </div>
-      <!-- YOL ÖZELLİKLERİ -->
-      <div><label>Yol modu</label>
+
+      <!-- Yol özellikleri -->
+      <div><label>Yol Modu</label>
         <select id="mode">
           <option value="">(yol değil)</option>
           <option value="walk">Yaya</option>
+          <option value="bike">Bisiklet</option>
           <option value="shuttle">Shuttle</option>
           <option value="service">Servis</option>
         </select>
       </div>
-      <div><label>Tek yön mü?</label>
+      <div><label>Tek Yön?</label>
         <select id="oneway">
           <option value="">Hayır</option>
-          <option value="true">Evet (tek yön)</option>
+          <option value="true">Evet</option>
         </select>
       </div>
       <div><label>Erişim</label>
         <select id="access">
           <option value="">Varsayılan</option>
           <option value="yes">Açık</option>
-          <option value="private">Sadece görevli</option>
+          <option value="private">Görevli</option>
           <option value="no">Girilmez</option>
         </select>
       </div>
-      <div style="grid-column:1/-1"><small>Not: Çizgi çizdiysen <b>mode</b> alanını mutlaka doldur; aksi halde yol olarak paths.json’a eklenmez.</small></div>
-      <div style="grid-column:1/-1"><label>Öğe ID (otomatik)</label><input id="fid" disabled></div>
+
+      <div><label>İç mekân?</label>
+        <select id="indoor">
+          <option value="auto" selected>Aktif hedefe göre</option>
+          <option value="true">Evet (indoor)</option>
+          <option value="false">Hayır (outdoor)</option>
+        </select>
+      </div>
+
+      <div style="grid-column:1/-1"><label>Öğe ID</label><input id="fid" disabled></div>
     </div>
 
     <div class="actions">
@@ -118,19 +128,19 @@
       </div>
       <div style="display:flex;gap:8px">
         <button id="btnSave" class="primary">Kaydet</button>
-        <button id="btnClose" class="primary">Kapat</button>
+        <button id="btnClose">Kapat</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-/* ======= AYAR ======= */
-const MAPTILER_KEY = "YOUR_MAPTILER_KEY";
-const HOTEL_BBOX = [31.801445,36.597411,31.808467,36.600917];
+/* ========= AYAR ========= */
+const MAPTILER_KEY="YOUR_MAPTILER_KEY";
+const HOTEL_BBOX=[31.801445,36.597411,31.808467,36.600917];
 
-/* ======= HARİTA ======= */
-const map = new maplibregl.Map({
+/* ========= HARİTA ========= */
+const map=new maplibregl.Map({
   container:'map',
   style:`https://api.maptiler.com/maps/streets/style.json?key=ym4UWHwsNK61YUsmqi5C`,
   center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2],
@@ -138,21 +148,32 @@ const map = new maplibregl.Map({
 });
 map.on('load',()=> map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:20,maxZoom:19}));
 
-/* ÇİZİM */
+/* ========= ÇİZİM ========= */
+const DEFAULT_MODE_COLORS = {walk:'#1b7a5b', bike:'#2563eb', shuttle:'#aa6f00', service:'#666'};
 const Draw = new MapboxDraw({
   displayControlsDefault:false,
-  controls:{point:false,line_string:false,polygon:false,trash:true,combine_features:false,uncombine_features:false},
-  defaultMode:'simple_select',
+  controls:{trash:true},
   styles:[
-    // Point
+    // Nokta
     {id:'gl-draw-point',type:'circle',filter:['all',['==','$type','Point'],['!=','mode','static']],
-      paint:{'circle-radius':6,'circle-stroke-color':'#fff','circle-stroke-width':1.5,
+      paint:{'circle-radius':['coalesce',['get','icon_sz'],6],
+             'circle-stroke-color':'#fff','circle-stroke-width':1.5,
              'circle-color':['case',['has','fill'],['concat','#',['get','fill']],'#f94144']}},
-    // Line
+    // Çizgi (paths + diğer)
     {id:'gl-draw-line',type:'line',filter:['all',['==','$type','LineString'],['!=','mode','static']],
-      paint:{'line-width':['coalesce',['get','stroke_w'],2],
-             'line-color':['case',['has','stroke'],['concat','#',['get','stroke']],'#1b7a5b']}},
-    // Polygon fill + stroke
+      paint:{
+        'line-width':['coalesce',['get','stroke_w'],3],
+        'line-color':[
+          'case',
+            ['has','stroke'], ['concat','#',['get','stroke']],
+            ['==',['get','mode'],'bike'], DEFAULT_MODE_COLORS.bike,
+            ['==',['get','mode'],'shuttle'], DEFAULT_MODE_COLORS.shuttle,
+            ['==',['get','mode'],'service'], DEFAULT_MODE_COLORS.service,
+            DEFAULT_MODE_COLORS.walk
+        ],
+        'line-opacity':0.95
+      }},
+    // Poligon
     {id:'gl-draw-polygon-fill',type:'fill',filter:['all',['==','$type','Polygon'],['!=','mode','static']],
       paint:{'fill-color':['case',['has','fill'],['concat','#',['get','fill']],'#09dce4'],'fill-opacity':0.25}},
     {id:'gl-draw-polygon-stroke',type:'line',filter:['all',['==','$type','Polygon'],['!=','mode','static']],
@@ -162,23 +183,24 @@ const Draw = new MapboxDraw({
 });
 map.addControl(Draw);
 
-const hint = msg => { const el=document.getElementById('hint'); if(!msg){el.style.display='none';return;} el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',1800); };
+/* İpuçları */
+const hint = msg => { const el=document.getElementById('hint'); if(!msg){el.style.display='none';return;} el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',1600); };
 
-/* ======= BUTONLAR ======= */
-const $ = id=>document.getElementById(id);
-$('btnPoint').onclick=()=>{ Draw.changeMode('draw_point'); setDefaultPropsOnCreate(); hint("Haritaya tıklayın (Nokta)"); };
-$('btnLine').onclick =()=>{ Draw.changeMode('draw_line_string'); setDefaultPropsOnCreate(); hint("Noktalarla yol çizin → çift tıkla bitir"); };
-$('btnPoly').onclick =()=>{ Draw.changeMode('draw_polygon'); setDefaultPropsOnCreate(); hint("Noktalarla poligon çizin → çift tıkla bitir"); };
-$('btnSelect').onclick=()=>{ Draw.changeMode('simple_select'); hint("Öğe seç – çift tık: özellik formu"); };
+/* ========= UI ========= */
+const $=id=>document.getElementById(id);
+$('btnPoint').onclick=()=>{ Draw.changeMode('draw_point'); setDefaultsOnCreate(); hint('Haritaya tıkla (Nokta)'); };
+$('btnLine').onclick =()=>{ Draw.changeMode('draw_line_string'); setDefaultsOnCreate(); hint('Noktalarla yol çiz – çift tıkla bitir'); };
+$('btnPoly').onclick =()=>{ Draw.changeMode('draw_polygon'); setDefaultsOnCreate(); hint('Noktalarla poligon çiz – çift tıkla bitir'); };
+$('btnSelect').onclick=()=>{ Draw.changeMode('simple_select'); hint('Seçim modu'); };
 
-/* Yeni çizilenlere varsayılan property */
-function setDefaultPropsOnCreate(){
-  const target = $('target').value; // indoor/outdoor/paths
-  const onCreate = (e)=>{
+/* yeni oluşanlara varsayılan layer/mode */
+function setDefaultsOnCreate(){
+  const target=$('target').value;
+  const onCreate=(e)=>{
     e.features.forEach(f=>{
       const p=f.properties||{};
       p.layer = target;
-      if(f.geometry.type==='LineString' && target==='paths'){ p.category='path'; p.mode = p.mode || 'walk'; }
+      if(f.geometry.type==='LineString' && target==='paths'){ p.category='path'; p.mode=p.mode||'walk'; }
       Draw.setFeatureProperty(f.id,'layer',p.layer);
       if(p.mode) Draw.setFeatureProperty(f.id,'mode',p.mode);
     });
@@ -187,47 +209,42 @@ function setDefaultPropsOnCreate(){
   map.on('draw.create', onCreate);
 }
 
-/* ==== LOCAL STORAGE ===== */
-const loadLocal = k => { try{const s=localStorage.getItem(k); return s?JSON.parse(s):null;}catch{return null;} };
-const saveLocal = (k,d)=>{ try{localStorage.setItem(k, JSON.stringify(d));}catch(e){alert('LocalStorage dolu olabilir.');} };
+/* ========= LOCAL STORAGE & EXPORT ========= */
+function emptyFC(){return {type:'FeatureCollection',features:[]};}
+const loadLocal=k=>{try{const s=localStorage.getItem(k); return s?JSON.parse(s):null;}catch{return null;}};
+const saveLocal=(k,d)=>{try{localStorage.setItem(k,JSON.stringify(d));}catch(e){alert('Yerel depolama dolu olabilir.');}};
 function dl(obj,name){ const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 
-/* ==== VERİ YÜKLE/DAĞIT =====
-   Tek bir Draw koleksiyonu kullanıyoruz.
-   Export ederken geometri + p.layer alanına göre üç ayrı dosyaya dağıtıyoruz. */
-function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function splitByLayer(fc){
-  const res={indoor:emptyFC(), outdoor:emptyFC(), paths:emptyFC()};
+  const res={indoor:emptyFC(),outdoor:emptyFC(),paths:emptyFC()};
   (fc.features||[]).forEach(f=>{
-    const layer=(f.properties?.layer)||'outdoor';
-    if(layer==='paths' || f.properties?.category==='path' || f.properties?.mode){
-      res.paths.features.push(f);
-    }else if(layer==='indoor'){
-      res.indoor.features.push(f);
-    }else{
-      res.outdoor.features.push(f);
-    }
+    const p=f.properties||{};
+    const layer=p.layer||'outdoor';
+    if(layer==='paths' || p.category==='path' || p.mode){ res.paths.features.push(f); }
+    else if(layer==='indoor'){ res.indoor.features.push(f); }
+    else{ res.outdoor.features.push(f); }
   });
   return res;
 }
 function mergeToDraw(indoor,outdoor,paths){
-  const all = emptyFC();
-  [...(indoor?.features||[]), ...(outdoor?.features||[]), ...(paths?.features||[])]
+  const all=emptyFC();
+  [...(indoor?.features||[]),...(outdoor?.features||[]),...(paths?.features||[])]
     .forEach(f=> all.features.push(f));
   Draw.set(all);
+  refresh3D(); // 3D kaynağını da güncelle
 }
 
-/* İlk yükleme: varsa local’den */
-(function initLoad(){
+/* İlk yükleme */
+(function init(){
   mergeToDraw(loadLocal('indoor')||emptyFC(), loadLocal('outdoor')||emptyFC(), loadLocal('paths')||emptyFC());
 })();
 
-/* Export */
-$('dlIndoor').onclick =()=>{ const sp=splitByLayer(Draw.getAll()); saveLocal('indoor',sp.indoor); dl(sp.indoor,'indoor.json'); };
-$('dlOutdoor').onclick=()=>{ const sp=splitByLayer(Draw.getAll()); saveLocal('outdoor',sp.outdoor); dl(sp.outdoor,'outdoor.json'); };
-$('dlPaths').onclick  =()=>{ const sp=splitByLayer(Draw.getAll()); saveLocal('paths',sp.paths); dl(sp.paths,'paths.json'); };
+/* Export butonları */
+$('dlIndoor').onclick=()=>{const sp=splitByLayer(Draw.getAll()); saveLocal('indoor',sp.indoor); dl(sp.indoor,'indoor.json');};
+$('dlOutdoor').onclick=()=>{const sp=splitByLayer(Draw.getAll()); saveLocal('outdoor',sp.outdoor); dl(sp.outdoor,'outdoor.json');};
+$('dlPaths').onclick  =()=>{const sp=splitByLayer(Draw.getAll()); saveLocal('paths',sp.paths); dl(sp.paths,'paths.json');};
 
-/* Import (aktif hedefe) */
+/* Import (aktif hedefe ekler) */
 $('imp').addEventListener('change', async e=>{
   const file=e.target.files[0]; if(!file) return;
   try{
@@ -236,80 +253,123 @@ $('imp').addEventListener('change', async e=>{
     const current=Draw.getAll();
     (json.features||[]).forEach(f=>{ f.properties=f.properties||{}; f.properties.layer=target; current.features.push(f); });
     Draw.set(current);
-    const sp=splitByLayer(current);
-    saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths);
+    const sp=splitByLayer(current); saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths);
+    refresh3D();
     alert('Yüklendi.');
   }catch{ alert('Geçersiz GeoJSON.'); }
   e.target.value='';
 });
 
 /* Temizle */
-$('clearLocal').onclick=()=>{ if(confirm('Yerel veriyi silelim mi?')){ ['indoor','outdoor','paths'].forEach(k=>localStorage.removeItem(k)); Draw.set(emptyFC()); } };
+$('clearLocal').onclick=()=>{ if(confirm('Yerel veriyi silelim mi?')){ ['indoor','outdoor','paths'].forEach(k=>localStorage.removeItem(k)); Draw.set(emptyFC()); refresh3D(); } };
 
-/* ===== ÖZELLİK FORMU ===== */
-const modal=$('modal');
-const fld = id=>document.getElementById(id);
+/* ========= ÖZELLİK FORMU (Kaydet düzeltildi) ========= */
+const modal=$('modal'); const fld=id=>document.getElementById(id);
 let editingId=null;
 
 function openForm(id){
-  editingId=id;
-  const f=Draw.get(id); if(!f) return;
-  const p=f.properties||{};
+  editingId=id; const f=Draw.get(id); if(!f) return; const p=f.properties||{};
   fld('fid').value=id;
-  ['name','category','hours','level','desc','image','fill','stroke'].forEach(k=> fld(k).value = p[k]||'');
+  ['name','category','hours','level','desc','image','fill','stroke'].forEach(k=> fld(k).value=p[k]||'');
   fld('stroke_w').value = p.stroke_w ?? 2;
   fld('icon_sz').value  = p.icon_sz ?? 22;
   fld('height').value   = p.height ?? '';
   fld('levels').value   = p.levels ?? p['building:levels'] ?? '';
   fld('mode').value     = p.mode || '';
-  fld('oneway').value   = p.oneway ? 'true' : '';
+  fld('oneway').value   = p.oneway ? 'true':'';
   fld('access').value   = p.access || '';
   fld('indoor').value   = (p.layer==='indoor')?'true':(p.layer==='outdoor')?'false':'auto';
   modal.style.display='flex'; modal.setAttribute('aria-hidden','false');
 }
 function closeForm(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); editingId=null; }
 
-map.on('dblclick', (e)=>{
-  const sel = Draw.getSelectedIds();
-  if(sel && sel[0]) openForm(sel[0]);
+/* çift tıkla form */
+map.on('dblclick',()=>{
+  const sel=Draw.getSelectedIds(); if(sel && sel[0]) openForm(sel[0]);
 });
 
-/* Özellik Kaydet */
+/* Kaydet — FIX: setFeatureProperty ile güvenli güncelleme */
 $('btnSave').onclick=()=>{
   if(!editingId) return;
-  const p={};
-  ['name','category','hours','level','desc','image','fill','stroke'].forEach(k=>{ const v=fld(k).value.trim(); if(v) p[k]=v; else delete p[k]; });
-  const w=parseFloat(fld('stroke_w').value); if(Number.isFinite(w)) p.stroke_w=w;
-  const isz=parseFloat(fld('icon_sz').value); if(Number.isFinite(isz)) p.icon_sz=isz;
-  const h=parseFloat(fld('height').value); if(Number.isFinite(h)) p.height=h;
-  const lv=parseInt(fld('levels').value,10); if(Number.isFinite(lv)) { p.levels=lv; p['building:levels']=lv; }
-  const mode=fld('mode').value; if(mode) p.mode=mode; else delete p.mode;
-  p.oneway = (fld('oneway').value==='true') ? true : undefined;
-  const acc=fld('access').value; if(acc) p.access=acc; else delete p.access;
+  const props={};
+  ['name','category','hours','level','desc','image','fill','stroke'].forEach(k=>{
+    const v=fld(k).value.trim(); if(v) props[k]=v; else props[k]=undefined;
+  });
+  const nums=[['stroke_w',parseFloat],['icon_sz',parseFloat],['height',parseFloat]];
+  nums.forEach(([k,fn])=>{ const v=fn(fld(k).value); props[k]=Number.isFinite(v)?v:undefined; });
+  const lv=parseInt(fld('levels').value,10); if(Number.isFinite(lv)){ props.levels=lv; props['building:levels']=lv; } else { props.levels=undefined; props['building:levels']=undefined; }
+  const mode=fld('mode').value; props.mode = mode || undefined;
+  props.oneway = (fld('oneway').value==='true') ? true : undefined;
+  const acc=fld('access').value; props.access = acc || undefined;
 
-  // katman/indoor
-  const ind = fld('indoor').value;
+  // layer/indoor kararı
+  const ind=fld('indoor').value;
   let layer=$('target').value;
   if(ind==='true') layer='indoor'; else if(ind==='false') layer='outdoor';
-  p.layer = (p.mode||p.category==='path') ? 'paths' : layer;
+  props.layer = (props.mode||props.category==='path') ? 'paths' : layer;
 
   // uygula
-  Object.keys(p).forEach(k=> Draw.setFeatureProperty(editingId, k, p[k]));
-  // katmanı güncellemek için full read/write:
-  const f=Draw.get(editingId); f.properties=p; Draw.add(f); Draw.delete(editingId); editingId=f.id;
-
-  // local split kaydet
-  const sp=splitByLayer(Draw.getAll());
-  saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths);
-
-  hint('Kaydedildi'); closeForm();
+  Object.entries(props).forEach(([k,v])=> Draw.setFeatureProperty(editingId,k,v));
+  // local & 3D yenile
+  const sp=splitByLayer(Draw.getAll()); saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths);
+  refresh3D(); hint('Kaydedildi'); closeForm();
 };
-$('btnDelete').onclick=()=>{ if(editingId && confirm('Silinsin mi?')){ Draw.delete(editingId); const sp=splitByLayer(Draw.getAll()); saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths); closeForm(); } };
+$('btnDelete').onclick=()=>{ if(editingId && confirm('Silinsin mi?')){ Draw.delete(editingId); const sp=splitByLayer(Draw.getAll()); saveLocal('indoor',sp.indoor); saveLocal('outdoor',sp.outdoor); saveLocal('paths',sp.paths); refresh3D(); closeForm(); } };
 $('btnGeom').onclick =()=>{ closeForm(); Draw.changeMode('direct_select',{featureId:editingId}); };
 $('btnClose').onclick =()=> closeForm();
 
-/* Seçili öğeyi çift tık ile aç – mobil için buton da var (yukarıda) */
+/* ========= KOPYALA (buton + Ctrl+D) ========= */
+function duplicateSelected(){
+  const ids=Draw.getSelectedIds(); if(!ids.length) { hint('Önce bir öğe seç'); return; }
+  const f=Draw.get(ids[0]); if(!f) return;
+  const clone=JSON.parse(JSON.stringify(f));
+  // küçük bir offset (yaklaşık ~2m)
+  const off=0.00002;
+  const type=clone.geometry.type;
+  const shiftCoord=c=>[c[0]+off,c[1]+off];
+  if(type==='Point'){ clone.geometry.coordinates=shiftCoord(clone.geometry.coordinates); }
+  else if(type==='LineString'){ clone.geometry.coordinates=clone.geometry.coordinates.map(shiftCoord); }
+  else if(type==='Polygon'){ clone.geometry.coordinates=clone.geometry.coordinates.map(r=>r.map(shiftCoord)); }
+  // id olmadan ekle
+  delete clone.id;
+  const current=Draw.getAll(); current.features.push(clone); Draw.set(current);
+  refresh3D();
+  hint('Kopyalandı');
+}
+$('btnDuplicate').onclick=duplicateSelected;
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); duplicateSelected(); } });
+
+/* ========= 3D ÖNİZLEME ========= */
+map.on('load',()=>{
+  map.addSource('extrude',{type:'geojson',data:emptyFC()});
+  map.addLayer({id:'extrude-3d',type:'fill-extrusion',source:'extrude',minzoom:15,
+    paint:{
+      'fill-extrusion-color':['case',['has','fill'],['concat','#',['get','fill']],'#d0c7bb'],
+      'fill-extrusion-opacity':0.86,
+      'fill-extrusion-height':['coalesce',['get','height'], ['*',['to-number',['get','levels']],3], 0],
+      'fill-extrusion-base':0
+    },
+    layout:{visibility:'none'}
+  });
+});
+$('toggle3d').onchange=()=>{ map.setLayoutProperty('extrude-3d','visibility', $('toggle3d').checked?'visible':'none'); refresh3D(); };
+
+function refresh3D(){
+  if(!map.getSource('extrude')) return;
+  if(!$('toggle3d').checked){ map.getSource('extrude').setData(emptyFC()); return; }
+  const all=Draw.getAll();
+  const features=(all.features||[]).filter(f=>{
+    return f.geometry?.type==='Polygon' && (
+      (f.properties?.height!=null) ||
+      (Number.isFinite(parseInt(f.properties?.levels))) ||
+      (f.properties?.category==='building')
+    );
+  });
+  map.getSource('extrude').setData({type:'FeatureCollection',features});
+}
+
+/* ========= diğer ========= */
+$('target').addEventListener('change',()=> hint('Aktif hedef: '+$('target').value.toUpperCase()));
 </script>
 </body>
 </html>
-
