@@ -16,13 +16,14 @@
 
   .panel{position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:10;
     background:#fff; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.25);
-    padding:10px; width:calc(100% - 20px); max-width:1080px;}
+    padding:10px; width:calc(100% - 20px); max-width:1120px;}
   .row{display:flex; flex-wrap:wrap; gap:8px}
   .row>*{flex:1 1 auto; min-width:120px}
-  button,select,input[type="file"],input[type="text"],input[type="number"]{
+  button,select,input[type="file"],input[type="text"],input[type="number"],input[type="range"]{
     padding:12px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer
   }
   input[type="text"], input[type="number"], textarea{cursor:text}
+  input[type="range"]{cursor:ew-resize}
   .primary{border-color:#b3d7ff; background:#f0f7ff}
   .active{outline:2px solid #3b82f6; background:#eaf2ff}
   #status{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:11;
@@ -69,6 +70,24 @@
 </div>
 
 <div class="panel">
+  <!-- ARKA PLAN SEÇİCİ -->
+  <div class="row" style="margin-bottom:8px">
+    <select id="basemapSel" title="Arka plan">
+      <option value="osm">OpenStreetMap</option>
+      <option value="esri">Esri World Imagery</option>
+      <option value="bing">Bing Maps Aerial</option>
+      <option value="mapbox">Mapbox Satellite</option>
+      <option value="custom">Custom XYZ (PNG/JPG)</option>
+      <option value="none">None</option>
+    </select>
+    <input id="xyzUrl" placeholder="Custom XYZ URL (https://…/{z}/{x}/{y}.png)" style="flex:2 1 320px; display:none">
+    <label style="display:flex;align-items:center;gap:8px">
+      Şeffaflık
+      <input id="baseOpacity" type="range" min="0" max="1" step="0.05" value="1" style="width:180px">
+    </label>
+    <span class="pill small">Uydu/ortofoto ile tam hassas çizim 👌</span>
+  </div>
+
   <div class="row" style="margin-bottom:8px">
     <select id="layerSel">
       <option value="outdoor">Hedef: OUTDOOR</option>
@@ -95,7 +114,7 @@
   </div>
 </div>
 
-<!-- Özellik Formu -->
+<!-- Özellik Formu (öncekiyle aynı; kırpmadım) -->
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
@@ -193,6 +212,12 @@
 </div>
 
 <script>
+/* ==========================
+   0) API Anahtarları
+   ========================== */
+const BING_KEY      = ""; // <- Bing Maps anahtarını gir (Aerial)
+const MAPBOX_TOKEN  = ""; // <- Mapbox access token (satellite)
+
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
 const statusEl = $("status");
@@ -206,8 +231,7 @@ const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }
 const saveLocal = debounce((k,layer)=> saveLocalRaw(k, writeGJ(layer)), 250);
 const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
 
-/* ====== stiller ====== */
-/* -- çizgi yön oku üretici -- */
+/* ====== stiller & yön okları ====== */
 function arrowStylesFor(line, color="#111", count=4, size=10){
   const styles=[];
   for(let i=1;i<=count;i++){
@@ -250,8 +274,6 @@ function baseStyleFor(f, dim=1){
     const w   = Math.max(1, p.width || (p.way==="shuttle"?4: (p.way==="bike"?3:2)));
     const dash = (p.way==="no_entry"? [6,6]: undefined);
     const styles=[ new ol.style.Style({ stroke:new ol.style.Stroke({color:col, width:w, lineDash:dash}) }) ];
-
-    // yön okları
     const ls = f.getGeometry();
     if(p.way==="oneway_fwd" || p.way==="oneway_rev" || p.way==="shuttle" || p.way==="bike" || p.way==="indoor" || p.way==="foot"){
       const dir = (p.way==="oneway_rev") ? ls.clone().reverse() : ls;
@@ -260,14 +282,12 @@ function baseStyleFor(f, dim=1){
     return styles;
   }
 
-  // Polygon
   const fillC = p.fill || "rgba(0,150,0,0.18)";
   const strokeC = p.stroke || "rgba(0,0,0,0.6)";
   const w = Math.max(1, p.width || 2);
   return new ol.style.Style({ fill:new ol.style.Fill({color:fillC}),
     stroke:new ol.style.Stroke({color:strokeC,width:w})});
 }
-
 function buildingStyleFor(f, dim=1){
   const p=f.getProperties()||{};
   const stroke=new ol.style.Stroke({color:(p.stroke||`rgba(120,84,48,${0.8*dim})`),width:Math.max(1,p.width||2)});
@@ -290,24 +310,63 @@ function styleWrapper(name){
 }
 
 /* ====== katmanlar & harita ====== */
+/* 1) BaseMap katmanlarını hazırla */
+const baseLayers = {
+  osm: new ol.layer.Tile({visible:true,  source:new ol.source.OSM()}),
+  esri:new ol.layer.Tile({visible:false, source:new ol.source.XYZ({url:'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'})}),
+  bing:new ol.layer.Tile({visible:false, source: (BING_KEY? new ol.source.BingMaps({key:BING_KEY, imagerySet:'Aerial'}) : new ol.source.OSM())}),
+  mapbox:new ol.layer.Tile({visible:false, source: (MAPBOX_TOKEN? new ol.source.XYZ({url:`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`, tileSize:512}) : new ol.source.OSM())}),
+  custom:new ol.layer.Tile({visible:false, source:new ol.source.XYZ({url:''})})
+};
+
 const indoorLayer    = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("indoor")});
 const outdoorLayer   = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("outdoor")});
 const buildingsLayer = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("buildings")});
 
+/* 2) Haritayı oluştur */
 const map = new ol.Map({
   target:"map",
   layers:[
-    new ol.layer.Tile({source:new ol.source.OSM({ attributions:'© aihotelstech · © OpenStreetMap contributors' })}),
+    baseLayers.osm, baseLayers.esri, baseLayers.bing, baseLayers.mapbox, baseLayers.custom,
     indoorLayer, outdoorLayer, buildingsLayer
   ],
   view:new ol.View({center: ol.proj.fromLonLat([31.805,36.600]), zoom:17})
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
 
-const tgtLayer = ()=> {
-  const v = $("layerSel").value;
-  return v==="indoor" ? indoorLayer : v==="outdoor" ? outdoorLayer : buildingsLayer;
+/* 3) Basemap switcher işleyişi */
+const basemapSel=$("basemapSel"), xyzUrl=$("xyzUrl"), baseOpacity=$("baseOpacity");
+function applyBasemap(){
+  const v=basemapSel.value;
+  Object.keys(baseLayers).forEach(k=> baseLayers[k].setVisible(false));
+  if(v==="none"){ /* tümünü kapalı bırak */ }
+  else if(v==="custom"){
+    const url=(xyzUrl.value||"").trim();
+    if(!url.includes("{z}")||!url.includes("{x}")||!url.includes("{y}")){
+      alert("Custom XYZ için {z}/{x}/{y} içeren bir URL girin.");
+      return;
+    }
+    baseLayers.custom.setSource(new ol.source.XYZ({url}));
+    baseLayers.custom.setVisible(true);
+  }else{
+    if(v==="bing" && !BING_KEY) alert("Bing Aerial için BING_KEY girin.");
+    if(v==="mapbox" && !MAPBOX_TOKEN) alert("Mapbox Satellite için MAPBOX_TOKEN girin.");
+    baseLayers[v].setVisible(true);
+  }
+  setStatus("Arka plan: "+v);
+}
+basemapSel.onchange=()=>{
+  xyzUrl.style.display = basemapSel.value==="custom" ? "block" : "none";
+  applyBasemap();
 };
+xyzUrl.addEventListener("change", applyBasemap);
+baseOpacity.addEventListener("input", ()=> {
+  const v=parseFloat(baseOpacity.value)||1;
+  Object.values(baseLayers).forEach(l=> l.setOpacity(v));
+});
+
+/* hedef katman seçici */
+const tgtLayer = ()=> ($("layerSel").value==="indoor" ? indoorLayer : $("layerSel").value==="outdoor" ? outdoorLayer : buildingsLayer);
 
 /* ====== veri yükleme ====== */
 (function initLoad(){
@@ -316,7 +375,7 @@ const tgtLayer = ()=> {
   readGJToLayer(buildingsLayer, loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
 })();
 
-/* ====== konum – canlı mavi nokta + takip ====== */
+/* ====== konum – mavi nokta + takip ====== */
 const accEl = $("acc");
 let userMarker=null, accCircle=null, userLayer=null, follow=false, watchId=null;
 (function startWatch(){
@@ -343,7 +402,7 @@ let userMarker=null, accCircle=null, userLayer=null, follow=false, watchId=null;
 })();
 $("follow").onclick=()=>{ follow=!follow; $("follow").textContent = follow ? "🎯 Takip: Açık" : "🎯 Takip: Kapalı"; if(follow && userMarker) map.getView().setCenter(userMarker.getGeometry().getCoordinates()); };
 
-/* ====== etkileşimler ====== */
+/* ====== etkileşimler (çizim/seçim/araç kutusu) ====== */
 let mode=null, draw=null, select=null, selected=null, modify=null, snap=null, translate=null;
 function resetInteractions(){
   if(draw){map.removeInteraction(draw);draw=null;}
@@ -369,7 +428,6 @@ function enrich(f){
     f.set("len_m", Math.round(len));
   }
 }
-
 function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2]; }
 function toCircle(feature){
   const g=feature.getGeometry();
@@ -402,7 +460,7 @@ function copyFeature(feature, layer){
   layer.getSource().addFeature(clone); return clone;
 }
 
-/* tıklama ile Nokta/Çizgi/Poligon */
+/* çizim */
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla/dokun"); map.getTargetElement().style.cursor="crosshair"; };
 
@@ -440,7 +498,7 @@ $("selectBtn").onclick=(e)=>{
 $("layerSel").addEventListener("change",()=>{ resetInteractions(); indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); });
 $("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); });
 
-/* ====== Özellik Formu + Çok Dilli ====== */
+/* ====== Özellik Formu + Çok Dilli (tam) ====== */
 const modal=$("propModal");
 const fld = id => document.getElementById(id);
 function validateImg(u){ try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{return false;} }
@@ -464,7 +522,6 @@ function saveLangFields(p){
   p['image_'+ln] = img || undefined;
   return true;
 }
-
 function summarizeGeom(f){
   const g=f.getGeometry(), t=g.getType();
   if(t==="Point"){
@@ -475,7 +532,6 @@ function summarizeGeom(f){
   if(t==="Polygon") return `Polygon · merkez: ${ol.proj.transform(centerOf(g),'EPSG:3857','EPSG:4326').map(n=>n.toFixed(6)).join(", ")} · alan ≈ ${(f.get("area_m2")||0)} m²`;
   return t;
 }
-
 function openForm(f){
   editFeature=f;
   const p=f.getProperties(); const catSel=fld('f_category'), otherWrap=fld('catOtherWrap'), other=fld('f_category_other');
@@ -532,19 +588,17 @@ function openForm(f){
     if(!saveLangFields(props)) return;
     f.setProperties(props); enrich(f); tgtLayer().changed();
     saveLocal($("layerSel").value, tgtLayer()); setStatus("Kaydedildi.");
-    $("propClose").click(); // formu kapat
+    $("propClose").click();
   };
   fld('propClose').onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); };
   fld('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify); modify=new ol.interaction.Modify({ features: new ol.Collection([f]) }); map.addInteraction(modify); enableSnap(tgtLayer()); modify.on("modifyend",()=>{ enrich(f); saveLocal($("layerSel").value, tgtLayer()); $("f_metric").value=summarizeGeom(f); }); };
   $("geomReset").onclick=()=>{ if(modify){ map.removeInteraction(modify); modify=null; } };
   fld('propDelete').onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(f); saveLocal($("layerSel").value, tgtLayer()); modal.style.display="none"; resetInteractions(); } };
 
-  // açıklamadaki URL’leri tıklanabilir göstermek (küçük bir önizleme)
+  // açıklamadaki ilk URL’yi ipucu olarak göster
   const reg = /(https?:\/\/[^\s]+)/g;
   const hint = (fld('f_desc').value || '').match(reg)?.[0];
-  if(hint){
-    fld('f_metric').value += ` · link: ${hint}`;
-  }
+  if(hint){ fld('f_metric').value += ` · link: ${hint}`; }
 }
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape" && modal.style.display==="flex"){ modal.style.display="none"; }
@@ -572,7 +626,7 @@ $("imp").addEventListener("change", async e=>{
 });
 $("clearLocal").onclick=()=>{ if(confirm("Yerel veriyi sil?")){ localStorage.removeItem("indoor"); localStorage.removeItem("outdoor"); localStorage.removeItem("buildings"); alert("Temizlendi. Sayfayı yenileyin."); } };
 
-setStatus("Hazır: Indoor/Outdoor/3D Bina • Kopyala/taşı/daire/kare/flip • Yol tipleri & yön okları • Çok dilli içerik.");
+setStatus("Hazır: Uydu bazlı arka planlar + Indoor/Outdoor/3D • Kopyala/taşı/daire/kare/flip • Yol tipleri & yön okları • Çok dilli içerik.");
 </script>
 </body>
 </html>
