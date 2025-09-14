@@ -49,8 +49,8 @@
         "desc": "https://markokara.github.io/leaflet-blue-dot/admin.html menü için tıkla",
         "image": "https://www.dimitriseconomou.com/wp-content/uploads/2019/06/OLIVETREE1687.jpg",
         "width": 0,
-        "stroke": "#00FF00",
-        "fill": "#00FF00",
+        "stroke": "255, 0, 0, 0.5",
+        "fill": "255, 0, 0, 0.5",
         "height": 25,
         "levels": 3,
         "building:levels": 3
