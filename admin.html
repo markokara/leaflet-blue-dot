@@ -140,7 +140,7 @@
   </div>
 </div>
 
-<!-- ÖZELLİK FORMU -->
+<!-- ÖZELLİK FORMU (çok dilli + geometri düzenle) -->
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
@@ -150,6 +150,7 @@
         <label>Kategori</label>
         <select id="f_category">
           <option value="">Seçiniz…</option>
+          <!-- Tesis/alan/yol seçenekleri -->
           <option>restaurant</option><option>bar</option><option>spa</option><option>pool</option>
           <option>wc</option><option>elevator</option><option>stair</option><option>kidsclub</option>
           <option>reception</option><option>shop</option><option>gym</option><option>beach</option>
@@ -233,8 +234,11 @@
 </div>
 
 <script>
-/* ====== TOKEN ====== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";  // ← kendi pk... tokenını yaz
+/* ====== TOKENLER ====== */
+/* Mapbox Satellite alttaki zemin için gereklidir (pk... public) */
+const MAPBOX_TOKEN  = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
+/* MapLibre 3D'de terrain istiyorsan MapTiler KEY ver (opsiyonel). Boş bırakılırsa yalnız bina ekstrüzyonu gösterilir. */
+const MAPTILER_KEY  = "ym4UWHwsNK61YUsmqi5C";
 
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
@@ -375,9 +379,14 @@ function ensureML(){
   const style={
     "version":8,
     "sources":{
+      /* Terrain yalnız MapTiler KEY varsa eklenir */
+      ...(MAPTILER_KEY?{
+        "terr":{"type":"raster-dem","url":`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`,"tileSize":256}
+      }:{}),
       "bld":{"type":"geojson","data": loadLocal("buildings") || {"type":"FeatureCollection","features":[]}}
     },
     "layers":[
+      ...(MAPTILER_KEY?[{"id":"hill","type":"hillshade","source":"terr","paint":{"hillshade-exaggeration":0.6}}]:[]),
       {"id":"bld-ex","type":"fill-extrusion","source":"bld",
        "paint":{
          "fill-extrusion-color":["coalesce",["get","fill"],"#c9b49b"],
@@ -400,6 +409,13 @@ function ensureML(){
     bearing:mlBearing,
     antialias:true,
     attributionControl:false
+  });
+  mlMap.on('load',()=>{
+    if(MAPTILER_KEY){
+      mlMap.setTerrain({source:'terr',exaggeration:1.0});
+      /* gökyüzü */
+      mlMap.addLayer({"id":"sky","type":"sky","paint":{"sky-type":"atmosphere","sky-opacity":1}});
+    }
   });
 }
 function syncMLView(){
@@ -488,7 +504,7 @@ function flipFeature(feature,longAxis=true){
 }
 function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.setId(crypto.randomUUID()); }catch{} const g=clone.getGeometry(); if(g && g.translate) g.translate(5,-5); layer.getSource().addFeature(clone); return clone; }
 
-/* nokta/çizgi/poligon çiz */
+/* çizimler */
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
 
