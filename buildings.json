@@ -38,6 +38,42 @@
         "building:levels": 4
       },
       "id": "14d9f010-e449-4ed3-b9f2-df8bbde7fffd"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.006460550314902,
+              36.86094569750507
+            ],
+            [
+              31.00872760003492,
+              36.86078542388428
+            ],
+            [
+              31.008677538777025,
+              36.86005846519245
+            ],
+            [
+              31.006460550314902,
+              36.86094569750507
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 12825,
+        "name": "test ana bina",
+        "category": "building",
+        "width": 2,
+        "height": 30,
+        "levels": 6,
+        "building:levels": 6
+      },
+      "id": "b52f41a2-a4d8-49e3-a65a-6960c45de9ea"
     }
   ]
 }
