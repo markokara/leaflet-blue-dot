@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Admin – Indoor/Outdoor/3D + Routes (Mapbox altta • OSM/3D üstte)</title>
+<title>Admin – OL Düzenleme • MapLibre 3D Önizleme (Satellite taban)</title>
 
 <!-- OpenLayers -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
@@ -15,10 +15,9 @@
 
 <style>
   html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial}
-
-  /* Sıralama: Mapbox (OL) altta → OSM overlay (OL) → 3D overlay (MapLibre) → vektörler (OL) → UI */
-  #map{position:fixed; inset:0; z-index:1; touch-action:none}
-  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:none} /* üstte şeffaf 3D katman */
+  /* Sıra: Mapbox (OL) altta → OSM overlay (OL) → 3D overlay (MapLibre) → vektörler (OL) → UI */
+  #map{position:fixed; inset:0; z-index:1}
+  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:none} /* şeffaf 3D katman, etkileşimi engellemez */
   .ol-attribution{font-size:10px; opacity:.85}
   .ol-attribution button{display:none}
 
@@ -40,7 +39,6 @@
     background:#111; color:#fff; padding:6px 10px; border-radius:8px; display:none; font-size:13px}
   .acc-badge{position:fixed; right:10px; top:10px; z-index:11; background:#fff; border:1px solid #ddd; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); display:none}
 
-  /* yüzen toolbox */
   .toolbox {position:fixed; left:10px; top:70px; z-index:15; background:#fff; border:1px solid #ddd;
     border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.18); display:none; flex-direction:column; gap:6px; padding:8px}
   .toolbox button{width:36px; height:36px; display:grid; place-items:center; border:1px solid #e5e7eb; border-radius:10px; background:#fff; cursor:pointer}
@@ -91,18 +89,19 @@
       <span id="mbBaseOpacityVal" class="small">1.00</span>
     </div>
 
-    <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
-      <input id="osmOverlayToggle" type="checkbox" checked> OSM (üstte)
-    </label>
+    <div style="min-width:260px">
+      <label class="small">Üst Katman</label>
+      <select id="topLayerSel">
+        <option value="osm" selected>OSM kılavuz (raster)</option>
+        <option value="ml3d">MapLibre 3D (terrain + binalar)</option>
+      </select>
+    </div>
+
     <div style="display:flex;align-items:center;gap:8px; min-width:220px">
       <span class="small">OSM opaklık</span>
       <input id="osmOverlayOpacity" type="range" min="0" max="1" step="0.05" value="0.40" style="flex:1">
       <span id="osmOverlayOpacityVal" class="small">0.40</span>
     </div>
-
-    <label id="lbl3d" style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
-      <input id="ml3dToggle" type="checkbox"> 3D (MapLibre üstte)
-    </label>
   </div>
 
   <div class="row" style="align-items:center">
@@ -141,7 +140,7 @@
   </div>
 </div>
 
-<!-- ÖZELLİK FORMU (çok dilli + geometri düzenle) -->
+<!-- ÖZELLİK FORMU -->
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
@@ -151,7 +150,6 @@
         <label>Kategori</label>
         <select id="f_category">
           <option value="">Seçiniz…</option>
-          <!-- Tesis/alan/yol seçenekleri -->
           <option>restaurant</option><option>bar</option><option>spa</option><option>pool</option>
           <option>wc</option><option>elevator</option><option>stair</option><option>kidsclub</option>
           <option>reception</option><option>shop</option><option>gym</option><option>beach</option>
@@ -236,7 +234,7 @@
 
 <script>
 /* ====== TOKEN ====== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug"; // <<< BURAYA Mapbox public token’ını (pk...) yaz
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";  // ← kendi pk... tokenını yaz
 
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
@@ -332,12 +330,12 @@ const routesLayer    = new ol.layer.VectorImage({source:new ol.source.Vector(), 
 [indoorLayer,outdoorLayer,buildingsLayer,routesLayer].forEach((l,i)=>l.setZIndex(20+i));
 const tgtLayer = ()=>{ const v=$("layerSel").value; return v==="indoor"?indoorLayer : v==="outdoor"?outdoorLayer : v==="buildings"?buildingsLayer : routesLayer; };
 
-/* ====== BASE: Mapbox (altta) + OSM overlay (üstte) ====== */
+/* ====== BASE: Mapbox (altta) + ÜST KATMAN SEÇİCİ ====== */
 const lyrBaseMB = new ol.layer.Tile({
   source: MAPBOX_TOKEN ? new ol.source.XYZ({
     url:`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
     crossOrigin:'anonymous', attributions:'© Mapbox © OpenStreetMap'
-  }) : new ol.source.OSM({attributions:'© OpenStreetMap'}), // token yoksa OSM base
+  }) : new ol.source.OSM({attributions:'© OpenStreetMap'}),
   opacity:1, zIndex:0, visible:true
 });
 const lyrOSMOverlay = new ol.layer.Tile({
@@ -352,12 +350,23 @@ const map = new ol.Map({
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
 
-/* ====== OSM/Mapbox UI ====== */
+/* ====== Üst katman seçimi ====== */
+function applyTopLayer(){
+  const v=$("topLayerSel").value;
+  const useOSM = (v==='osm');
+  lyrOSMOverlay.setVisible(useOSM);
+  $("osmOverlayOpacity").disabled = !useOSM;
+  $("osmOverlayOpacity").parentElement.style.opacity = useOSM?1:0.5;
+  if(v==='ml3d'){ ensureML(); $("ml3d").style.display='block'; syncMLView(); }
+  else { $("ml3d").style.display='none'; }
+}
+$("topLayerSel").addEventListener('change', applyTopLayer);
+applyTopLayer();
+
+/* ====== Base/OSM opaklık olayları ====== */
 $("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
 $("mbBaseOpacity").oninput=()=>{ const v=parseFloat($("mbBaseOpacity").value); lyrBaseMB.setOpacity(v); $("mbBaseOpacityVal").textContent=v.toFixed(2); };
-$("osmOverlayToggle").onchange=()=> lyrOSMOverlay.setVisible($("osmOverlayToggle").checked);
 $("osmOverlayOpacity").oninput=()=>{ const v=parseFloat($("osmOverlayOpacity").value); lyrOSMOverlay.setOpacity(v); $("osmOverlayOpacityVal").textContent=v.toFixed(2); };
-if(!MAPBOX_TOKEN){ $("mbBaseToggle").parentElement.title="Mapbox token yoksa OSM base kullanılır"; $("lbl3d").style.display="none"; }
 
 /* ====== 3D MapLibre OVERLAY (şeffaf) ====== */
 let mlMap=null, mlPitch=55, mlBearing=20;
@@ -379,13 +388,12 @@ function ensureML(){
        "filter":["==",["geometry-type"],"Polygon"]
       }
     ],
-    "glyphs":"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf", /* sadece gerekli olduğu için */
-    "sprite":"" /* yok */
+    "glyphs":"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
   };
   mlMap = new maplibregl.Map({
     container:"ml3d",
     style,
-    interactive:false, // pointer-events:none olduğu için fark etmez
+    interactive:false,
     center:[31.005,36.861],
     zoom:17,
     pitch:mlPitch,
@@ -404,15 +412,6 @@ function update3DBuildings(){
   if(!mlMap) return;
   const src=mlMap.getSource('bld'); if(src && src.setData) src.setData(loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
 }
-$("ml3dToggle").onchange=()=>{
-  const on=$("ml3dToggle").checked;
-  if(on){
-    if(!MAPBOX_TOKEN){ alert("3D için Mapbox gerekmiyor ama taban uydu için token önerilir."); }
-    ensureML(); $("ml3d").style.display="block"; syncMLView();
-  }else{
-    $("ml3d").style.display="none";
-  }
-};
 map.getView().on(['change:center','change:resolution'], syncMLView);
 
 /* ====== veri yükleme ====== */
@@ -489,7 +488,7 @@ function flipFeature(feature,longAxis=true){
 }
 function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.setId(crypto.randomUUID()); }catch{} const g=clone.getGeometry(); if(g && g.translate) g.translate(5,-5); layer.getSource().addFeature(clone); return clone; }
 
-/* kaldır / çiz / seç */
+/* nokta/çizgi/poligon çiz */
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
 
@@ -611,6 +610,13 @@ $("clearLocal").onclick=()=>{
   update3DBuildings();
   setStatus("Yerel veri temizlendi.");
 };
+
+/* ====== klavye kısayolları ====== */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ resetInteractions(); setStatus("Etkileşimler sıfırlandı."); }
+  if(e.ctrlKey && e.key.toLowerCase()==='d' && selected){ const c=copyFeature(selected, tgtLayer()); enrich(c); saveLocal($("layerSel").value, tgtLayer()); }
+  if(e.key==='0' && selected){ toCircle(selected); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); }
+});
 
 /* ====== 3D güncelle (yerel buildings) ====== */
 function update3DBuildings(){
