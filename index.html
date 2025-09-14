@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Long Beach Alanya</title>
+  <title>Misafir · Long Beach Alanya</title>
 
   <!-- MapLibre -->
   <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
@@ -12,14 +12,8 @@
   <style>
     :root{
       --shadow:0 10px 28px rgba(0,0,0,.18);
-      --muted:#5b6a6a;
-      --bg:#ffffff;
-      --brand:#0f5132;
-      --brand-2:#1b7a5b;
-      --bg-soft:#eaf5ef;
-      --field:#f4fbf7;
-      --border:#cfe3da;
-      --chip:#e6f4ef;
+      --muted:#5b6a6a; --bg:#ffffff; --brand:#0f5132; --brand-2:#1b7a5b;
+      --bg-soft:#eaf5ef; --field:#f4fbf7; --border:#cfe3da; --chip:#e6f4ef;
     }
     html,body{height:100%;margin:0}
     body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
@@ -28,15 +22,15 @@
     .lang-float{
       position:fixed; left:12px; top:12px; z-index:1001;
       background:#fff; border:1px solid var(--border); border-radius:12px;
-      box-shadow:var(--shadow); padding:6px 8px;
+      box-shadow:var(--shadow); padding:6px 8px; display:flex; gap:8px; align-items:center;
     }
-    .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
+    .lang-float select, .lang-float button{
+      border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px; cursor:pointer
+    }
 
     .panel{
-      position:fixed; left:50%; bottom:0;
-      transform: translate(-50%, var(--panel-ty, 0px));
-      transition: transform .2s ease;
-      width:min(860px,96vw); z-index:1000;
+      position:fixed; left:50%; bottom:0; transform: translate(-50%, var(--panel-ty, 0px));
+      transition: transform .2s ease; width:min(860px,96vw); z-index:1000;
     }
     .card{background:var(--bg-soft); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
     .p-8{padding:10px}
@@ -77,12 +71,19 @@
 </head>
 <body>
 
-  <!-- Dil -->
+  <!-- Dil + Taban harita seçici -->
   <div class="lang-float">
     <select id="lang" aria-label="Dil">
       <option value="tr" selected>TR</option><option value="en">EN</option>
       <option value="ru">RU</option><option value="de">DE</option><option value="pl">PL</option>
     </select>
+
+    <label>
+      <select id="basemapSel" title="Taban harita">
+        <option value="sat">Mapbox Satellite</option>
+        <option value="mt">MapTiler Streets (OSM)</option>
+      </select>
+    </label>
   </div>
 
   <div id="map" aria-label="Harita"></div>
@@ -91,7 +92,6 @@
   <div class="panel" id="sheet">
     <div class="card">
       <div class="grab" id="grab" aria-label="Paneli aç/kapa"></div>
-      <div class="grab" id="grab2" aria-label="Paneli sürükle"></div>
       <div class="p-8 stack" id="sheetContent">
 
         <div class="row searchrow">
@@ -103,13 +103,6 @@
           <button id="pick">Haritadan Hedef</button>
           <button id="follow">📍 Konumum: Kapalı</button>
           <button id="reset">Sıfırla</button>
-          <!-- ALTLIK SEÇİMİ -->
-          <label class="chip" title="Altlık: OpenStreetMap">
-            <input type="radio" name="basemap" id="baseOSM" checked><span>OSM (altta)</span><span class="tick">✓</span>
-          </label>
-          <label class="chip" title="Altlık: Mapbox Satellite">
-            <input type="radio" name="basemap" id="baseSAT"><span>Satellite (altta)</span><span class="tick">✓</span>
-          </label>
         </div>
 
         <div class="row ctlsB">
@@ -125,7 +118,7 @@
 
         <div id="results" class="results"></div>
 
-        <!-- Tekil id -->
+        <!-- Rota kutusu -->
         <div id="dir" class="dir">
           <div class="hdr">
             <div><span class="sum" id="dirSum">–</span> <span class="muted" id="dirSub"></span></div>
@@ -137,7 +130,7 @@
           <div class="list" id="dirList"></div>
         </div>
 
-        <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © Mapbox</div>
+        <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © MapTiler · © Mapbox</div>
       </div>
     </div>
   </div>
@@ -145,8 +138,11 @@
   <div id="acc" class="acc" style="display:none"></div>
 
   <script>
+  /* ================== ANAHTARLAR ================== */
+  const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";  // ← Mapbox public token
+  const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";  // ← MapTiler key
+
   /* ================== AYARLAR ================== */
-  const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug"; // ← kendi Mapbox public tokenını yaz
   const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
   const PADDING = {top:120,right:16,bottom:160,left:16};
   const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
@@ -190,41 +186,29 @@
   };
   const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
 
-  /* ================== MapLibre – Stil (OSM/Satellite) ================== */
-  const BASE_STYLE = {
-    version:8,
-    sources:{
-      osm:{ type:'raster',
-        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize:256, attribution:'© OpenStreetMap contributors'
-      },
-      sat:{ type:'raster',
-        tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
-        tileSize:256, attribution:'© Mapbox'
-      }
-    },
-    layers:[
-      { id:'bg-sat', type:'raster', source:'sat', layout:{visibility:'none'} },
-      { id:'bg-osm', type:'raster', source:'osm', layout:{visibility:'visible'} }
+  /* ================== MapLibre (özel minimal stil) ================== */
+  const baseStyle = {
+    "version":8,
+    "sources":{},
+    "layers":[
+      {"id":"background","type":"background","paint":{"background-color":"#dfe7e7"}}
     ]
   };
 
-  /* ================== MapLibre – Harita ================== */
   const map = new maplibregl.Map({
     container:'map',
-    style: BASE_STYLE,
+    style: baseStyle,
     center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2, (HOTEL_BBOX[1]+HOTEL_BBOX[3])/2],
     zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING,
     attributionControl:false, maxZoom:21
   });
   map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
-  map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
+  map.addControl(new maplibregl.AttributionControl({compact:true, customAttribution:'© aihotelstech'}));
 
   /* ============ DOM ============ */
   const $ = id=>document.getElementById(id);
-  const q=$('q'), goBtn=$('go'), langSel=$('lang'), pickBtn=$('pick'), followBtn=$('follow'),
-        toggleDetails=$('toggleDetails'), resetBtn=$('reset'), results=$('results'),
-        acc=$('acc'), hint=$('hint'), baseOSM=$('baseOSM'), baseSAT=$('baseSAT');
+  const q=$('q'), goBtn=$('go'), langSel=$('lang'), pickBtn=$('pick'), followBtn=$('follow'), toggleDetails=$('toggleDetails'), resetBtn=$('reset'), results=$('results'), acc=$('acc'), hint=$('hint');
+  const basemapSel=$('basemapSel');
   const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
   const tglIndoor=$('tglIndoor'), tglOutdoor=$('tglOutdoor');
 
@@ -235,7 +219,7 @@
 
   /* ============ Yardımcılar ============ */
   function emptyFC(){ return {type:'FeatureCollection',features:[]}; }
-  function linkify(text){ return text ? text.replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>') : ''; }
+  function linkify(text){ if(!text) return ''; return text.replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
   function buildFilter(base){
     const detailsFilter = showAllDetails ? ['boolean', true] : ['in', ['downcase',['get','category']], ['literal', Array.from(FEATURED)]];
     const searchFilter  = !searchActive ? ['boolean', true] : ['in', ['id'], ['literal', searchIds]];
@@ -244,10 +228,10 @@
   function addAreaLayer(src, defaultColor){
     const id=`${src}-fill`;
     map.addLayer({ id, type:'fill', source:src,
-      paint:{ 'fill-color':['coalesce',['get','fill'],defaultColor], 'fill-opacity':['coalesce',['get','fill_op'],0.35] }
+      paint:{ 'fill-color':['coalesce',['get','fill'], defaultColor], 'fill-opacity':['coalesce',['get','fill_op'],0.35] }
     });
     map.addLayer({ id:`${src}-fill-outline`, type:'line', source:src,
-      paint:{ 'line-color':['coalesce',['get','stroke'],defaultColor], 'line-width':['coalesce',['get','stroke_w'],1.6] },
+      paint:{ 'line-color':['coalesce',['get','stroke'], defaultColor], 'line-width':['coalesce',['get','stroke_w'],1.6] },
       filter:['==',['geometry-type'],'Polygon']
     });
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Polygon']]));
@@ -255,56 +239,92 @@
   }
   function addLineLayer(src, defaultColor){
     const id=`${src}-line`;
-    map.addLayer({ id, type:'line', source:src,
-      paint:{ 'line-color':['coalesce',['get','stroke'],defaultColor], 'line-width':['coalesce',['get','stroke_w'],2] }
-    });
+    map.addLayer({ id, type:'line', source:src, paint:{ 'line-color':['coalesce',['get','stroke'], defaultColor], 'line-width':['coalesce',['get','stroke_w'],2] }});
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'LineString']]));
   }
   function addPointLayer(src, defaultColor){
     const id=`${src}-pts`;
-    map.addLayer({ id, type:'circle', source:src,
-      paint:{
-        'circle-radius':['coalesce',['get','icon_sz'],6],
-        'circle-color':['coalesce',['get','stroke'],defaultColor],
-        'circle-stroke-color':'#fff','circle-stroke-width':1.6
-      }
-    });
+    map.addLayer({ id, type:'circle', source:src, paint:{
+      'circle-radius': ['coalesce', ['get','icon_sz'], 6],
+      'circle-color': ['coalesce', ['get','stroke'], defaultColor],
+      'circle-stroke-color':'#fff', 'circle-stroke-width':1.6
+    }});
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']]));
   }
   function refreshFilters(){
-    ['indoor-fill','outdoor-fill','indoor-line','outdoor-line'].forEach(id=> map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Polygon']])));
-    ['indoor-pts','outdoor-pts','indoor-fill-outline','outdoor-fill-outline'].forEach(id=> map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']])));
+    ['indoor-fill','outdoor-fill','indoor-line','outdoor-line'].forEach(id=>{
+      if(map.getLayer(id)) map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Polygon']]));
+    });
+    ['indoor-pts','outdoor-pts','indoor-fill-outline','outdoor-fill-outline'].forEach(id=>{
+      if(map.getLayer(id)) map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']]));
+    });
   }
   function fixColors(fc){
-    (fc.features||[]).forEach(f=>{
+    fc.features.forEach(f=>{
       const p=f.properties||(f.properties={});
-      if(p.fill && typeof p.fill==='string' && !p.fill.startsWith('#')) p.fill='#'+p.fill;
-      if(p.stroke && typeof p.stroke==='string' && !p.stroke.startsWith('#')) p.stroke='#'+p.stroke;
+      if(p.fill && typeof p.fill==='string' && !p.fill.startsWith('#')) p.fill = '#'+p.fill;
+      if(p.stroke && typeof p.stroke==='string' && !p.stroke.startsWith('#')) p.stroke = '#'+p.stroke;
     });
+  }
+  function bboxFromGeom(g){
+    try{
+      const coords = g.type==='Polygon' ? g.coordinates.flat(1)
+                  : g.type==='MultiPolygon' ? g.coordinates.flat(2)
+                  : g.type==='LineString' ? g.coordinates
+                  : g.type==='Point' ? [g.coordinates] : [];
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
+      return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
+    }catch{return null;}
+  }
+  function coordOfFeature(f){
+    const g=f.geometry;
+    if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
+    if(g.type==='Point') return g.coordinates;
+    if(g.type==='Polygon'){ const ring=g.coordinates[0]; return ring[Math.floor(ring.length/2)]; }
+    if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
+    return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
   }
 
   /* ============ Yükleme ============ */
   map.on('load', async ()=>{
-    // kaynaklar
+    // 1) Baz katman kaynakları ve raster katmanlar
+    map.addSource('mbsat', {
+      type:'raster',
+      tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
+      tileSize:256, attribution:'© Mapbox © OpenStreetMap'
+    });
+    map.addLayer({id:'mbsat-lyr', type:'raster', source:'mbsat', minzoom:0, maxzoom:22});
+
+    map.addSource('mtstreets', {
+      type:'raster',
+      tiles:[`https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}@2x.png?key=${MAPTILER_KEY}`],
+      tileSize:256, attribution:'© MapTiler © OpenStreetMap'
+    });
+    map.addLayer({id:'mtstreets-lyr', type:'raster', source:'mtstreets', minzoom:0, maxzoom:22});
+    // Varsayılan: Mapbox Satellite açık
+    setBasemap(localStorage.getItem('basemap') || 'sat');
+
+    // 2) Veri kaynakları
     map.addSource('indoor',  {type:'geojson', data:emptyFC(), promoteId:'fid'});
     map.addSource('outdoor', {type:'geojson', data:emptyFC(), promoteId:'fid'});
-    map.addSource('dest',    {type:'geojson', data:emptyFC()});
-    map.addSource('route',   {type:'geojson', data:emptyFC()});
-    map.addSource('me',      {type:'geojson', data:emptyFC()});
-
-    // katmanlar
     addAreaLayer('indoor','#2563eb'); addAreaLayer('outdoor','#2563eb');
     addLineLayer('indoor','#2563eb'); addLineLayer('outdoor','#2563eb');
-    addPointLayer('indoor','#3b82f6'); addPointLayer('outdoor','#e11d48');
+    addPointLayer('indoor','#f94144'); addPointLayer('outdoor','#f94144');
 
+    // Hedef/rota/bluedot
+    map.addSource('dest', {type:'geojson', data:emptyFC()});
     map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':7,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
+    map.addSource('route', {type:'geojson', data:emptyFC()});
     map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}});
-    map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':['case',['<=',['get','acc'],35],'#1d4ed8','#9ca3af'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
+    map.addSource('me', {type:'geojson', data:emptyFC()});
+    map.addLayer({ id:'me-pt',type:'circle',source:'me',
+      paint:{ 'circle-radius':6, 'circle-color':['case',['<=',['get','acc'],35],'#1d4ed8','#9ca3af'], 'circle-stroke-color':'#fff','circle-stroke-width':1.6 }
+    });
+
+    map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]], {padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
 
     await loadJSONs();
-
-    map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],
-      {padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
     applyLang();
   });
 
@@ -315,15 +335,30 @@
       fetch('outdoor.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC())
     ]);
     fixColors(indoor); fixColors(outdoor);
-    let fid=1; indoor.features.forEach(f=>{(f.properties||(f.properties={})).fid=f.properties.fid||('i'+fid++);});
-               outdoor.features.forEach(f=>{(f.properties||(f.properties={})).fid=f.properties.fid||('o'+fid++);});
+
+    let fid=1;
+    indoor.features.forEach(f=>{ (f.properties||(f.properties={})).fid = f.properties.fid || ('i'+fid++); });
+    outdoor.features.forEach(f=>{ (f.properties||(f.properties={})).fid = f.properties.fid || ('o'+fid++); });
+
     map.getSource('indoor').setData(indoor);
     map.getSource('outdoor').setData(outdoor);
+
     allFeats = indoor.features.map(f=>({...f,__src:'indoor'}))
-             .concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
+              .concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
     searchActive=false; searchIds=[]; results.style.display='none'; hint.style.display='none';
     refreshFilters();
   }
+
+  /* ============ Basemap toggle ============ */
+  function setBasemap(val){
+    // sadece biri görünür olacak
+    const satOn = (val==='sat');
+    if(map.getLayer('mbsat-lyr'))     map.setLayoutProperty('mbsat-lyr','visibility', satOn?'visible':'none');
+    if(map.getLayer('mtstreets-lyr')) map.setLayoutProperty('mtstreets-lyr','visibility', satOn?'none':'visible');
+    basemapSel.value = satOn ? 'sat' : 'mt';
+    localStorage.setItem('basemap', basemapSel.value);
+  }
+  basemapSel.addEventListener('change', ()=> setBasemap(basemapSel.value));
 
   /* ============ Dil ============ */
   function applyLang(){
@@ -337,26 +372,20 @@
   }
   langSel.value=LANG; langSel.addEventListener('change',()=>{ LANG=langSel.value; applyLang(); });
 
-  /* ============ Altlık seçim ============ */
-  function setBasemap(which){
-    map.setLayoutProperty('bg-osm','visibility', which==='osm' ? 'visible':'none');
-    map.setLayoutProperty('bg-sat','visibility', which==='sat' ? 'visible':'none');
-  }
-  baseOSM.addEventListener('change', ()=> baseOSM.checked && setBasemap('osm'));
-  baseSAT.addEventListener('change', ()=> baseSAT.checked && setBasemap('sat'));
-
   /* ============ Arama ============ */
   function detectCategory(qs){
     const nq=norm(qs), dict=I18N[LANG]?.cats||{};
     for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq)||nq.includes(norm(label))) return k; }
     return KEYWORD_TO_CAT[nq] || null;
   }
-  function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
-
+  function nameInAnyLang(p){
+    return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || '';
+  }
   q.addEventListener('input', ()=>{
     const val=(q.value||'').trim();
     if(!val){ searchActive=false; searchIds=[]; results.style.display='none'; hint.style.display='none'; refreshFilters(); return; }
     const qn=norm(val), maybeCat=detectCategory(val);
+
     const hits = allFeats.filter(f=>{
       const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
       if(maybeCat && cat===maybeCat) return true;
@@ -365,6 +394,7 @@
       const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
       return ex.some(d=>d.includes(qn));
     });
+
     showResults(hits, maybeCat);
     searchIds = hits.map(f=> (f.properties?.fid));
     searchActive=true; refreshFilters(); hint.style.display='inline';
@@ -378,6 +408,7 @@
   function showResults(list,cat){
     results.innerHTML='';
     const hintDiv=document.createElement('div'); hintDiv.className='hint'; hintDiv.textContent=t().ui.hint; results.appendChild(hintDiv);
+
     if(cat){
       const feats=allFeats.filter(f=> (f.properties?.category||'').toLowerCase()===cat);
       const div=document.createElement('div');
@@ -385,6 +416,7 @@
       div.onclick=()=>{ if(!feats.length) return; searchIds = feats.map(f=>f.properties.fid); searchActive=true; refreshFilters(); results.style.display='none'; };
       results.appendChild(div);
     }
+
     list.slice(0,80).forEach(f=>{
       const p=f.properties||{}; const meta=[f.__src==='indoor'?'Indoor':'Outdoor', p.category||'', p.level||''].filter(Boolean).join(' · ');
       const div=document.createElement('div'); div.className='item';
@@ -396,17 +428,28 @@
   }
 
   /* ============ Toggle'lar ============ */
+  function refreshVisibility(){
+    ['indoor-fill','indoor-fill-outline','indoor-line','indoor-pts'].forEach(id=>{
+      if(map.getLayer(id)) map.setLayoutProperty(id,'visibility', tglIndoor.checked?'visible':'none');
+    });
+    ['outdoor-fill','outdoor-fill-outline','outdoor-line','outdoor-pts'].forEach(id=>{
+      if(map.getLayer(id)) map.setLayoutProperty(id,'visibility', tglOutdoor.checked?'visible':'none');
+    });
+  }
   toggleDetails.onclick=()=>{ showAllDetails=!showAllDetails; toggleDetails.textContent = showAllDetails ? t().ui.detailsOn : t().ui.detailsOff; refreshFilters(); };
-  tglIndoor.onchange =()=>{ ['indoor-fill','indoor-fill-outline','indoor-line','indoor-pts'].forEach(id=> map.setLayoutProperty(id,'visibility', tglIndoor.checked?'visible':'none')); };
-  tglOutdoor.onchange=()=>{ ['outdoor-fill','outdoor-fill-outline','outdoor-line','outdoor-pts'].forEach(id=> map.setLayoutProperty(id,'visibility', tglOutdoor.checked?'visible':'none')); };
+  tglIndoor.onchange =()=> refreshVisibility();
+  tglOutdoor.onchange=()=> refreshVisibility();
 
   /* ============ BLUE DOT ============ */
   let followState=false, lastRaw=null, lastFiltered=null, lastKnown=null;
   const MAX_ACC=25, MIN_MOVE=4, ALPHA=0.22, BUF=6;
   const goodBuf=[];
+
   function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000; const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]); const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(h))); }
 
-  if('geolocation' in navigator){ try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{} }
+  if('geolocation' in navigator){
+    try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
+  }
   if('geolocation' in navigator){
     navigator.geolocation.watchPosition(p=>{
       const accM=Math.round(p.coords.accuracy||999);
@@ -414,7 +457,8 @@
       lastRaw=raw;
 
       if(accM<=MAX_ACC){
-        goodBuf.push({lng:raw[0],lat:raw[1],w:1/((accM||1)**2)}); if(goodBuf.length>BUF) goodBuf.shift();
+        goodBuf.push({lng:raw[0],lat:raw[1],w:1/((accM||1)**2)});
+        if(goodBuf.length>BUF) goodBuf.shift();
       }
       let cand=raw;
       if(goodBuf.length){
@@ -422,7 +466,10 @@
         cand=[sx/sw, sy/sw];
       }
       if(!lastFiltered) lastFiltered={lng:cand[0],lat:cand[1]};
-      else{ lastFiltered.lng = ALPHA*cand[0] + (1-ALPHA)*lastFiltered.lng; lastFiltered.lat = ALPHA*cand[1] + (1-ALPHA)*lastFiltered.lat; }
+      else{
+        lastFiltered.lng = ALPHA*cand[0] + (1-ALPHA)*lastFiltered.lng;
+        lastFiltered.lat = ALPHA*cand[1] + (1-ALPHA)*lastFiltered.lat;
+      }
       const display=[lastFiltered.lng,lastFiltered.lat];
       if(lastKnown && hav(lastKnown, display)<MIN_MOVE && accM>MAX_ACC){} else { lastKnown=display; }
 
@@ -438,7 +485,9 @@
   pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
   map.on('click', e=>{
     if(!pickMode){
-      const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline']});
+      const feats = map.queryRenderedFeatures(e.point, {layers:[
+        'indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline'
+      ]});
       if(feats && feats[0]) showPopup(feats[0], e.lngLat); else closePopup();
       return;
     }
@@ -483,7 +532,7 @@
     map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
   };
 
-  // Bottom sheet
+  // Bottom sheet sürükle/aç-kapa
   (function(){
     const sheet=document.getElementById('sheet');
     const grab =document.getElementById('grab');
@@ -517,7 +566,7 @@
     const p=f.properties||{}, L=t();
     const name = p['name_'+LANG] || p.name || '';
     const catKey=(p.category||'').toLowerCase();
-    theCat = L.cats[catKey] || p.category || '';
+    const catLabel=L.cats[catKey] || p.category || '';
     const hours = p['hours_'+LANG] || p.hours || '';
     const level = p['level_'+LANG] || p.level || '';
     const desc = p['desc_'+LANG] || p.desc || '';
@@ -525,7 +574,7 @@
     const html = `
       <div style="min-width:220px">
         <div style="font-weight:600;margin-bottom:6px;color:var(--brand)">${name}</div>
-        ${theCat?`<div class="badge" title="${L.labels.category}">${theCat}</div>`:''}
+        ${catLabel?`<div class="badge" title="${L.labels.category}">${catLabel}</div>`:''}
         ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
         ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
         ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
@@ -534,19 +583,6 @@
     (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true}))).setLngLat(lngLat).setHTML(html).addTo(map);
   }
   function closePopup(){ if(popup) popup.remove(); }
-  function coordOfFeature(f){
-    const g=f.geometry;
-    if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
-    if(g.type==='Point') return g.coordinates;
-    if(g.type==='Polygon'){ const ring=g.coordinates[0]; return ring[Math.floor(ring.length/2)]; }
-    if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
-    return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
-  }
-  function focusFeature(f,open){
-    const ex=bboxFromGeom(f.geometry);
-    if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
-    if(open) showPopup(f, coordOfFeature(f));
-  }
 
   /* küçük yardımcılar */
   function stepText(s){
@@ -567,22 +603,6 @@
     const la1=toRad(a[1]), la2=toRad(b[1]);
     const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
     return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
-  }
-  function bboxFromGeom(g){
-    try{
-      const coords = g.type==='Polygon' ? g.coordinates.flat(1)
-                   : g.type==='MultiPolygon' ? g.coordinates.flat(2)
-                   : g.type==='LineString' ? g.coordinates
-                   : g.type==='Point' ? [g.coordinates] : [];
-      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=Infinity*-1;
-      coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
-      return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
-    }catch{return null;}
-  }
-  function bboxFromFeatures(fs){
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    fs.forEach(f=>{ const ex=bboxFromGeom(f.geometry); if(ex){ if(ex[0]<minX)minX=ex[0]; if(ex[1]<minY)minY=ex[1]; if(ex[2]>maxX)maxX=ex[2]; if(ex[3]>maxY)maxY=ex[3]; }});
-    return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
   }
   </script>
 </body>
