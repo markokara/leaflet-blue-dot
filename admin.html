@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 <title>Admin – Tek Sahne (Satellite ↔ MapLibre 3D) + Çizim/Özellikler</title>
 
-<!-- MapLibre -->
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
-<!-- Mapbox GL Draw (MapLibre ile uyumlu) -->
 <link href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css" rel="stylesheet">
 <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
 
@@ -138,8 +136,8 @@
 
 <script>
 /* ===== TOKENLER ===== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";   // değiştir
-const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C"; // değiştir
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";   // istersen değiştir
+const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C"; // istersen değiştir
 
 /* ===== HARİTA SABİTLERİ ===== */
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
@@ -154,7 +152,7 @@ const lsGet = k => { try{ const s=localStorage.getItem(k); return s?JSON.parse(s
 const lsSet = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
 const dl = (obj,name)=>{ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); };
 
-/* MapboxDraw, MapLibre ile çalışsın */
+/* MapboxDraw’ın mapboxgl globaline ihtiyacı var */
 window.mapboxgl = maplibregl;
 
 /* ===== MAPLIBRE SAHNESİ ===== */
@@ -174,11 +172,10 @@ map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotels
 
 /* ===== TABANLAR + KATMANLAR ===== */
 map.on('load', () => {
-  // Satellite (raster)
+  // Satellite (MapTiler tiles.json → tileSize otomatik, CORS sorunsuz)
   map.addSource('sat', {
     type:'raster',
-    tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
-    tileSize:256, attribution:"© Mapbox © OSM"
+    url:`https://api.maptiler.com/maps/satellite/tiles.json?key=${MAPTILER_KEY}`
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat', paint:{'raster-opacity': parseFloat($('satOp').value)}}, 'bg');
 
@@ -208,11 +205,10 @@ map.on('load', () => {
   addRouteLayers();
   addBlueDot();
 
-  // İlk durumlar (STYLE YÜKLENDİKTEN SONRA!)
+  // İlk durumlar
   $('satOp').dispatchEvent(new Event('input'));
   applyBasemap();
   applyLevelFilter();
-
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]], {padding:PADDING, maxZoom:19});
 });
 
@@ -220,10 +216,7 @@ map.on('load', () => {
 function addFeatureLayers(src){
   map.addLayer({id:`${src}-fill`, type:'fill', source:src,
     filter:['==',['geometry-type'],'Polygon'],
-    paint:{
-      'fill-color'  :['coalesce',['get','fill'],'#2563eb'],
-      'fill-opacity':['coalesce',['get','fill_op'],0.35]
-    }
+    paint:{ 'fill-color':['coalesce',['get','fill'],'#2563eb'], 'fill-opacity':['coalesce',['get','fill_op'],0.35] }
   });
   map.addLayer({id:`${src}-outline`, type:'line', source:src,
     filter:['==',['geometry-type'],'Polygon'],
@@ -235,16 +228,11 @@ function addFeatureLayers(src){
   });
   map.addLayer({id:`${src}-pts`, type:'circle', source:src,
     filter:['==',['geometry-type'],'Point'],
-    paint:{
-      'circle-radius':['coalesce',['get','icon_sz'],6],
-      'circle-color' :['coalesce',['get','stroke'],'#e53935'],
-      'circle-stroke-color':'#fff','circle-stroke-width':1.6
-    }
+    paint:{ 'circle-radius':['coalesce',['get','icon_sz'],6], 'circle-color':['coalesce',['get','stroke'],'#e53935'], 'circle-stroke-color':'#fff','circle-stroke-width':1.6 }
   });
 }
 
 function addBuildingLayers(){
-  // 2D görünüm (her zaman)
   map.addLayer({id:'bld-2d-fill', type:'fill', source:'buildings',
     filter:['==',['geometry-type'],'Polygon'],
     paint:{'fill-color':['coalesce',['get','fill'],'#c9b49b'],'fill-opacity':0.25}
@@ -254,7 +242,6 @@ function addBuildingLayers(){
     paint:{'line-color':['coalesce',['get','stroke'],'#8b6f55'],'line-width':['coalesce',['get','width'],2]}
   });
 
-  // 3D extrude (3D açıkken görünür)
   map.addLayer({id:'bld-3d-ex', type:'fill-extrusion', source:'buildings',
     layout:{visibility:'none'},
     filter:['==',['geometry-type'],'Polygon'],
@@ -277,17 +264,14 @@ function addRouteLayers(){
     'bike','#22c55e','run','#a855f7','shuttle','#f59e0b','service','#6b7280','indoor','#0ea5e9','foot','#1f2937',
     /*default*/ ['coalesce',['get','stroke'],'#1f2937']
   ];
-  // normal hatlar (no_entry hariç)
   map.addLayer({id:'routes-line', type:'line', source:'routes',
     filter:['all',['==',['geometry-type'],'LineString'], ['!=',['get','way'],'no_entry']],
     paint:{'line-color': colorByWay, 'line-width': ['coalesce',['get','width'], 3]}
   });
-  // "no_entry" için ayrı dashed layer (MapLibre'de data-driven dash desteklenmeyebilir)
   map.addLayer({id:'routes-noentry', type:'line', source:'routes',
     filter:['all',['==',['geometry-type'],'LineString'], ['==',['get','way'],'no_entry']],
     paint:{'line-color':'#ef4444','line-width':['coalesce',['get','width'],3],'line-dasharray':[6,6]}
   });
-  // yön okları (glyphs tanımlı!)
   map.addLayer({id:'routes-arrows', type:'symbol', source:'routes',
     filter:['all',['==',['geometry-type'],'LineString'], ['in',['get','way'], ['literal',['oneway_fwd','oneway_rev','shuttle','bike','indoor','foot','run']]]],
     layout:{'symbol-placement':'line','text-field':'→','text-size':14,'text-allow-overlap':true,'visibility': $('showArrows').checked ? 'visible':'none'},
@@ -318,19 +302,16 @@ function applyLevelFilter(){
   const lv=($('levelFilter').value||'').trim();
   const byLevel = lv ? ['==',['to-string',['coalesce',['get','level'],'']], lv] : ['boolean',true];
 
-  // indoor & outdoor
   [['indoor','Polygon','fill'],['indoor','Polygon','outline'],['indoor','LineString','line'],['indoor','Point','pts'],
    ['outdoor','Polygon','fill'],['outdoor','Polygon','outline'],['outdoor','LineString','line'],['outdoor','Point','pts']
   ].forEach(([src,gt,sfx])=>{
     setFilterIf(`${src}-${sfx}`, ['all',['==',['geometry-type'],gt], byLevel]);
   });
 
-  // buildings (2D + 3D)
   setFilterIf('bld-2d-fill', ['all',['==',['geometry-type'],'Polygon'], byLevel]);
   setFilterIf('bld-2d-line', ['all',['==',['geometry-type'],'Polygon'], byLevel]);
   setFilterIf('bld-3d-ex',   ['all',['==',['geometry-type'],'Polygon'], byLevel]);
 
-  // routes
   setFilterIf('routes-line',   ['all',['==',['geometry-type'],'LineString'], ['!=',['get','way'],'no_entry'], byLevel]);
   setFilterIf('routes-noentry',['all',['==',['geometry-type'],'LineString'], ['==',['get','way'],'no_entry'], byLevel]);
   setFilterIf('routes-arrows', ['all',['==',['geometry-type'],'LineString'], ['in',['get','way'], ['literal',['oneway_fwd','oneway_rev','shuttle','bike','indoor','foot','run']]], byLevel]);
@@ -398,7 +379,6 @@ $('imp').addEventListener('change', async e=>{
   e.target.value='';
 });
 
-/* ====== Exportlar ====== */
 $('expIndoor').onclick   = ()=> dl(readSourceData('indoor'), 'indoor.json');
 $('expOutdoor').onclick  = ()=> dl(readSourceData('outdoor'),'outdoor.json');
 $('expBuildings').onclick= ()=> dl(readSourceData('buildings'),'buildings.json');
