@@ -1,11 +1,43 @@
 {
-  "type":"Feature",
-  "properties":{
-    "name":"Ana Bina",
-    "height":18,
-    "building:levels":3,
-    "wallColor":[176,170,160,235],
-    "roofColor":[218,214,206,245]
-  },
-  "geometry":{"type":"Polygon","coordinates":[[[31.8040,36.6001],[31.8045,36.6003],[31.8046,36.6000],[31.8041,36.5999],[31.8040,36.6001]]]}
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00522714738185,
+              36.86236118614298
+            ],
+            [
+              31.00560011197431,
+              36.86241030821182
+            ],
+            [
+              31.005642601595017,
+              36.8621344683833
+            ],
+            [
+              31.005250752798716,
+              36.86207401026962
+            ],
+            [
+              31.00522714738185,
+              36.86236118614298
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 1695,
+        "name": "test ana bina 2",
+        "height": 25,
+        "levels": 4,
+        "building:levels": 4
+      },
+      "id": "14d9f010-e449-4ed3-b9f2-df8bbde7fffd"
+    }
+  ]
 }
