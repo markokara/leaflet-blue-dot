@@ -103,6 +103,13 @@
           <button id="pick">Haritadan Hedef</button>
           <button id="follow">📍 Konumum: Kapalı</button>
           <button id="reset">Sıfırla</button>
+          <!-- ALTLIK SEÇİMİ -->
+          <label class="chip" title="Altlık: OpenStreetMap">
+            <input type="radio" name="basemap" id="baseOSM" checked><span>OSM (altta)</span><span class="tick">✓</span>
+          </label>
+          <label class="chip" title="Altlık: Mapbox Satellite">
+            <input type="radio" name="basemap" id="baseSAT"><span>Satellite (altta)</span><span class="tick">✓</span>
+          </label>
         </div>
 
         <div class="row ctlsB">
@@ -130,19 +137,7 @@
           <div class="list" id="dirList"></div>
         </div>
 
-        <!-- yedek kutu (gerekirse gösterilebilir) -->
-        <div id="dir2" class="dir" style="display:none">
-          <div class="hdr">
-            <div><span class="sum">–</span> <span class="muted"></span></div>
-            <div class="row">
-              <button>▲</button>
-              <button>Rota Temizle</button>
-            </div>
-          </div>
-          <div class="list"></div>
-        </div>
-
-        <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © MapTiler</div>
+        <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © Mapbox</div>
       </div>
     </div>
   </div>
@@ -151,7 +146,7 @@
 
   <script>
   /* ================== AYARLAR ================== */
-  const MAPTILER_KEY = "YOUR_MAPTILER_KEY"; // ← kendi anahtarını yaz
+  const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug"; // ← kendi Mapbox public tokenını yaz
   const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
   const PADDING = {top:120,right:16,bottom:160,left:16};
   const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
@@ -195,20 +190,41 @@
   };
   const KEYWORD_TO_CAT = (()=>{ const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m; })();
 
-  /* ================== MapLibre ================== */
+  /* ================== MapLibre – Stil (OSM/Satellite) ================== */
+  const BASE_STYLE = {
+    version:8,
+    sources:{
+      osm:{ type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256, attribution:'© OpenStreetMap contributors'
+      },
+      sat:{ type:'raster',
+        tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
+        tileSize:256, attribution:'© Mapbox'
+      }
+    },
+    layers:[
+      { id:'bg-sat', type:'raster', source:'sat', layout:{visibility:'none'} },
+      { id:'bg-osm', type:'raster', source:'osm', layout:{visibility:'visible'} }
+    ]
+  };
+
+  /* ================== MapLibre – Harita ================== */
   const map = new maplibregl.Map({
     container:'map',
-    style:`https://api.maptiler.com/maps/streets/style.json?key=ym4UWHwsNK61YUsmqi5C`,
+    style: BASE_STYLE,
     center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2, (HOTEL_BBOX[1]+HOTEL_BBOX[3])/2],
     zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING,
     attributionControl:false, maxZoom:21
   });
-  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
   map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
 
   /* ============ DOM ============ */
   const $ = id=>document.getElementById(id);
-  const q=$('q'), goBtn=$('go'), langSel=$('lang'), pickBtn=$('pick'), followBtn=$('follow'), toggleDetails=$('toggleDetails'), resetBtn=$('reset'), results=$('results'), acc=$('acc'), hint=$('hint');
+  const q=$('q'), goBtn=$('go'), langSel=$('lang'), pickBtn=$('pick'), followBtn=$('follow'),
+        toggleDetails=$('toggleDetails'), resetBtn=$('reset'), results=$('results'),
+        acc=$('acc'), hint=$('hint'), baseOSM=$('baseOSM'), baseSAT=$('baseSAT');
   const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
   const tglIndoor=$('tglIndoor'), tglOutdoor=$('tglOutdoor');
 
@@ -219,34 +235,19 @@
 
   /* ============ Yardımcılar ============ */
   function emptyFC(){ return {type:'FeatureCollection',features:[]}; }
-
-  // URL'leri tıklanabilir yap
-  function linkify(text){
-    if(!text) return '';
-    return text.replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-  }
-
-  // Filtre kur
+  function linkify(text){ return text ? text.replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>') : ''; }
   function buildFilter(base){
     const detailsFilter = showAllDetails ? ['boolean', true] : ['in', ['downcase',['get','category']], ['literal', Array.from(FEATURED)]];
     const searchFilter  = !searchActive ? ['boolean', true] : ['in', ['id'], ['literal', searchIds]];
     return ['all', ...base.slice(1), detailsFilter, searchFilter];
   }
-
-  // Katman ekleyiciler (GeoJSON özelliklerini kullanır)
   function addAreaLayer(src, defaultColor){
     const id=`${src}-fill`;
     map.addLayer({ id, type:'fill', source:src,
-      paint:{
-        'fill-color': ['coalesce', ['get','fill'], defaultColor],
-        'fill-opacity': ['coalesce', ['get','fill_op'], 0.35]
-      }
+      paint:{ 'fill-color':['coalesce',['get','fill'],defaultColor], 'fill-opacity':['coalesce',['get','fill_op'],0.35] }
     });
     map.addLayer({ id:`${src}-fill-outline`, type:'line', source:src,
-      paint:{
-        'line-color': ['coalesce', ['get','stroke'], defaultColor],
-        'line-width': ['coalesce', ['get','stroke_w'], 1.6]
-      },
+      paint:{ 'line-color':['coalesce',['get','stroke'],defaultColor], 'line-width':['coalesce',['get','stroke_w'],1.6] },
       filter:['==',['geometry-type'],'Polygon']
     });
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Polygon']]));
@@ -255,10 +256,7 @@
   function addLineLayer(src, defaultColor){
     const id=`${src}-line`;
     map.addLayer({ id, type:'line', source:src,
-      paint:{
-        'line-color': ['coalesce', ['get','stroke'], defaultColor],
-        'line-width': ['coalesce', ['get','stroke_w'], 2]
-      }
+      paint:{ 'line-color':['coalesce',['get','stroke'],defaultColor], 'line-width':['coalesce',['get','stroke_w'],2] }
     });
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'LineString']]));
   }
@@ -266,56 +264,47 @@
     const id=`${src}-pts`;
     map.addLayer({ id, type:'circle', source:src,
       paint:{
-        'circle-radius': ['coalesce', ['get','icon_sz'], 6],
-        'circle-color': ['coalesce', ['get','stroke'], defaultColor],
-        'circle-stroke-color':'#fff',
-        'circle-stroke-width':1.6
+        'circle-radius':['coalesce',['get','icon_sz'],6],
+        'circle-color':['coalesce',['get','stroke'],defaultColor],
+        'circle-stroke-color':'#fff','circle-stroke-width':1.6
       }
     });
     map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']]));
   }
   function refreshFilters(){
     ['indoor-fill','outdoor-fill','indoor-line','outdoor-line'].forEach(id=> map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Polygon']])));
-    ['indoor-pts','outdoor-pts', 'indoor-fill-outline','outdoor-fill-outline'].forEach(id=> map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']])));
+    ['indoor-pts','outdoor-pts','indoor-fill-outline','outdoor-fill-outline'].forEach(id=> map.setFilter(id, buildFilter(['all',['==',['geometry-type'],'Point']])));
   }
-
-  // Renk alanlarında # yoksa ekle
   function fixColors(fc){
-    fc.features.forEach(f=>{
-      const p = f.properties || (f.properties = {});
-      if(p.fill && typeof p.fill==='string' && !p.fill.startsWith('#')) p.fill = '#'+p.fill;
-      if(p.stroke && typeof p.stroke==='string' && !p.stroke.startsWith('#')) p.stroke = '#'+p.stroke;
+    (fc.features||[]).forEach(f=>{
+      const p=f.properties||(f.properties={});
+      if(p.fill && typeof p.fill==='string' && !p.fill.startsWith('#')) p.fill='#'+p.fill;
+      if(p.stroke && typeof p.stroke==='string' && !p.stroke.startsWith('#')) p.stroke='#'+p.stroke;
     });
   }
 
   /* ============ Yükleme ============ */
   map.on('load', async ()=>{
-    map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]], {padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
-
+    // kaynaklar
     map.addSource('indoor',  {type:'geojson', data:emptyFC(), promoteId:'fid'});
     map.addSource('outdoor', {type:'geojson', data:emptyFC(), promoteId:'fid'});
+    map.addSource('dest',    {type:'geojson', data:emptyFC()});
+    map.addSource('route',   {type:'geojson', data:emptyFC()});
+    map.addSource('me',      {type:'geojson', data:emptyFC()});
 
+    // katmanlar
     addAreaLayer('indoor','#2563eb'); addAreaLayer('outdoor','#2563eb');
     addLineLayer('indoor','#2563eb'); addLineLayer('outdoor','#2563eb');
-    addPointLayer('indoor','#f94144'); addPointLayer('outdoor','#f94144');
+    addPointLayer('indoor','#3b82f6'); addPointLayer('outdoor','#e11d48');
 
-    map.addSource('dest', {type:'geojson', data:emptyFC()});
     map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':7,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
-
-    map.addSource('route', {type:'geojson', data:emptyFC()});
     map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}});
-
-    map.addSource('me', {type:'geojson', data:emptyFC()});
-    map.addLayer({
-      id:'me-pt',type:'circle',source:'me',
-      paint:{
-        'circle-radius':6,
-        'circle-color': ['case', ['<=',['get','acc'],35], '#1d4ed8', '#9ca3af'],
-        'circle-stroke-color':'#fff','circle-stroke-width':1.6
-      }
-    });
+    map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':['case',['<=',['get','acc'],35],'#1d4ed8','#9ca3af'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
     await loadJSONs();
+
+    map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],
+      {padding:PADDING, maxZoom:19, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING});
     applyLang();
   });
 
@@ -325,17 +314,13 @@
       fetch('indoor.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC()),
       fetch('outdoor.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC())
     ]);
-
     fixColors(indoor); fixColors(outdoor);
-
-    let fid=1;
-    indoor.features.forEach(f=>{ f.properties=f.properties||{}; f.properties.fid=f.properties.fid||('i'+fid++); });
-    outdoor.features.forEach(f=>{ f.properties=f.properties||{}; f.properties.fid=f.properties.fid||('o'+fid++); });
-
+    let fid=1; indoor.features.forEach(f=>{(f.properties||(f.properties={})).fid=f.properties.fid||('i'+fid++);});
+               outdoor.features.forEach(f=>{(f.properties||(f.properties={})).fid=f.properties.fid||('o'+fid++);});
     map.getSource('indoor').setData(indoor);
     map.getSource('outdoor').setData(outdoor);
-
-    allFeats = indoor.features.map(f=>({...f,__src:'indoor'})).concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
+    allFeats = indoor.features.map(f=>({...f,__src:'indoor'}))
+             .concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
     searchActive=false; searchIds=[]; results.style.display='none'; hint.style.display='none';
     refreshFilters();
   }
@@ -343,14 +328,22 @@
   /* ============ Dil ============ */
   function applyLang(){
     const L=t();
-    q.placeholder=L.searchPH;  goBtn.textContent=L.go;
+    q.placeholder=L.searchPH;  $('go').textContent=L.go;
     $('pick').textContent=L.ui.pick; $('reset').textContent=L.ui.reset;
     followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
     toggleDetails.textContent = showAllDetails ? L.ui.detailsOn : L.ui.detailsOff;
-    clearRouteBtn.textContent=L.ui.clearRoute;
+    $('clearRoute').textContent=L.ui.clearRoute;
     localStorage.setItem('lang',LANG);
   }
   langSel.value=LANG; langSel.addEventListener('change',()=>{ LANG=langSel.value; applyLang(); });
+
+  /* ============ Altlık seçim ============ */
+  function setBasemap(which){
+    map.setLayoutProperty('bg-osm','visibility', which==='osm' ? 'visible':'none');
+    map.setLayoutProperty('bg-sat','visibility', which==='sat' ? 'visible':'none');
+  }
+  baseOSM.addEventListener('change', ()=> baseOSM.checked && setBasemap('osm'));
+  baseSAT.addEventListener('change', ()=> baseSAT.checked && setBasemap('sat'));
 
   /* ============ Arama ============ */
   function detectCategory(qs){
@@ -358,14 +351,12 @@
     for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq)||nq.includes(norm(label))) return k; }
     return KEYWORD_TO_CAT[nq] || null;
   }
-  function nameInAnyLang(p){
-    return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || '';
-  }
+  function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
+
   q.addEventListener('input', ()=>{
     const val=(q.value||'').trim();
     if(!val){ searchActive=false; searchIds=[]; results.style.display='none'; hint.style.display='none'; refreshFilters(); return; }
     const qn=norm(val), maybeCat=detectCategory(val);
-
     const hits = allFeats.filter(f=>{
       const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
       if(maybeCat && cat===maybeCat) return true;
@@ -374,7 +365,6 @@
       const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
       return ex.some(d=>d.includes(qn));
     });
-
     showResults(hits, maybeCat);
     searchIds = hits.map(f=> (f.properties?.fid));
     searchActive=true; refreshFilters(); hint.style.display='inline';
@@ -388,7 +378,6 @@
   function showResults(list,cat){
     results.innerHTML='';
     const hintDiv=document.createElement('div'); hintDiv.className='hint'; hintDiv.textContent=t().ui.hint; results.appendChild(hintDiv);
-
     if(cat){
       const feats=allFeats.filter(f=> (f.properties?.category||'').toLowerCase()===cat);
       const div=document.createElement('div');
@@ -396,7 +385,6 @@
       div.onclick=()=>{ if(!feats.length) return; searchIds = feats.map(f=>f.properties.fid); searchActive=true; refreshFilters(); results.style.display='none'; };
       results.appendChild(div);
     }
-
     list.slice(0,80).forEach(f=>{
       const p=f.properties||{}; const meta=[f.__src==='indoor'?'Indoor':'Outdoor', p.category||'', p.level||''].filter(Boolean).join(' · ');
       const div=document.createElement('div'); div.className='item';
@@ -416,12 +404,9 @@
   let followState=false, lastRaw=null, lastFiltered=null, lastKnown=null;
   const MAX_ACC=25, MIN_MOVE=4, ALPHA=0.22, BUF=6;
   const goodBuf=[];
-
   function hav(a,b){ const t=d=>d*Math.PI/180,R=6371000; const dLat=t(b[1]-a[1]), dLon=t(b[0]-a[0]), la1=t(a[1]), la2=t(b[1]); const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(h))); }
 
-  if('geolocation' in navigator){
-    try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
-  }
+  if('geolocation' in navigator){ try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{} }
   if('geolocation' in navigator){
     navigator.geolocation.watchPosition(p=>{
       const accM=Math.round(p.coords.accuracy||999);
@@ -429,20 +414,15 @@
       lastRaw=raw;
 
       if(accM<=MAX_ACC){
-        goodBuf.push({lng:raw[0],lat:raw[1],w:1/((accM||1)**2)});
-        if(goodBuf.length>BUF) goodBuf.shift();
+        goodBuf.push({lng:raw[0],lat:raw[1],w:1/((accM||1)**2)}); if(goodBuf.length>BUF) goodBuf.shift();
       }
       let cand=raw;
       if(goodBuf.length){
-        let sx=0,sy=0,sw=0;
-        goodBuf.forEach(s=>{ sx+=s.lng*s.w; sy+=s.lat*s.w; sw+=s.w; });
+        let sx=0,sy=0,sw=0; goodBuf.forEach(s=>{ sx+=s.lng*s.w; sy+=s.lat*s.w; sw+=s.w; });
         cand=[sx/sw, sy/sw];
       }
       if(!lastFiltered) lastFiltered={lng:cand[0],lat:cand[1]};
-      else{
-        lastFiltered.lng = ALPHA*cand[0] + (1-ALPHA)*lastFiltered.lng;
-        lastFiltered.lat = ALPHA*cand[1] + (1-ALPHA)*lastFiltered.lat;
-      }
+      else{ lastFiltered.lng = ALPHA*cand[0] + (1-ALPHA)*lastFiltered.lng; lastFiltered.lat = ALPHA*cand[1] + (1-ALPHA)*lastFiltered.lat; }
       const display=[lastFiltered.lng,lastFiltered.lat];
       if(lastKnown && hav(lastKnown, display)<MIN_MOVE && accM>MAX_ACC){} else { lastKnown=display; }
 
@@ -537,7 +517,7 @@
     const p=f.properties||{}, L=t();
     const name = p['name_'+LANG] || p.name || '';
     const catKey=(p.category||'').toLowerCase();
-    const catLabel=L.cats[catKey] || p.category || '';
+    theCat = L.cats[catKey] || p.category || '';
     const hours = p['hours_'+LANG] || p.hours || '';
     const level = p['level_'+LANG] || p.level || '';
     const desc = p['desc_'+LANG] || p.desc || '';
@@ -545,7 +525,7 @@
     const html = `
       <div style="min-width:220px">
         <div style="font-weight:600;margin-bottom:6px;color:var(--brand)">${name}</div>
-        ${catLabel?`<div class="badge" title="${L.labels.category}">${catLabel}</div>`:''}
+        ${theCat?`<div class="badge" title="${L.labels.category}">${theCat}</div>`:''}
         ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
         ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
         ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
@@ -594,7 +574,7 @@
                    : g.type==='MultiPolygon' ? g.coordinates.flat(2)
                    : g.type==='LineString' ? g.coordinates
                    : g.type==='Point' ? [g.coordinates] : [];
-      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=Infinity*-1;
       coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
       return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
     }catch{return null;}
