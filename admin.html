@@ -167,8 +167,10 @@
       <div style="grid-column:1/-1; display:none" id="catOtherWrap"><label>Diğer Kategori</label><input id="f_category_other" placeholder="ör. lounge"></div>
 
       <div><label>Dolgu Rengi (fill)</label><input id="f_fill" type="text" placeholder="#09DCE4 veya 09DCE4"></div>
-      <div><label>Dolgu Opaklığı (fill_op 0–1)</label><input id="f_fill_op" type="number" step="0.05" min="0" max="1" placeholder="örn: 0.15"></div>
       <div><label>Çizgi Rengi (stroke)</label><input id="f_stroke" type="text" placeholder="#1f2937 veya 1f2937"></div>
+      <div><label>Dolgu Opaklığı (0–1)</label><input id="f_fill_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.25"></div>
+      <div><label>Çizgi Opaklığı (0–1)</label><input id="f_stroke_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.8"></div>
+
       <div><label>Çizgi Kalınlığı (px)</label><input id="f_width" type="number" step="0.5" min="0" placeholder="2"></div>
       <div><label>Yol Tipi</label>
         <select id="f_way">
@@ -236,7 +238,7 @@
 
 <script>
 /* ====== TOKEN ====== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug"; // Mapbox public (pk...) token
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
 
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
@@ -256,36 +258,24 @@ const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.pars
 function to4326(g){ return g.clone().transform('EPSG:3857','EPSG:4326'); }
 function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2]; }
 function validateImg(u){ if(!u) return true; try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{ return false; } }
+const clamp01 = v => Math.min(1, Math.max(0, v));
 
-/* ====== renk yardımcıları (fill_op için) ====== */
-const clamp01 = v=>Math.max(0,Math.min(1,Number(v)));
-function parseCssColorToArray(c){
-  if(!c) return null;
-  c = c.trim();
-  // #RRGGBB or RRGGBB or #RGB
-  let m = c.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if(m){
-    let hex=m[1]; if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
-    const r=parseInt(hex.slice(0,2),16), g=parseInt(hex.slice(2,4),16), b=parseInt(hex.slice(4,6),16);
-    return [r,g,b,1];
-  }
-  // rgb/rgba
-  m = c.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
-  if(m){
-    const r=+m[1], g=+m[2], b=+m[3], a=m[4]!=null? +m[4] : 1;
-    return [r,g,b,clamp01(a)];
-  }
-  return null; // OL yine de string’i kabul eder ama opaklığı çarpamayız
+/* ====== renk yardımcıları (hex → rgba, opaklık uygulama) ====== */
+function hexToRGB(hex){
+  const h=hex.replace('#','').trim(); if(!(h.length===3||h.length===6)) return null;
+  const n = h.length===3 ? h.split('').map(c=>parseInt(c+c,16)) : [h.slice(0,2),h.slice(2,4),h.slice(4,6)].map(x=>parseInt(x,16));
+  if(n.some(v=>isNaN(v))) return null; return {r:n[0],g:n[1],b:n[2]};
 }
-function colorWithOpacity(inputColor, fill_op, dim=1){
-  const arr = parseCssColorToArray(inputColor);
-  if(arr){
-    const baseA = (arr[3] ?? 1);
-    const finalA = (fill_op!=null ? clamp01(fill_op) : baseA) * clamp01(dim);
-    return [arr[0],arr[1],arr[2], finalA];
+function withOpacity(color, alpha){
+  if(!Number.isFinite(alpha)) return color; // opaklık yoksa dokunma
+  const a = clamp01(alpha);
+  if(typeof color!=='string'||!color) return color;
+  if(color.startsWith('#')){
+    const rgb=hexToRGB(color); return rgb?`rgba(${rgb.r},${rgb.g},${rgb.b},${a})`:color;
   }
-  // bilinmeyen string renk — doğrudan string döndür, dim ve fill_op etkileyemez
-  return inputColor;
+  const m = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)$/i);
+  if(m){ return `rgba(${m[1]},${m[2]},${m[3]},${a})`; }
+  return color; // isimli renk vb.
 }
 
 /* ====== stiller ====== */
@@ -314,41 +304,56 @@ function defaultFillStrokeForCategory(cat){
 }
 function baseStyleFor(f, dim=1){
   const t=f.getGeometry().getType(); const p=f.getProperties()||{}; const cat=(p.category||'').toString();
+
   if(t==="Point"){
     const url=(p.image||'').trim(), txt=(p.icon_text||'').trim();
     if(url) return new ol.style.Style({ image:new ol.style.Icon({src:url, crossOrigin:'anonymous'}) });
     if(txt) return new ol.style.Style({ text:new ol.style.Text({ text:txt, font:"24px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',system-ui", fill:new ol.style.Fill({color:`rgba(0,0,0,${0.95*dim})`}) }) });
     return new ol.style.Style({ image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:`rgba(200,0,0,${1*dim})`}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})}) });
   }
+
   if(t==="LineString"){
     const way=(p.way||'').toString();
-    const strokeCol = p.stroke ||
+    const fallback =
       (way==='bike' ? '#22c55e' : way==='run' ? '#a855f7' : way==='shuttle' ? '#f59e0b' :
        way==='service' ? '#6b7280' : way==='indoor' ? '#0ea5e9' : way==='foot' ? '#1f2937' :
        way==='no_entry' ? '#ef4444' : '#1f2937');
+    const baseCol = (p.stroke && p.stroke.trim()) ? p.stroke : fallback;
+    const strokeCol = withOpacity(baseCol, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
     const w = Math.max(1, Number.isFinite(p.width)? p.width : (way==='shuttle'?4:(way==='bike'||way==='run'?3:2)));
     const dash = (way==='no_entry'? [6,6]: undefined);
     const styles=[ new ol.style.Style({ stroke:new ol.style.Stroke({color:strokeCol, width:w, lineDash:dash}) }) ];
     const showAr=$('showArrows').checked;
     const needsArrows = showAr && (['oneway_fwd','oneway_rev','shuttle','bike','indoor','foot','run'].includes(way));
-    if(needsArrows){ const ls=f.getGeometry(); const dir=(way==='oneway_rev')? ls.clone().reverse() : ls; styles.push(...arrowStylesFor(dir, strokeCol, 4, Math.max(8,w*2.2))); }
+    if(needsArrows){
+      const ls=f.getGeometry(); const dir=(way==='oneway_rev')? ls.clone().reverse() : ls;
+      styles.push(...arrowStylesFor(dir, strokeCol, 4, Math.max(8,w*2.2)));
+    }
     return styles;
   }
+
+  // Polygon
   const catDef=defaultFillStrokeForCategory(cat);
-  const fillInput=p.fill||catDef.fill, strokeC=p.stroke||catDef.stroke;
-  const finalFill=colorWithOpacity(fillInput, p.fill_op, dim);
+  const fillBase = p.fill || catDef.fill;
+  const strokeBase = (p.stroke && p.stroke.trim()) ? p.stroke : catDef.stroke;
+  const fillC = withOpacity(fillBase, Number.isFinite(p.fill_op)? p.fill_op : undefined);
+  const strokeC = withOpacity(strokeBase, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
   const w=Math.max(1, Number.isFinite(p.width)?p.width:2);
-  return new ol.style.Style({ fill:new ol.style.Fill({color:finalFill}), stroke:new ol.style.Stroke({color:strokeC,width:w}) });
+  return new ol.style.Style({ fill:new ol.style.Fill({color:fillC}), stroke:new ol.style.Stroke({color:strokeC,width:w}) });
 }
+
 function buildingStyleFor(f, dim=1){
   const p=f.getProperties()||{};
-  const stroke=new ol.style.Stroke({color:(p.stroke||`rgba(120,84,48,${0.8*dim})`),width:Math.max(1,p.width||2)});
-  const fillInput = p.fill || `rgba(201,180,155,0.25)`;
-  const finalFill = colorWithOpacity(fillInput, p.fill_op, dim);
-  if(f.getGeometry().getType()==="Point")
-    return new ol.style.Style({ image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:(p.fill||"#c9b49b")}),stroke:new ol.style.Stroke({color:"#fff",width:1})}) });
-  return new ol.style.Style({stroke, fill:new ol.style.Fill({color:finalFill})});
+  const baseStroke = (p.stroke && p.stroke.trim()) ? p.stroke : `rgba(120,84,48,${0.8*dim})`;
+  const baseFill   = (p.fill && p.fill.trim())   ? p.fill   : `rgba(201,180,155,${0.25*dim})`;
+  const strokeCol = withOpacity(baseStroke, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
+  const fillCol   = withOpacity(baseFill,   Number.isFinite(p.fill_op)? p.fill_op   : undefined);
+  if(f.getGeometry().getType()==="Point"){
+    return new ol.style.Style({ image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:fillCol}),stroke:new ol.style.Stroke({color:"#fff",width:1})}) });
+  }
+  return new ol.style.Style({stroke:new ol.style.Stroke({color:strokeCol,width:Math.max(1,p.width||2)}),fill:new ol.style.Fill({color:fillCol})});
 }
+
 function styleWrapper(name){
   return f=>{ const active=$("layerSel").value, filter=$("levelFilter").value.trim();
     const lvl=(f.get("level")??"").toString().trim(); const isActive=active===name;
@@ -406,12 +411,8 @@ function ensureML(){
       {"id":"bld-ex","type":"fill-extrusion","source":"bld",
        "paint":{
          "fill-extrusion-color":["coalesce",["get","fill"],"#c9b49b"],
-         "fill-extrusion-height":[
-           "coalesce",
-           ["to-number",["get","height"]],
-           ["*",["to-number",["coalesce",["get","levels"],["get","building:levels"],1]],3]
-         ],
-         "fill-extrusion-opacity":["coalesce",["to-number",["get","fill_op"]],0.95]
+         "fill-extrusion-height":["coalesce",["to-number",["get","height"]],["*",["to-number",["coalesce",["get","levels"],["get","building:levels"],1]],3]],
+         "fill-extrusion-opacity":0.95
        },
        "filter":["==",["geometry-type"],"Polygon"]
       }
@@ -576,7 +577,8 @@ function openForm(f){
   editFeature=f; const p=f.getProperties(); const catSel=$('f_category'), otherWrap=$('catOtherWrap'), other=$('f_category_other');
   $('f_name').value=p.name||""; $('f_hours').value=p.hours||""; $('f_level').value=p.level||""; $('f_desc').value=p.desc||""; $('f_image').value=p.image||""; $('f_id').value=f.getId()||""; $('f_metric').value=summarizeGeom(f);
   $('f_height').value=p.height??""; $('f_levels').value=p.levels??p['building:levels']??"";
-  $('f_fill').value=p.fill||""; $('f_fill_op').value=(p.fill_op!=null? p.fill_op:""); $('f_stroke').value=p.stroke||""; $('f_width').value=(Number.isFinite(p.width)?p.width:"")||""; $('f_way').value=p.way||""; $('f_icon_text').value=p.icon_text||"";
+  $('f_fill').value=p.fill||""; $('f_stroke').value=p.stroke||""; $('f_fill_op').value=(Number.isFinite(p.fill_op)?p.fill_op:""); $('f_stroke_op').value=(Number.isFinite(p.stroke_op)?p.stroke_op:"");
+  $('f_width').value=(Number.isFinite(p.width)?p.width:"")||""; $('f_way').value=p.way||""; $('f_icon_text').value=p.icon_text||"";
   if(p.category && [...catSel.options].some(o=>o.value===p.category)){ catSel.value=p.category; otherWrap.style.display="none"; other.value=""; }
   else if(p.category){ catSel.value="_other"; otherWrap.style.display="block"; other.value=p.category; }
   else { catSel.value=""; otherWrap.style.display="none"; other.value=""; }
@@ -588,7 +590,7 @@ function openForm(f){
   $('propSave').onclick=()=>{
     const img=$('f_image').value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; }
     const h=parseFloat($('f_height').value), lv=parseInt($('f_levels').value,10), width=parseFloat($('f_width').value);
-    const fopRaw=$('f_fill_op').value.trim(); const fop = fopRaw==='' ? undefined : clamp01(parseFloat(fopRaw));
+    const fill_op = parseFloat($('f_fill_op').value), stroke_op = parseFloat($('f_stroke_op').value);
     const props={
       name:$('f_name').value.trim()||undefined,
       category:(catSel.value==="_other"? other.value.trim(): catSel.value.trim())||undefined,
@@ -599,9 +601,10 @@ function openForm(f){
       icon_text:($('f_icon_text').value||"").trim()||undefined,
       way:($('f_way').value||"").trim()||undefined,
       width:Number.isFinite(width)?width:undefined,
-      stroke:(s=>s? s.replace(/^#?/,'#'):undefined)($('f_stroke').value.trim()),
-      fill:(s=>s? s.replace(/^#?/,'#'):undefined)($('f_fill').value.trim()),
-      fill_op: fop,
+      stroke:(s=>{s=s.trim();return s?s.replace(/^#?/,'#'):undefined;})($('f_stroke').value),
+      fill:(s=>{s=s.trim();return s?s.replace(/^#?/,'#'):undefined;})($('f_fill').value),
+      stroke_op:Number.isFinite(stroke_op)? clamp01(stroke_op) : undefined,
+      fill_op:Number.isFinite(fill_op)? clamp01(fill_op) : undefined,
       height:Number.isFinite(h)?h:undefined,
       levels:Number.isFinite(lv)?lv:undefined,
       'building:levels':Number.isFinite(lv)?lv:undefined
