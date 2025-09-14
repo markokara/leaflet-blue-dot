@@ -8,9 +8,12 @@
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
+<!-- Opsiyonel (glTF modeller için) -->
+<script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
+
 <style>
-  :root{
-    --shadow:0 10px 28px rgba(0,0,0,.18);
+  :root{ --shadow:0 10px 28px rgba(0,0,0,.18);
     --muted:#5b6a6a; --bg:#fff; --brand:#0f5132; --border:#cfe3da; --field:#f4fbf7; --chip:#e6f4ef;
   }
   html,body{height:100%;margin:0}
@@ -18,7 +21,7 @@
   #map{position:fixed; inset:0}
   .lang-float{position:fixed; left:12px; top:12px; z-index:1002; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
   .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
-  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .2s; width:min(860px,96vw); z-index:1001}
+  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .18s; width:min(860px,96vw); z-index:1001; -webkit-user-select:none; user-select:none}
   .card{background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
   .p-8{padding:10px}
   .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
@@ -75,13 +78,14 @@
         <button id="follow">📍 Konumum: Kapalı</button>
         <button id="reset">Sıfırla</button>
         <span class="grow"></span>
-        <!-- SADECE 2 SEÇENEK -->
         <label class="chip" title="Satellite (raster)">
           <input type="radio" name="basemap" id="baseSat" checked><span>Satellite</span><span class="tick">✓</span>
         </label>
         <label class="chip" title="MapLibre 3D (terrain + binalar)">
           <input type="radio" name="basemap" id="base3d"><span>MapLibre 3D</span><span class="tick">✓</span>
         </label>
+        <button id="bldgEdit" title="3D binaları gizleme modu">Bina Gizle</button>
+        <button id="bldgShowAll" title="Gizlenenleri geri getir">Hepsini Göster</button>
       </div>
 
       <div id="results" class="results"></div>
@@ -106,15 +110,15 @@
 
 <script>
 /* ================== ANAHTARLAR ================== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";     // ← Mapbox public token
-const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";     // ← MapTiler key
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
+const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-/* ================== i18n (kısaltılmış) ================== */
+/* ================== i18n ================== */
 const I18N = {
   tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
       ui:{pick:"Haritadan Hedef", followOn:"📍 Konumum: Açık", followOff:"📍 Konumum: Kapalı", reset:"Sıfırla", clearRoute:"Rota Temizle"},
@@ -133,7 +137,7 @@ let LANG = localStorage.getItem("lang") || "tr";
 const t = () => I18N[LANG] || I18N.tr;
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
-/* eşanlamlılar (kısaltılmış) */
+/* eşanlamlılar */
 const SYNONYMS = { pool:['havuz','pool','basen','бассейн','schwimmbad'], restaurant:['restoran','restaurant','restauracja','ресторан'], spa:['spa','wellness','спа'], bar:['bar','бар'], cafe:['cafe','kafe','кафе'], shop:['shop','market','sklep','магазин'], toilet:['wc','toilet','tuvalet'], reception:['reception','resepsiyon','recepcja'], beach:['beach','plaj','plaża','пляж'], kidsclub:['kids club','kidsclub','miniclub','детский'], elevator:['elevator','asansör','лифт'], gate:['gate','kapı','giriş'], parking:['parking','otopark','parkplatz'], shuttle:['shuttle','servis','bus'], gym:['gym','fitness','spor'] };
 const KEYWORD_TO_CAT = (()=>{const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m;})();
 
@@ -148,25 +152,33 @@ const $=id=>document.getElementById(id);
 const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickBtn=$('pick'), followBtn=$('follow'), resetBtn=$('reset'), results=$('results'), acc=$('acc');
 const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
 const baseSat=$('baseSat'), base3d=$('base3d');
+const bldgEditBtn=$('bldgEdit'), bldgShowAll=$('bldgShowAll');
 
 /* State */
-let allFeats=[], searchActive=false, searchIds=[], followState=false, lastKnown=null;
+let allFeats=[], followState=false, lastKnown=null;
+let editBuildings=false, HIDDEN_BLDG_IDS = JSON.parse(localStorage.getItem('hidden_bldg_ids')||'[]');
+const MODEL_LAYER_IDS=[];
 
 /* Helpers */
 function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
+function persistHidden(){ localStorage.setItem('hidden_bldg_ids', JSON.stringify(HIDDEN_BLDG_IDS)); }
+function applyBuildingFilter(){
+  if(map.getLayer('bldg-3d')) map.setFilter('bldg-3d',['all',['!in',['id'],['literal',HIDDEN_BLDG_IDS]]]);
+  if(map.getLayer('buildings-3d')) map.setFilter('buildings-3d',['all',['in',['geometry-type'],'Polygon','MultiPolygon'],['!in',['id'],['literal',HIDDEN_BLDG_IDS]]]);
+}
 
 /* LOAD */
 map.on('load', async ()=>{
-  // Satellite tabanı (raster)
+  // Raster uydu
   map.addSource('sat',{ type:'raster',
     tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
     tileSize:256, attribution:"© Mapbox © OSM"
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
-  // 3D kaynakları (başta kapalı)
+  // 3D kaynaklar
   map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
   map.addSource('dem',{ type:'raster-dem', url:`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`, tileSize:256 });
 
@@ -177,12 +189,17 @@ map.on('load', async ()=>{
       'fill-extrusion-base'  :['coalesce', ['to-number',['get','render_min_height']], ['to-number',['get','min_height']], 0]
     }, minzoom:14
   });
+  applyBuildingFilter();
 
-  // POI/çizimler (her modda üstte)
+  // POI/çizimler
   map.addSource('indoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
   map.addSource('outdoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
-
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
+  addFeature3DLayers('indoor'); addFeature3DLayers('outdoor');
+
+  // KENDİ 3D BİNALARIN
+  map.addSource('buildings',{type:'geojson', data:emptyFC(), promoteId:'id'});
+  addBuildingsLayers(); // 2D + 3D (üstte)
 
   // hedef/rota/bluedot
   map.addSource('dest',{type:'geojson',data:emptyFC()});
@@ -194,9 +211,12 @@ map.on('load', async ()=>{
   map.addSource('me',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
-  await loadJSONs();
+  await loadJSONs();       // indoor + outdoor
+  await loadBuildings();   // buildings.json
+  await loadModelsJSON();  // opsiyonel modeller
+
   applyLang();
-  applyBasemap(); // Satellite varsayılan
+  applyBasemap();
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
 });
 
@@ -206,7 +226,62 @@ function addFeatureLayers(src){
   map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
   map.addLayer({id:`${src}-pts`,type:'circle',source:src,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 }
+function addFeature3DLayers(src){
+  map.addLayer({
+    id:`${src}-3d`,
+    type:'fill-extrusion',
+    source:src,
+    filter:['==',['geometry-type'],'Polygon'],
+    paint:{
+      'fill-extrusion-color':['coalesce',['get','fill'],'#1f6bff'],
+      'fill-extrusion-opacity':['coalesce',['get','fill_op'],0.85],
+      'fill-extrusion-height':[
+        'coalesce',
+        ['to-number',['get','render_height']],
+        ['to-number',['get','height']],
+        ['*', ['coalesce', ['to-number',['get','levels']], ['to-number',['get','building:levels']], 1], 3]
+      ],
+      'fill-extrusion-base':['coalesce',['to-number',['get','render_min_height']],['to-number',['get','min_height']],0]
+    },
+    minzoom:14
+  }, `${src}-pts`);
+}
 
+/* === KENDİ BİNALAR (buildings.json) === */
+function addBuildingsLayers(){
+  map.addLayer({ id:'buildings-fill', type:'fill', source:'buildings',
+    paint:{ 'fill-color':['coalesce',['get','fill'],'#0f5132'], 'fill-opacity':['coalesce',['get','fill_op'],0.35] }
+  }, 'indoor-pts');
+
+  map.addLayer({ id:'buildings-line', type:'line', source:'buildings',
+    filter:['==',['geometry-type'],'Polygon'],
+    paint:{ 'line-color':['coalesce',['get','stroke'],'#0f5132'], 'line-width':['coalesce',['get','stroke_w'],1.6] }
+  }, 'buildings-fill');
+
+  // 3D ekstrüzyon — en üste ekle (OMT binalarının üstünde)
+  if (map.getLayer('buildings-3d')) map.removeLayer('buildings-3d');
+  map.addLayer({
+    id:'buildings-3d',
+    type:'fill-extrusion',
+    source:'buildings',
+    filter:['in',['geometry-type'],'Polygon','MultiPolygon'],
+    layout:{ visibility:'none' },
+    paint:{
+      'fill-extrusion-color':['coalesce',['get','fill'],'#0f5132'],
+      'fill-extrusion-opacity':['coalesce',['get','fill_op'],0.9],
+      'fill-extrusion-height':[
+        'coalesce',
+        ['to-number',['get','render_height']],
+        ['to-number',['get','height']],
+        ['*', ['coalesce', ['to-number',['get','levels']], ['to-number',['get','building:levels']], 1], 3]
+      ],
+      'fill-extrusion-base':['coalesce',['to-number',['get','render_min_height']],['to-number',['get','min_height']],0]
+    },
+    minzoom:14
+  });
+}
+
+/* indoor/outdoor yükle + allFeats */
 async function loadJSONs(){
   const bust='v='+Date.now();
   const [indoor,outdoor] = await Promise.all([
@@ -215,26 +290,90 @@ async function loadJSONs(){
   ]);
   map.getSource('indoor').setData(indoor);
   map.getSource('outdoor').setData(outdoor);
-  allFeats = indoor.features.map(f=>({...f,__src:'indoor'})).concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
+
+  const list=[];
+  indoor.features.forEach((f,i)=>list.push({...f,__src:'indoor',__idx:'i'+i}));
+  outdoor.features.forEach((f,i)=>list.push({...f,__src:'outdoor',__idx:'o'+i}));
+  allFeats = list;
 }
 
-/* ================== BASMAP TOGGLE (2 seçenek) ================== */
+/* buildings.json yükle + aramaya ekle */
+async function loadBuildings(){
+  try{
+    const bust='v='+Date.now();
+    const gj = await fetch('buildings.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC());
+    map.getSource('buildings').setData(gj);
+    (gj.features||[]).forEach((f,i)=>allFeats.push({...f,__src:'buildings',__idx:'b'+i}));
+  }catch(e){}
+}
+
+/* Opsiyonel: glTF/GLB modeller (models.json) */
+async function loadModelsJSON(){
+  try{
+    const bust='v='+Date.now();
+    const list = await fetch('models.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():[]);
+    (list||[]).forEach(m=>{
+      const id = addModelLayer(m);
+      MODEL_LAYER_IDS.push(id);
+      map.setLayoutProperty(id,'visibility', base3d.checked ? 'visible':'none');
+    });
+  }catch(e){}
+}
+function addModelLayer(cfg){
+  const id = 'model-'+(cfg.id||Math.random().toString(36).slice(2));
+  const origin=[cfg.lng, cfg.lat], altitude=cfg.alt||0;
+  const rot = (cfg.rotate||[90,0,0]).map(d=>d*Math.PI/180);
+  const scl = cfg.scale || 1;
+  const layer = {
+    id, type:'custom', renderingMode:'3d',
+    onAdd(map, gl){
+      this.camera = new THREE.Camera();
+      this.scene = new THREE.Scene();
+      const l1 = new THREE.DirectionalLight(0xffffff); l1.position.set(0,-70,100).normalize(); this.scene.add(l1);
+      const l2 = new THREE.DirectionalLight(0xffffff); l2.position.set(0,70,100).normalize(); this.scene.add(l2);
+      const loader = new THREE.GLTFLoader();
+      loader.load(cfg.url, (gltf)=>{ this.scene.add(gltf.scene); });
+      this.map = map;
+      this.renderer = new THREE.WebGLRenderer({canvas:map.getCanvas(), context:gl, antialias:true});
+      this.renderer.autoClear=false;
+    },
+    render(gl, args){
+      const mc = maplibregl.MercatorCoordinate.fromLngLat(origin, altitude);
+      const meter = mc.meterInMercatorCoordinateUnits() * scl;
+      const rx = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1,0,0), rot[0]);
+      const ry = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,1,0), rot[1]);
+      const rz = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,0,1), rot[2]);
+      const m = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
+      const l = new THREE.Matrix4().makeTranslation(mc.x, mc.y, mc.z).scale(new THREE.Vector3(meter, -meter, meter)).multiply(rx).multiply(ry).multiply(rz);
+      this.camera.projectionMatrix = m.multiply(l);
+      this.renderer.resetState();
+      this.renderer.render(this.scene, this.camera);
+      this.map.triggerRepaint();
+    }
+  };
+  map.addLayer(layer);
+  return id;
+}
+
+/* ================== BASMAP TOGGLE ================== */
 baseSat.addEventListener('change', applyBasemap);
 base3d.addEventListener('change', applyBasemap);
-
 function applyBasemap(){
   if(base3d.checked){
-    // 3D açık
     map.setLayoutProperty('bldg-3d','visibility','visible');
+    map.setLayoutProperty('buildings-3d','visibility','visible');
     map.setTerrain({source:'dem', exaggeration:1});
     if(!map.getLayer('sky')){
       map.addLayer({ id:'sky', type:'sky', paint:{'sky-type':'atmosphere','sky-atmosphere-sun':[0,45],'sky-atmosphere-sun-intensity':10} });
     }
+    MODEL_LAYER_IDS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','visible'); });
+    applyBuildingFilter();
   }else{
-    // Satellite
     if(map.getLayer('sky')) map.removeLayer('sky');
     map.setTerrain(null);
     map.setLayoutProperty('bldg-3d','visibility','none');
+    if(map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d','visibility','none');
+    MODEL_LAYER_IDS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none'); });
   }
 }
 
@@ -247,7 +386,7 @@ function applyLang(){
 }
 langSel.value=LANG; langSel.addEventListener('change',()=>{LANG=langSel.value; applyLang();});
 
-/* ================== ARAMA (tıklanabilir düzeltildi) ================== */
+/* ================== ARAMA ================== */
 function detectCategory(qs){
   const nq=norm(qs), dict=I18N[LANG]?.cats||{};
   for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq)||nq.includes(norm(label))) return k; }
@@ -255,20 +394,18 @@ function detectCategory(qs){
 }
 q.addEventListener('input', ()=>{
   const val=(q.value||'').trim();
-  if(!val){ results.style.display='none'; searchActive=false; searchIds=[]; return; }
+  if(!val){ results.style.display='none'; return; }
   const qn=norm(val), maybeCat=detectCategory(val);
   const hits = allFeats.filter(f=>{
     const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
     if(maybeCat && cat===maybeCat) return true;
     const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
     if(names.some(n=>n.includes(qn))) return true;
-    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
+    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG],p.name_tr,p.name_en].filter(Boolean).map(norm);
     return ex.some(d=>d.includes(qn));
   });
   renderResults(hits, maybeCat);
 });
-
-/* CLICK SORUNU → event delegation + data-id */
 function renderResults(list, cat){
   results.innerHTML='';
   const hint=document.createElement('div'); hint.className='hint'; hint.textContent='🔎 Sonuçlardan birine dokun';
@@ -280,28 +417,26 @@ function renderResults(list, cat){
     div.innerHTML=`<span>➤ ${(t().cats?.[cat]||cat)}</span> <small>${feats.length}</small>`;
     results.appendChild(div);
   }
-  list.slice(0,80).forEach(f=>{
-    const p=f.properties||{}; const meta=[f.__src==='indoor'?'Indoor':'Outdoor', p.category||'', p.level||''].filter(Boolean).join(' · ');
-    const div=document.createElement('div'); div.className='item'; div.dataset.fid=p.fid; div.dataset.src=f.__src;
-    div.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${meta}</small>`;
+  list.slice(0,120).forEach(f=>{
+    const p=f.properties||{}; const meta=[(f.__src==='indoor'?'Indoor':f.__src==='outdoor'?'Outdoor':'Bina'), p.category||'', p.level||''].filter(Boolean).join(' · ');
+    const div=document.createElement('div'); div.className='item';
+    div.dataset.fid = p.fid || p.id || '';
+    div.dataset.idx = f.__idx;
+    div.dataset.src = f.__src;
+    div.innerHTML=`<span>${nameInAnyLang(p) || p.name || '(isimsiz)'}</span><small>${meta}</small>`;
     results.appendChild(div);
   });
   results.style.display='block';
 }
-results.addEventListener('click', (e)=>{
-  const item=e.target.closest('.item'); if(!item) return;
-  const fid=item.dataset.fid;
-  if(fid && fid.startsWith('__cat__')){
-    const cat=fid.replace('__cat__','');
-    const ids=allFeats.filter(f=>(f.properties?.category||'').toLowerCase()===cat).map(f=>f.properties?.fid);
-    searchIds=ids; searchActive=true; results.style.display='none'; return;
-  }
-  const src=item.dataset.src;
-  const f=allFeats.find(x=>x.properties?.fid===fid);
+function handleResultItem(item){
+  const idx = item.dataset.idx; const fid=item.dataset.fid||'';
+  let f = allFeats.find(x=>x.__idx===idx) || allFeats.find(x=>(x.properties?.fid||x.properties?.id||'')===fid);
   if(!f) return;
-  searchIds=[fid]; searchActive=true; focusFeature(f,true); setDestination(coordOfFeature(f));
+  focusFeature(f,true); setDestination(coordOfFeature(f));
   results.style.display='none'; goBtn.disabled=false;
-});
+}
+results.addEventListener('click', e=>{ const it=e.target.closest('.item'); if(it) handleResultItem(it); });
+results.addEventListener('pointerdown', e=>{ const it=e.target.closest('.item'); if(it){ e.preventDefault(); handleResultItem(it); }});
 
 /* ================== BLUE DOT ================== */
 if('geolocation' in navigator){
@@ -320,9 +455,9 @@ followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = follow
 let pickMode=false; pickBtn.onclick=()=>{ pickMode=!pickMode; pickBtn.classList.toggle('active',pickMode); };
 map.on('click', e=>{
   if(!pickMode){
-    // POI popup
-    const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline']});
-    if(feats && feats[0]) showPopup(feats[0], e.lngLat); return;
+    const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline','buildings-fill','buildings-line']});
+    if(feats && feats[0]) showPopup(feats[0], e.lngLat);
+    return;
   }
   setDestination([e.lngLat.lng,e.lngLat.lat]);
   pickMode=false; pickBtn.classList.remove('active'); goBtn.disabled=false;
@@ -348,7 +483,6 @@ goBtn.onclick = async ()=>{
       dirBox.style.display='block'; return;
     }
   }catch{}
-  // fallback düz çizgi
   map.getSource('route').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[a,b]}}]});
   map.fitBounds([a,b],{padding:PADDING,maxZoom:19}); dirBox.style.display='block';
 };
@@ -356,23 +490,25 @@ clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
 resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); q.value=''; results.style.display='none'; pickMode=false; pickBtn.classList.remove('active'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
 
-/* Bottom sheet */
+/* ================== ALT PANEL (ilk açılış AÇIK + sürükle) ================== */
 (function(){
-  const sheet=$('sheet'), grab=$('grab'); const H=24; let sy=null, st=0, mt=0;
+  const sheet=$('sheet'), grab=$('grab'); let open=true, sy=null, st=0, mt=0;
   const set=v=> sheet.style.setProperty('--ty',v+'px');
   const get=()=> parseFloat(getComputedStyle(sheet).getPropertyValue('--ty'))||0;
-  const calc=()=>{ const h=sheet.getBoundingClientRect().height||320; const byH=Math.max(0,h-(H+8)); const byV=Math.min(window.innerHeight*0.6,520); return Math.min(byH,byV); };
-  function recalc(){ mt=calc(); set(Math.min(get(),mt)); }
-  window.addEventListener('resize',recalc); requestAnimationFrame(()=>{ recalc(); set(mt); });
+  const calc=()=>{ const h=sheet.getBoundingClientRect().height||320; const H=24;
+                   const byH=Math.max(0,h-(H+8)); const byV=Math.min(window.innerHeight*0.6,520);
+                   mt=Math.min(byH,byV); set(open?0:mt); };
+  window.addEventListener('resize',calc); requestAnimationFrame(calc);
   const start=e=>{ sy=e.clientY; st=get(); grab.setPointerCapture(e.pointerId); };
   const move=e=>{ if(sy==null)return; const dy=e.clientY-sy; set(Math.max(0,Math.min(mt,st+dy))); };
-  const end =()=>{ if(sy==null)return; const ty=get(); set(ty>mt*0.5?mt:0); sy=null; };
+  const end =()=>{ if(sy==null)return; const ty=get(); open = !(ty>mt*0.5); set(open?0:mt); sy=null; };
   grab.addEventListener('pointerdown',start); grab.addEventListener('pointermove',move);
   grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
-  $('q').addEventListener('focus',()=> set(0));
+  grab.addEventListener('click',()=>{ open=!open; set(open?0:mt); });
+  $('q').addEventListener('focus',()=> { open=true; set(0); });
 })();
 
-/* Popup */
+/* ================== POPUP & FOCUS ================== */
 let popup;
 function showPopup(f,lngLat){
   const p=f.properties||{}, L=t();
@@ -394,19 +530,40 @@ function coordOfFeature(f){
   const g=f.geometry; if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
   if(g.type==='Point') return g.coordinates;
   if(g.type==='Polygon'){ const ring=g.coordinates[0]; return ring[Math.floor(ring.length/2)]; }
+  if(g.type==='MultiPolygon'){ const ring=g.coordinates[0][0]; return ring[Math.floor(ring.length/2)]; }
   if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
   return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
 }
 function focusFeature(f,open){
   const ex=bboxFromGeom(f.geometry);
   if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
-  if(open) showPopup(f, coordOfFeature(f));
+  const ll = coordOfFeature(f);
+  if(open) showPopup(f, {lng:ll[0], lat:ll[1]});
 }
 
 /* küçük yardımcılar */
 function stepText(s){ const L=t(), man=s.maneuver||{}, type=man.type||'', mod=man.modifier||'', street=s.name||''; const onto=street? (L.nav.onto||'').replace('%s',street):''; switch(type){case'depart':return L.nav.depart+onto;case'arrive':return L.nav.arrive;case'turn':return (mod==='left'?L.nav.turn_left:mod==='right'?L.nav.turn_right:(L.nav.straight||''))+onto;case'roundabout':return (L.nav.roundabout||'').replace('%n',man.exit||1)+onto;default:return (L.nav.straight||'')+onto;} }
 function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
 function bboxFromGeom(g){ try{ const coords=g.type==='Polygon'?g.coordinates.flat(1):g.type==='MultiPolygon'?g.coordinates.flat(2):g.type==='LineString'?g.coordinates:g.type==='Point'?[g.coordinates]:[]; let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }catch{return null;} }
+
+/* ================== 3D BİNA GİZLEME ================== */
+bldgEditBtn.onclick=()=>{
+  editBuildings=!editBuildings;
+  bldgEditBtn.textContent = editBuildings ? 'Bina Seç (Açık)' : 'Bina Gizle';
+  map.getCanvas().style.cursor = editBuildings ? 'crosshair' : '';
+};
+bldgShowAll.onclick=()=>{ HIDDEN_BLDG_IDS=[]; persistHidden(); applyBuildingFilter(); };
+map.on('click','bldg-3d', (e)=>{ onBldgClick(e); });
+map.on('click','buildings-3d', (e)=>{ onBldgClick(e); });
+function onBldgClick(e){
+  if(!editBuildings) return;
+  const feat=e.features && e.features[0];
+  const id = (typeof feat.id!=='undefined' ? feat.id : (feat.properties && (feat.properties.id ?? feat.properties.osm_id)));
+  if(id==null){ alert('Bu stilde bina ID bulunamadı.'); return; }
+  if(!HIDDEN_BLDG_IDS.includes(id)){
+    HIDDEN_BLDG_IDS.push(id); persistHidden(); applyBuildingFilter();
+  }
+}
 </script>
 </body>
 </html>
