@@ -53,7 +53,8 @@
         "height": 25,
         "levels": 3,
         "building:levels": 3,
-        "fill_op": 0.01
+        "fill_op": 0.01,
+        "stroke_op": 0.001
       },
       "id": "c19eb151-c516-411e-9532-f28491d075a4"
     },
