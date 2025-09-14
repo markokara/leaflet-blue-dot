@@ -530,13 +530,30 @@ $('#file').addEventListener('change', async (e)=>{
   e.target.value='';
 });
 
-/*** === YEREL VERİ === */
-function saveLocal(key, fc){ try{ localStorage.setItem('adm_'+key, JSON.stringify(fc)); }catch{} }
-function loadLocal(key){ try{ const s=localStorage.getItem('adm_'+key); return s?JSON.parse(s):null; }catch{return null;}
-$('#btnClrLocal').onclick=()=>{ ['indoor','outdoor'].forEach(k=>localStorage.removeItem('adm_'+k)); alert('Yerel veriler temizlendi.'); };
+  /*** === YEREL VERİ === */
+  function saveLocal(key, fc){
+    try { localStorage.setItem('adm_' + key, JSON.stringify(fc)); }
+    catch (e) {}
+  }
 
-/*** === YARDIMCI === */
-function $(id){return document.getElementById(id)}
+  function loadLocal(key){
+    try {
+      const s = localStorage.getItem('adm_' + key);
+      return s ? JSON.parse(s) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  document.getElementById('btnClrLocal').onclick = () => {
+    ['indoor','outdoor'].forEach(k => localStorage.removeItem('adm_' + k));
+    alert('Yerel veriler temizlendi.');
+  };
+
+  /*** === YARDIMCI === */
+  function $(id){ return document.getElementById(id); }
 </script>
 </body>
 </html>
+
+
