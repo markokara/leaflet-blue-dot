@@ -8,7 +8,7 @@
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
-<!-- Opsiyonel (glTF modeller için) -->
+<!-- (opsiyonel) glTF modeller için -->
 <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -165,8 +165,9 @@ function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 function persistHidden(){ localStorage.setItem('hidden_bldg_ids', JSON.stringify(HIDDEN_BLDG_IDS)); }
 function applyBuildingFilter(){
-  if(map.getLayer('bldg-3d')) map.setFilter('bldg-3d',['all',['!in',['id'],['literal',HIDDEN_BLDG_IDS]]]);
-  if(map.getLayer('buildings-3d')) map.setFilter('buildings-3d',['all',['in',['geometry-type'],'Polygon','MultiPolygon'],['!in',['id'],['literal',HIDDEN_BLDG_IDS]]]);
+  const LIT=['literal', HIDDEN_BLDG_IDS];
+  if(map.getLayer('bldg-3d'))       map.setFilter('bldg-3d',      ['all',['!in',['id'], LIT]]);
+  if(map.getLayer('buildings-3d'))  map.setFilter('buildings-3d', ['all',['in',['geometry-type'],'Polygon','MultiPolygon'],['!in',['id'], LIT]]);
 }
 
 /* LOAD */
@@ -258,7 +259,7 @@ function addBuildingsLayers(){
     paint:{ 'line-color':['coalesce',['get','stroke'],'#0f5132'], 'line-width':['coalesce',['get','stroke_w'],1.6] }
   }, 'buildings-fill');
 
-  // 3D ekstrüzyon — en üste ekle (OMT binalarının üstünde)
+  // 3D ekstrüzyon — en üste ekle
   if (map.getLayer('buildings-3d')) map.removeLayer('buildings-3d');
   map.addLayer({
     id:'buildings-3d',
@@ -297,14 +298,19 @@ async function loadJSONs(){
   allFeats = list;
 }
 
-/* buildings.json yükle + aramaya ekle */
+/* buildings.json yükle + sanitize + aramaya ekle */
 async function loadBuildings(){
   try{
     const bust='v='+Date.now();
-    const gj = await fetch('buildings.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC());
+    let gj = await fetch('buildings.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC());
+    // --- ÖNEMLİ: properties:null olanları düzelt
+    if(gj && Array.isArray(gj.features)){
+      gj.features = gj.features.map(f=> ({...f, properties: f.properties || {}}));
+    }
     map.getSource('buildings').setData(gj);
     (gj.features||[]).forEach((f,i)=>allFeats.push({...f,__src:'buildings',__idx:'b'+i}));
-  }catch(e){}
+    console.info('3D binalar yüklendi:', (gj.features||[]).length);
+  }catch(e){ console.warn('buildings.json okunamadı', e); }
 }
 
 /* Opsiyonel: glTF/GLB modeller (models.json) */
