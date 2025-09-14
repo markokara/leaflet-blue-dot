@@ -118,6 +118,9 @@ const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
+// YENİ: OSM üst katman opaklığı (%45 varsayılan)
+const OSM_OPACITY = 0.45;
+
 /* ================== i18n ================== */
 const I18N = {
   tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
@@ -130,7 +133,7 @@ const I18N = {
       ui:{pick:"Pick on Map", followOn:"📍 My Location: On", followOff:"📍 My Location: Off", reset:"Reset", clearRoute:"Clear Route"},
       labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
       cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"},
-      nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s"}
+      nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", straight:"Go straight", turn_right:"Turn right", roundabout:"At roundabout take exit %n", onto:" onto %s"}
   }
 };
 let LANG = localStorage.getItem("lang") || "tr";
@@ -172,14 +175,21 @@ function applyBuildingFilter(){
 
 /* LOAD */
 map.on('load', async ()=>{
-  // Raster uydu
+  // Raster uydu (altta)
   map.addSource('sat',{ type:'raster',
     tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
     tileSize:256, attribution:"© Mapbox © OSM"
   });
-  map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
+  map.addLayer({id:'sat-lyr', type:'raster', source:'sat', paint:{'raster-opacity':1}});
 
-  // 3D kaynaklar
+  // YENİ: OSM raster (uydunun üstüne yarı saydam)
+  map.addSource('osm',{ type:'raster',
+    tiles:[ 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' ],
+    tileSize:256, attribution:"© OpenStreetMap contributors"
+  });
+  map.addLayer({id:'osm-lyr', type:'raster', source:'osm', paint:{'raster-opacity': OSM_OPACITY}});
+
+  // 3D kaynaklar (başlangıçta kapalı)
   map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
   map.addSource('dem',{ type:'raster-dem', url:`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`, tileSize:256 });
 
@@ -217,7 +227,7 @@ map.on('load', async ()=>{
   await loadModelsJSON();  // opsiyonel modeller
 
   applyLang();
-  applyBasemap();
+  applyBasemap(); // sat + osm zaten açık
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
 });
 
@@ -259,7 +269,7 @@ function addBuildingsLayers(){
     paint:{ 'line-color':['coalesce',['get','stroke'],'#0f5132'], 'line-width':['coalesce',['get','stroke_w'],1.6] }
   }, 'buildings-fill');
 
-  // 3D ekstrüzyon — en üste ekle
+  // 3D ekstrüzyon — en üste
   if (map.getLayer('buildings-3d')) map.removeLayer('buildings-3d');
   map.addLayer({
     id:'buildings-3d',
@@ -303,13 +313,9 @@ async function loadBuildings(){
   try{
     const bust='v='+Date.now();
     let gj = await fetch('buildings.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC());
-    // --- ÖNEMLİ: properties:null olanları düzelt
-    if(gj && Array.isArray(gj.features)){
-      gj.features = gj.features.map(f=> ({...f, properties: f.properties || {}}));
-    }
+    if(gj && Array.isArray(gj.features)){ gj.features = gj.features.map(f=> ({...f, properties: f.properties || {}})); }
     map.getSource('buildings').setData(gj);
     (gj.features||[]).forEach((f,i)=>allFeats.push({...f,__src:'buildings',__idx:'b'+i}));
-    console.info('3D binalar yüklendi:', (gj.features||[]).length);
   }catch(e){ console.warn('buildings.json okunamadı', e); }
 }
 
@@ -381,6 +387,7 @@ function applyBasemap(){
     if(map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d','visibility','none');
     MODEL_LAYER_IDS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none'); });
   }
+  // OSM üst katmanı her iki modda da açık kalır (osm-lyr dokunmuyoruz)
 }
 
 /* ================== DİL ================== */
