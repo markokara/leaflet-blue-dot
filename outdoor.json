@@ -61,37 +61,6 @@
     {
       "type": "Feature",
       "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            31.805962994699545,
-            36.59971109647145
-          ],
-          [
-            31.806383945085617,
-            36.5995177132578
-          ],
-          [
-            31.80641883776832,
-            36.59949979213832
-          ],
-          [
-            31.806430726675682,
-            36.599493685913544
-          ]
-        ]
-      },
-      "properties": {
-        "len_m": 48,
-        "name": "test yol",
-        "category": "path",
-        "way": "foot"
-      },
-      "id": "0dcec35e-787f-4c09-a21b-98f9a5ed368c"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
@@ -189,6 +158,169 @@
         "desc_en": "EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/"
       },
       "id": "6ae46b2a-00c6-48b6-afa4-9035fbc6af3e"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            31.8059625289758,
+            36.59971218263075
+          ],
+          [
+            31.806392683491957,
+            36.5995107137926
+          ],
+          [
+            31.806344888545716,
+            36.59941717451029
+          ],
+          [
+            31.806383721939532,
+            36.599035820878086
+          ],
+          [
+            31.80641956814922,
+            36.598997445565416
+          ],
+          [
+            31.806440478438198,
+            36.59888471797409
+          ],
+          [
+            31.806329952625017,
+            36.5987767871472
+          ]
+        ]
+      },
+      "properties": {
+        "len_m": 132,
+        "name": "test",
+        "category": "path",
+        "stroke_op": 0.1,
+        "fill_op": 0.1
+      },
+      "id": "f58ed2ee-7cfd-43ae-b606-b70e062300fb"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80370489597766,
+          36.599031722221454
+        ]
+      },
+      "properties": {
+        "name": "Tropik Aquapark",
+        "category": "aquapark",
+        "desc": "Çocuk Aquapark",
+        "stroke": "#4D69D8",
+        "fill": "#4D69D8",
+        "stroke_op": 1,
+        "fill_op": 1
+      },
+      "id": "9a00a18f-22dd-4af3-aad9-9c3b18ac78d2"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80443222113689,
+          36.60064073094961
+        ]
+      },
+      "properties": {
+        "name": "Bar",
+        "category": "bar"
+      },
+      "id": "1d286686-50cd-45b9-ae38-d12c42a01159"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            31.804933720017463,
+            36.60080555462325
+          ],
+          [
+            31.804895667489948,
+            36.600530583763785
+          ],
+          [
+            31.80368179186221,
+            36.59996230754845
+          ],
+          [
+            31.80370842863147,
+            36.59988287075478
+          ],
+          [
+            31.805424597622398,
+            36.59907322184641
+          ],
+          [
+            31.805028851336242,
+            36.59859964967865
+          ],
+          [
+            31.803788338939253,
+            36.599247373460955
+          ],
+          [
+            31.80370489597766,
+            36.599031722221454
+          ],
+          [
+            31.803529581752148,
+            36.59945818804731
+          ],
+          [
+            31.802974014850427,
+            36.599653725699426
+          ],
+          [
+            31.80268101038856,
+            36.59952234889403
+          ],
+          [
+            31.802642957861043,
+            36.59940013771144
+          ],
+          [
+            31.802913130806406,
+            36.599213765285256
+          ],
+          [
+            31.803255603554042,
+            36.59901517122087
+          ],
+          [
+            31.804009043598835,
+            36.59857520716531
+          ],
+          [
+            31.804203111489162,
+            36.59881963195038
+          ],
+          [
+            31.8042944375552,
+            36.59898156294405
+          ]
+        ]
+      },
+      "properties": {
+        "len_m": 916,
+        "name": "tets yol",
+        "category": "path",
+        "way": "foot",
+        "width": 4
+      },
+      "id": "519d0a28-1a7b-418e-945b-4ad378c45499"
     }
   ]
 }
