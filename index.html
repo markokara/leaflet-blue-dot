@@ -142,8 +142,8 @@ const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 15, DEFAULT_BEARING = 0;
-// OSM üst katman opaklığı (koddaki değeri dilediğin gibi değiştir)
-const OSM_OPACITY = 0.65;
+// OSM üst katman opaklığı
+const OSM_OPACITY = 0.45;
 
 /* ================== i18n ================== */
 const I18N = {
@@ -151,15 +151,13 @@ const I18N = {
     ui:{pick:"Haritadan Hedef", pickStart:"Başlangıç Seç", followOn:"📍 Konumum: Açık", followOff:"📍 Konumum: Kapalı", reset:"Sıfırla", clearRoute:"Rota Temizle"},
     labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
     cats:{pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu"},
-    nav:{depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s",
-         continue:"İleri git", you_are_here:"Hedefe vardın"}
+    nav:{depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s", continue:"İleri git", you_are_here:"Hedefe vardın"}
   },
   en:{searchPH:"Search: restaurant, spa, pool…", go:"Go",
     ui:{pick:"Pick on Map", pickStart:"Pick Start", followOn:"📍 My Location: On", followOff:"📍 My Location: Off", reset:"Reset", clearRoute:"Clear Route"},
     labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
     cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"},
-    nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s",
-         continue:"Continue", you_are_here:"You arrived"}
+    nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s", continue:"Continue", you_are_here:"You arrived"}
   }
 };
 let LANG = localStorage.getItem("lang") || "tr";
@@ -268,19 +266,57 @@ map.on('load', async ()=>{
 
   map.addSource('route',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}});
-  // rota okları (ikon programatik)
+
+  // rota & routes için kullanılacak ok ikonu
   const arrow = document.createElement('canvas'); arrow.width=40; arrow.height=40;
   const ctx=arrow.getContext('2d'); ctx.translate(20,20); ctx.beginPath(); ctx.moveTo(-8,6); ctx.lineTo(12,0); ctx.lineTo(-8,-6); ctx.closePath(); ctx.fillStyle='#1b7a5b'; ctx.fill();
   map.addImage('arrow', arrow, {pixelRatio:2});
+
   map.addLayer({ id:'route-arrows', type:'symbol', source:'route',
     layout:{ 'symbol-placement':'line', 'symbol-spacing':40, 'icon-image':'arrow', 'icon-size':0.9, 'icon-rotation-alignment':'map' } });
 
   map.addSource('me',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
+  // --- ROUTES (otel içi yol ağı) görsel kaynak + katmanlar
+  map.addSource('routesData', { type:'geojson', data:emptyFC() });
+  map.addLayer({
+    id:'routes-net',
+    type:'line',
+    source:'routesData',
+    paint:{
+      'line-color': [
+        'match', ['get','way'],
+        'bike',    '#22c55e',
+        'shuttle', '#f59e0b',
+        'service', '#6b7280',
+        'indoor',  '#0ea5e9',
+        'foot',    '#1f2937',
+        /* default */ '#1f2937'
+      ],
+      'line-width': ['coalesce', ['to-number',['get','width']], 3],
+      'line-opacity': 0.9
+    }
+  }, 'dest-pt');
+
+  map.addLayer({
+    id:'routes-net-arrows',
+    type:'symbol',
+    source:'routesData',
+    layout:{
+      'symbol-placement':'line',
+      'symbol-spacing': 50,
+      'icon-image':'arrow',
+      'icon-size': 0.7,
+      'icon-rotation-alignment':'map'
+    },
+    paint:{ 'icon-opacity': 0.9 }
+  }, 'dest-pt');
+
+  // JSON'lar
   await loadJSONs();      // indoor + outdoor
   await loadBuildings();  // buildings.json
-  await loadRoutes();     // routes.json (otel içi graph)
+  await loadRoutes();     // routes.json (otel içi graph + görünür çizim)
   await loadModelsJSON(); // opsiyonel modeller
 
   applyLang(); applyBasemap();
@@ -351,11 +387,19 @@ async function loadBuildings(){
   }catch(e){ console.warn('buildings.json okunamadı', e); }
 }
 
-/* routes.json yükle ve graph kur */
+/* routes.json yükle ve graph kur + haritaya koy */
 async function loadRoutes(){
   try{
     const bust='v='+Date.now();
     const gj = await fetch('routes.json?'+bust,{cache:'no-store'}).then(r=>r.ok?r.json():emptyFC()).catch(()=>emptyFC());
+
+    // Haritada göster
+    if (map.getSource('routesData')) map.getSource('routesData').setData(gj);
+
+    // Arama listesine ekle
+    (gj.features||[]).forEach((f,i)=> allFeats.push({...f,__src:'routes',__idx:'r'+i}));
+
+    // Navigasyon grafiği
     ROUTE_NET = buildGraphFromRoutes(gj.features||[]);
   }catch(e){
     console.warn('routes.json okunamadı', e);
@@ -369,23 +413,30 @@ function haversine(a,b){ const R=6371000, toRad=x=>x*Math.PI/180;
   return 2*R*Math.asin(Math.sqrt(s));
 }
 function buildGraphFromRoutes(features){
-  // sadece LineString ve category=path olanlar
-  const lines = features.filter(f=> f.geometry && f.geometry.type==='LineString' && (f.properties||{}).category==='path');
-  if(!lines.length) return null;
+  // LineString + MultiLineString, category=path
+  const lines = [];
+  for (const f of (features||[])){
+    if (!f.geometry) continue;
+    const props = f.properties || {};
+    if ((props.category||'').toLowerCase() !== 'path') continue;
 
-  const nodes=new Map(); // key -> {id, xy}
-  const edges=[];        // {a,b,dist,way,oneway,coords}
+    if (f.geometry.type === 'LineString'){
+      lines.push(f);
+    } else if (f.geometry.type === 'MultiLineString'){
+      for (const seg of (f.geometry.coordinates||[])){
+        lines.push({type:'Feature', properties: props, geometry:{type:'LineString', coordinates: seg}});
+      }
+    }
+  }
+  if (!lines.length) return null;
 
-  const getNode = (xy)=>{
-    const k=keyFromCoord(xy);
-    if(!nodes.has(k)) nodes.set(k,{id:nodes.size, xy});
-    return nodes.get(k);
-  };
+  const nodes=new Map(); const edges=[];
+  const getNode = (xy)=>{ const k=keyFromCoord(xy); if(!nodes.has(k)) nodes.set(k,{id:nodes.size, xy}); return nodes.get(k); };
 
   for(const f of lines){
     const props=f.properties||{};
-    const way=(props.way||'foot').toLowerCase(); // tek değer bekleniyor
-    const oneway = !!props.oneway; // admin varsa
+    const way=(props.way||'foot').toLowerCase();
+    const oneway = !!props.oneway;
     const coords=f.geometry.coordinates;
 
     for(let i=0;i<coords.length-1;i++){
@@ -396,11 +447,8 @@ function buildGraphFromRoutes(features){
     }
   }
 
-  // adjacency
   const adj=Array.from({length:nodes.size},()=>[]);
   edges.forEach(e=>adj[e.a].push(e));
-
-  // kdtree kaba: düğümlerde en yakınını bul
   const nodeArr=Array.from(nodes.values());
 
   function nearestNode(xy){
@@ -477,7 +525,7 @@ function applyBasemap(){
     if(map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d','visibility','none');
     MODEL_LAYER_IDS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none'); });
   }
-  // OSM üst katmanı her iki modda da açık kalır (osm-lyr dokunmuyoruz)
+  // OSM üst katmanı her iki modda da açık (osm-lyr'a dokunmuyoruz)
 }
 
 /* ================== DİL ================== */
@@ -527,7 +575,6 @@ function renderResults(list, cat){
     const div=document.createElement('div'); div.className='item'; div.dataset.cat=cat;
     div.innerHTML=`<span>➤ ${(t().cats?.[cat]||cat)}</span> <small>${feats.length}</small>`;
     results.appendChild(div);
-    // altına o kategorideki öğeleri de dökelim
     feats.slice(0,200).forEach(f=>{
       const p=f.properties||{}; const item=document.createElement('div'); item.className='item';
       item.dataset.idx=f.__idx; item.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${p.level||''}</small>`;
@@ -536,7 +583,7 @@ function renderResults(list, cat){
   }else{
     list.slice(0,120).forEach(f=>{
       const p=f.properties||{};
-      const meta=[(f.__src==='indoor'?'Indoor':f.__src==='outdoor'?'Outdoor':'Bina'), p.category||'', p.level||''].filter(Boolean).join(' · ');
+      const meta=[(f.__src==='indoor'?'Indoor':f.__src==='outdoor'?'Outdoor':f.__src==='buildings'?'Bina':'Rota'), p.category||'', p.level||''].filter(Boolean).join(' · ');
       const div=document.createElement('div'); div.className='item'; div.dataset.idx=f.__idx;
       div.innerHTML=`<span>${nameInAnyLang(p) || p.name || '(isimsiz)'}</span><small>${meta}</small>`;
       results.appendChild(div);
@@ -586,7 +633,7 @@ map.on('click', e=>{
     pickMode=false; pickBtn.classList.remove('active'); goBtn.disabled=false; return;
   }
   // pick mod değilse POI popup
-  const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline','buildings-fill','buildings-line']});
+  const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline','buildings-fill','buildings-line','routes-net']});
   if(feats && feats[0]) showPopup(feats[0], e.lngLat);
 });
 
@@ -659,19 +706,17 @@ async function routeOSRM(a,b,mode){
 function routeLocal(a,b,mode){
   const G=ROUTE_NET; if(!G) return null;
   const NA=G.nearestNode(a), NB=G.nearestNode(b);
-  // 80 m içinde değilse saçma sonuç vermeyelim
-  if(NA.dist>120 || NB.dist>120) return null;
+  if(NA.dist>120 || NB.dist>120) return null; // başlangıç/hedef ağdan çok uzaksa
 
   // Dijkstra
   const N=G.nodes.length, INF=1e15;
   const dist=new Float64Array(N).fill(INF), prev=new Int32Array(N).fill(-1);
   const used=new Uint8Array(N).fill(0);
-  const allow = (w)=> (mode==='foot' ? (w==='foot'||w==='bike'||w==='shuttle') :
+  const allow = (w)=> (mode==='foot' ? (w==='foot'||w==='bike'||w==='shuttle'||w==='indoor'||w==='service') :
                        mode==='bike' ? (w==='bike') : (w==='shuttle'));
   dist[NA.node.id]=0;
 
   for(let iter=0; iter<N; iter++){
-    // en küçük dist
     let u=-1, best=INF;
     for(let i=0;i<N;i++) if(!used[i] && dist[i]<best){best=dist[i]; u=i;}
     if(u===-1) break;
@@ -695,8 +740,7 @@ function routeLocal(a,b,mode){
   const totalDist = coords.slice(0,-1).reduce((s,_,i)=>s+haversine(coords[i],coords[i+1]),0);
   const steps = makeStepsFromLine(coords);
 
-  // kaba süre (yaya 1.2 m/s, bisiklet 4.5 m/s, shuttle 8 m/s)
-  const sp = mode==='bike'?4.5 : mode==='shuttle'?8 : 1.2;
+  const sp = mode==='bike'?4.5 : mode==='shuttle'?8 : 1.2; // m/s
   const time = totalDist / sp;
 
   return {coords, dist:totalDist, time, steps};
@@ -717,11 +761,9 @@ function makeStepsFromLine(coords){
   return steps;
 }
 function turnAngle(a,b,c){
-  const toRad=x=>x*Math.PI/180; const toDeg=x=>x*180/Math.PI;
-  // düzlem yaklaşıklığı
+  const toDeg=x=>x*180/Math.PI;
   const v1=[b[0]-a[0], b[1]-a[1]], v2=[c[0]-b[0], c[1]-b[1]];
-  const ang = Math.atan2(v2[1],v2[0]) - Math.atan2(v1[1],v1[0]);
-  let deg=toDeg(ang);
+  let deg=toDeg(Math.atan2(v2[1],v2[0]) - Math.atan2(v1[1],v1[0]));
   while(deg>180) deg-=360; while(deg<-180) deg+=360;
   return deg;
 }
@@ -803,7 +845,7 @@ function stepText(s){
   const onto=street? (L.nav.onto||'').replace('%s',street):'';
   switch(type){
     case'depart':return L.nav.depart+onto;
-    case'arrive':return L.nav.arrive;
+    case'arrive':return L.nav.arrive;TOKEN
     case'turn':return (mod==='left'?L.nav.turn_left:mod==='right'?L.nav.turn_right:(L.nav.straight||''))+onto;
     case'roundabout':return (L.nav.roundabout||'').replace('%n',man.exit||1)+onto;
     default:return (L.nav.straight||'')+onto;
