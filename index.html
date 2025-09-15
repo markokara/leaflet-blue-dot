@@ -8,7 +8,7 @@
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
-<!-- Opsiyonel: glTF/GLB için THREE -->
+<!-- Opsiyonel: gflTF/GLB için THREE -->
 <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -206,6 +206,44 @@ function applyBuildingFilter(){
 
 /* LOAD */
 map.on('load', async ()=>{
+// --- INDOOR ---
+  map.addSource('indoor',{type:'geojson',data:{type:"FeatureCollection",features:[]},promoteId:'fid'});
+  map.addLayer({
+    id:'indoor-fill', type:'fill', source:'indoor',
+    paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}
+  }, 'sat-lyr'); // raster'ın üstünde
+  map.addLayer({
+    id:'indoor-line', type:'line', source:'indoor', filter:['==',['geometry-type'],'Polygon'],
+    paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}
+  }, 'indoor-fill');
+  map.addLayer({
+    id:'indoor-pts', type:'circle', source:'indoor', filter:['==',['geometry-type'],'Point'],
+    paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}
+  }, 'indoor-line');
+
+  // --- OUTDOOR ---
+  map.addSource('outdoor',{type:'geojson',data:{type:"FeatureCollection",features:[]},promoteId:'fid'});
+  map.addLayer({
+    id:'outdoor-fill', type:'fill', source:'outdoor',
+    paint:{'fill-color':['coalesce',['get','fill'],'#16a34a'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}
+  }, 'indoor-pts');
+  map.addLayer({
+    id:'outdoor-line', type:'line', source:'outdoor', filter:['==',['geometry-type'],'Polygon'],
+    paint:{'line-color':['coalesce',['get','stroke'],'#16a34a'],'line-width':['coalesce',['get','stroke_w'],1.6]}
+  }, 'outdoor-fill');
+  map.addLayer({
+    id:'outdoor-pts', type:'circle', source:'outdoor', filter:['==',['geometry-type'],'Point'],
+    paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#22c55e'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}
+  }, 'outdoor-line');
+
+  // JSON dosyalarını oku ve bas
+  const bust='v='+Date.now();
+  const indoor = await fetch('indoor.json?'+bust).then(r=>r.json()).catch(()=>({type:'FeatureCollection',features:[]}));
+  const outdoor = await fetch('outdoor.json?'+bust).then(r=>r.json()).catch(()=>({type:'FeatureCollection',features:[]}));
+  map.getSource('indoor').setData(indoor);
+  map.getSource('outdoor').setData(outdoor);
+
+});
   // Raster uydu (altta)
   map.addSource('sat',{ type:'raster',
     tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
