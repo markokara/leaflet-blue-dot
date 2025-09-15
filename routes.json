@@ -3,89 +3,36 @@
   "features": [
     {
       "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            31.805314768550453,
-            36.60060669982602
-          ],
-          [
-            31.805915488047976,
-            36.59996360757981
-          ]
-        ]
-      },
-      "properties": {
-        "len_m": 89,
-        "category": "path",
-        "way": "oneway_fwd"
-      },
-      "id": "598757ec-0aaf-4c53-8726-e9506e73e235"
+      "geometry": { "type": "LineString", "coordinates": [
+        [31.80605, 36.59972],
+        [31.80618, 36.59969],
+        [31.80633, 36.59963]
+      ]},
+      "properties": { "category":"path", "way":"indoor" }   // kapalı koridor (yaya)
     },
     {
       "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            31.804824769901472,
-            36.601273429509405
-          ],
-          [
-            31.80513101905707,
-            36.60059251402534
-          ],
-          [
-            31.803835349552603,
-            36.60005345167154
-          ],
-          [
-            31.80364099912693,
-            36.59986430609331
-          ],
-          [
-            31.80554327753577,
-            36.59892329994936
-          ],
-          [
-            31.805430349733268,
-            36.599086962196665
-          ],
-          [
-            31.804872993420027,
-            36.59838372942258
-          ],
-          [
-            31.80406292275357,
-            36.598628332853636
-          ],
-          [
-            31.804474881767707,
-            36.59905082786251
-          ],
-          [
-            31.803581726930336,
-            36.59941217044242
-          ],
-          [
-            31.803679785480167,
-            36.599099763900895
-          ],
-          [
-            31.803689736352556,
-            36.59906806116243
-          ]
-        ]
-      },
-      "properties": {
-        "len_m": 817,
-        "name": "murat yol",
-        "category": "path",
-        "way": "foot",
-        "width": 1
-      },
-      "id": "bd88955c-b411-411c-ab8f-f9fec549a327"
+      "geometry": { "type": "LineString", "coordinates": [
+        [31.80633, 36.59963],
+        [31.80649, 36.59958]
+      ]},
+      "properties": { "category":"path", "way":"oneway_fwd" } // tek yön: ileri (ilk nokta → son nokta)
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "LineString", "coordinates": [
+        [31.80590, 36.59980],
+        [31.80605, 36.59972]
+      ]},
+      "properties": { "category":"path", "way":"bike" }      // bisiklet
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "LineString", "coordinates": [
+        [31.80560, 36.59965],
+        [31.80590, 36.59980]
+      ]},
+      "properties": { "category":"path", "way":"shuttle" }   // servis
     }
   ]
 }
