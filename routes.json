@@ -1,0 +1,13 @@
+"type": "FeatureCollection",
+  "features": [
+      "properties": {
+        "len_m": 916,
+        "name": "tets yol",
+        "category": "path",
+        "way": "foot",
+        "width": 4
+      },
+      "id": "519d0a28-1a7b-418e-945b-4ad378c45499"
+    }
+  ]
+}
