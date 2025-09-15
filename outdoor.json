@@ -96,79 +96,99 @@
         "coordinates": [
           [
             [
-              31.00736658476179,
-              36.864338681872326
+              31.007468605335415,
+              36.86437359103621
             ],
             [
-              31.00736135757083,
-              36.86427034966768
+              31.0074669291385,
+              36.86434140219397
             ],
             [
-              31.007411887110017,
-              36.86427034966768
+              31.007356300141687,
+              36.86434274339602
             ],
             [
-              31.007420599041772,
-              36.86420480649603
+              31.007354623944767,
+              36.86427165965601
             ],
             [
-              31.007485067783428,
-              36.86420341194895
+              31.007411614640095,
+              36.86426897724945
             ],
             [
-              31.007485067783428,
-              36.86416157581307
+              31.00740826224625,
+              36.864242153178495
             ],
             [
-              31.00758612686179,
-              36.86416157581307
+              31.00734456676324,
+              36.864240811974696
             ],
             [
-              31.007587869152427,
-              36.86419643927721
+              31.00734456676324,
+              36.86415631608814
             ],
             [
-              31.00753733969301,
-              36.86419643927721
+              31.007418319427778,
+              36.86415631608814
             ],
             [
-              31.007593096343385,
-              36.86419783379246
+              31.00742167182162,
+              36.86420191705439
             ],
             [
-              31.007593096343385,
-              36.864235486269195
+              31.007485367304632,
+              36.86420057584989
             ],
             [
-              31.007535597242846,
-              36.864238275362084
+              31.00748704350156,
+              36.86415899849868
             ],
             [
-              31.007542566883966,
-              36.86429545129708
+              31.00758258672607,
+              36.86415631608814
             ],
             [
-              31.007511203738215,
-              36.86429545129708
+              31.007585939119917,
+              36.864240811974696
             ],
             [
-              31.007511203738215,
-              36.86433728732774
+              31.00751889124306,
+              36.864240811974696
             ],
             [
-              31.00736658476179,
-              36.864338681872326
+              31.00752056743998,
+              36.86426495363942
+            ],
+            [
+              31.007522243636906,
+              36.864370908633205
+            ],
+            [
+              31.007468605335415,
+              36.86437359103621
             ]
           ]
         ]
       },
       "properties": {
-        "area_m2": 386,
-        "name": "test bina",
+        "area_m2": 526,
+        "name": "EMERALD VILLA_1",
         "category": "building",
-        "fill_op": 0.001
+        "level": "0",
+        "desc": "EMERALD VILLA\nŞahane 3 odalı havuz villası, sahiplerine güneşle parlayan ihtişamlı günler vadediyor.\n\nDetaylı Bilgi : https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/",
+        "image": "https://www.regnumhotels.com/media/depeo3p1/regnumcarya_carya-golf-villa-bedroom2.jpg?format=webp&quality=100",
+        "width": 0.1,
+        "stroke": "#FDFDFD",
+        "fill": "#FDFDFD",
+        "stroke_op": 0.01,
+        "fill_op": 0.01,
+        "height": 10,
+        "levels": 1,
+        "building:levels": 1,
+        "desc_ru": "EMERALD VILLA\n\nВеликолепная вилла с 3 спальнями и бассейном обещает своим владельцам великолепные дни, озаренные солнцем.\n\nПодробная информация: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/",
+        "desc_en": "EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/"
       },
-      "id": "5d3aad87-a24e-4009-b4ae-e58c78233789"
+      "id": "6ae46b2a-00c6-48b6-afa4-9035fbc6af3e"
     }
   ]
 }
