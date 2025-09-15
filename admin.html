@@ -226,6 +226,7 @@
       <div class="left">
         <button id="propGeom" class="pill">Geometriyi Düzenle</button>
         <button id="geomReset" class="pill">Düzenlemeyi Kapat</button>
+        <button id="moveLayer" class="pill" style="display:none">Aktif katmana taşı</button>
         <button id="propDelete" class="danger">Sil</button>
       </div>
       <div>
@@ -247,7 +248,15 @@ const setStatus = (msg, ms=2200)=>{ if(!msg){statusEl.style.display="none";retur
 
 const fmt = new ol.format.GeoJSON();
 function isFC(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
-const writeGJ = layer => JSON.parse(fmt.writeFeatures(layer.getSource().getFeatures(),{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}));
+
+/* GEÇMİŞ: writeFeatures → JSON.parse ile çalışıyordu ve bazı ortamlarda geometri kaybı olabiliyordu.
+   YENİ: writeFeaturesObject doğrudan JS nesnesi üretir; güvenli. */
+const writeGJ = layer =>
+  fmt.writeFeaturesObject(layer.getSource().getFeatures(), {
+    featureProjection:"EPSG:3857",
+    dataProjection:"EPSG:4326"
+  });
+
 const readGJToLayer = (layer, gj) => { if(!isFC(gj)) throw new Error("FeatureCollection bekleniyor"); const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
 
 function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
@@ -260,14 +269,14 @@ function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2
 function validateImg(u){ if(!u) return true; try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{ return false; } }
 const clamp01 = v => Math.min(1, Math.max(0, v));
 
-/* ====== renk yardımcıları (hex → rgba, opaklık uygulama) ====== */
+/* ====== renk yardımcıları ====== */
 function hexToRGB(hex){
   const h=hex.replace('#','').trim(); if(!(h.length===3||h.length===6)) return null;
   const n = h.length===3 ? h.split('').map(c=>parseInt(c+c,16)) : [h.slice(0,2),h.slice(2,4),h.slice(4,6)].map(x=>parseInt(x,16));
   if(n.some(v=>isNaN(v))) return null; return {r:n[0],g:n[1],b:n[2]};
 }
 function withOpacity(color, alpha){
-  if(!Number.isFinite(alpha)) return color; // opaklık yoksa dokunma
+  if(!Number.isFinite(alpha)) return color;
   const a = clamp01(alpha);
   if(typeof color!=='string'||!color) return color;
   if(color.startsWith('#')){
@@ -275,7 +284,7 @@ function withOpacity(color, alpha){
   }
   const m = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)$/i);
   if(m){ return `rgba(${m[1]},${m[2]},${m[3]},${a})`; }
-  return color; // isimli renk vb.
+  return color;
 }
 
 /* ====== stiller ====== */
@@ -370,6 +379,22 @@ const buildingsLayer = new ol.layer.VectorImage({source:new ol.source.Vector(), 
 const routesLayer    = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("routes")});
 [indoorLayer,outdoorLayer,buildingsLayer,routesLayer].forEach((l,i)=>l.setZIndex(20+i));
 const tgtLayer = ()=>{ const v=$("layerSel").value; return v==="indoor"?indoorLayer : v==="outdoor"?outdoorLayer : v==="buildings"?buildingsLayer : routesLayer; };
+
+/* Aktif/gerçek katman adını döndür */
+function layerName(layer){
+  if(layer===indoorLayer) return 'indoor';
+  if(layer===outdoorLayer) return 'outdoor';
+  if(layer===buildingsLayer) return 'buildings';
+  if(layer===routesLayer) return 'routes';
+  return null;
+}
+/* Bir feature şu anda hangi katmanda? */
+function featureLayer(f){
+  for(const L of [indoorLayer,outdoorLayer,buildingsLayer,routesLayer]){
+    if(L.getSource().hasFeature(f)) return L;
+  }
+  return null;
+}
 
 /* ====== BASE: Mapbox (altta) + OSM overlay (üstte) ====== */
 const lyrBaseMB = new ol.layer.Tile({
@@ -552,10 +577,10 @@ $("selectBtn").onclick=(e)=>{
   $("tbSquare").onclick=()=>{ if(!selected) return; toSquare(selected); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
   $("tbFlipLong").onclick=()=>{ if(!selected) return; flipFeature(selected,true); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
   $("tbFlipShort").onclick=()=>{ if(!selected) return; flipFeature(selected,false); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
-  $("tbDelete").onclick=()=>{ if(!selected) return; if(confirm("Seçili öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(selected); saveLocal($("layerSel").value, tgtLayer()); selected=null; $("toolbox").style.display="none"; } };
+  $("tbDelete").onclick=()=>{ if(!selected) return; if(confirm("Seçili öğe silinsin mi?")){ const L=featureLayer(selected) || tgtLayer(); L.getSource().removeFeature(selected); saveLocal(layerName(L), L); selected=null; $("toolbox").style.display="none"; } };
 };
 $("layerSel").addEventListener("change",()=>{ resetInteractions(); indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); routesLayer.changed(); });
-$("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); routesLayer.changed(); });
+$("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); routesLayer.changed(); buildingsLayer.changed(); });
 $("showArrows").addEventListener("change",()=>{ routesLayer.changed(); });
 
 /* ====== FORM + i18n ====== */
@@ -611,16 +636,43 @@ function openForm(f){
     };
     if((props.way==='foot'||props.way==='run'||props.way==='bike'||props.way==='shuttle'||props.way==='service'||props.way==='indoor') && !props.category){ props.category='path'; }
     if(!saveLangFields(props)) return;
-    f.setProperties(props); enrich(f); tgtLayer().changed(); saveLocal($("layerSel").value, tgtLayer()); setStatus("Kaydedildi."); $('propClose').click();
+    f.setProperties(props); enrich(f); // stil güncelle
+    const L = featureLayer(f) || tgtLayer(); // hangi katmanda ise onu kaydet
+    saveLocal(layerName(L), L);
+    setStatus("Kaydedildi."); $('propClose').click();
   };
   $('propClose').onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); };
   $('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify);
     modify=new ol.interaction.Modify({ features:new ol.Collection([f]) });
     map.addInteraction(modify); enableSnap(tgtLayer()); setStatus("DÜZENLEME: vertex taşı. 'Düzenlemeyi Kapat' ile çık.");
-    modify.on("modifyend",()=>{ enrich(f); saveLocal($("layerSel").value, tgtLayer()); $('f_metric').value=summarizeGeom(f); });
+    modify.on("modifyend",()=>{ enrich(f); const L=featureLayer(f) || tgtLayer(); saveLocal(layerName(L), L); $('f_metric').value=summarizeGeom(f); });
   };
   $('geomReset').onclick=()=>{ if(modify){ map.removeInteraction(modify); modify=null; } if(snap){ map.removeInteraction(snap); snap=null; } setStatus("Geometri düzenleme kapatıldı."); };
-  $('propDelete').onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ tgtLayer().getSource().removeFeature(f); saveLocal($("layerSel").value, tgtLayer()); modal.style.display="none"; resetInteractions(); } };
+  $('propDelete').onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ const L=featureLayer(f) || tgtLayer(); L.getSource().removeFeature(f); saveLocal(layerName(L), L); modal.style.display="none"; resetInteractions(); } };
+
+  /* ==== YENİ: Aktif katmana taşı ==== */
+  const moveBtn = $('moveLayer');
+  const currLayer = featureLayer(f);
+  const currName = layerName(currLayer);
+  const actName  = $('layerSel').value;
+  const actLayer = tgtLayer();
+
+  if (currLayer && currLayer !== actLayer) {
+    moveBtn.style.display = 'inline-block';
+    moveBtn.textContent = `Taşı: ${actName.toUpperCase()}`;
+    moveBtn.onclick = () => {
+      currLayer.getSource().removeFeature(f);
+      actLayer.getSource().addFeature(f);
+      enrich(f);
+      saveLocal(actName, actLayer);
+      setStatus(`Öğe ${currName} → ${actName} taşındı.`);
+      modal.style.display = 'none';
+      resetInteractions();
+    };
+  } else {
+    moveBtn.style.display = 'none';
+    moveBtn.onclick = null;
+  }
 }
 
 /* ====== indir / yükle / temizle ====== */
@@ -645,12 +697,7 @@ $("clearLocal").onclick=()=>{
   update3DBuildings();
   setStatus("Yerel veri temizlendi.");
 };
-
-/* ====== 3D güncelle (yerel buildings) ====== */
-function update3DBuildings(){
-  if(!mlMap) return;
-  const src=mlMap.getSource('bld'); if(src&&src.setData) src.setData(loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
-}
 </script>
 </body>
 </html>
+
