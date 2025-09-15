@@ -8,55 +8,37 @@
         "coordinates": [
           [
             [
-              31.806187036975615,
-              36.59978870768168
+              31.008143793097098,
+              36.86390149016225
             ],
             [
-              31.806332550689326,
-              36.599719145535204
+              31.008314111089305,
+              36.86390149016225
             ],
             [
-              31.806270187669163,
-              36.59963567082572
+              31.00830902693019,
+              36.86380586304553
             ],
             [
-              31.80621128904977,
-              36.59964680074974
+              31.008138708937977,
+              36.86380586304553
             ],
             [
-              31.80622861232239,
-              36.59967462574386
-            ],
-            [
-              31.806110815400803,
-              36.59969410313185
-            ],
-            [
-              31.8061269889405,
-              36.59971417738491
-            ],
-            [
-              31.806187036975615,
-              36.59978870768168
+              31.008143793097098,
+              36.86390149016225
             ]
           ]
         ]
       },
       "properties": {
-        "area_m2": 263,
-        "name": "test bina",
+        "area_m2": 252,
         "category": "building",
-        "desc": "https://markokara.github.io/leaflet-blue-dot/admin.html menü için tıkla",
-        "image": "https://www.dimitriseconomou.com/wp-content/uploads/2019/06/OLIVETREE1687.jpg",
-        "stroke": "#00FF00",
-        "fill": "#00FF00",
-        "height": 25,
-        "levels": 3,
-        "building:levels": 3,
-        "fill_op": 0.01,
-        "stroke_op": 0.001
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
       },
-      "id": "c19eb151-c516-411e-9532-f28491d075a4"
+      "id": "ecc23cbd-bfc6-4914-89c1-80e5d307f065"
     },
     {
       "type": "Feature",
@@ -65,99 +47,319 @@
         "coordinates": [
           [
             [
-              31.007468605335415,
-              36.86437359103621
+              31.00374250538162,
+              36.86416506693682
             ],
             [
-              31.0074669291385,
-              36.86434140219397
+              31.003896037830184,
+              36.86394326367129
             ],
             [
-              31.007356300141687,
-              36.86434274339602
+              31.003664368661443,
+              36.86383863908166
             ],
             [
-              31.007354623944767,
-              36.86427165965601
+              31.00350366527004,
+              36.8640208564434
             ],
             [
-              31.007411614640095,
-              36.86426897724945
-            ],
-            [
-              31.00740826224625,
-              36.864242153178495
-            ],
-            [
-              31.00734456676324,
-              36.864240811974696
-            ],
-            [
-              31.00734456676324,
-              36.86415631608814
-            ],
-            [
-              31.007418319427778,
-              36.86415631608814
-            ],
-            [
-              31.00742167182162,
-              36.86420191705439
-            ],
-            [
-              31.007485367304632,
-              36.86420057584989
-            ],
-            [
-              31.00748704350156,
-              36.86415899849868
-            ],
-            [
-              31.00758258672607,
-              36.86415631608814
-            ],
-            [
-              31.007585939119917,
-              36.864240811974696
-            ],
-            [
-              31.00751889124306,
-              36.864240811974696
-            ],
-            [
-              31.00752056743998,
-              36.86426495363942
-            ],
-            [
-              31.007522243636906,
-              36.864370908633205
-            ],
-            [
-              31.007468605335415,
-              36.86437359103621
+              31.00374250538162,
+              36.86416506693682
             ]
           ]
         ]
       },
       "properties": {
-        "area_m2": 526,
-        "name": "EMERALD VILLA_1",
-        "category": "building",
+        "area_m2": 1039,
+        "name": "Tiara Villaları",
         "level": "0",
-        "desc": "EMERALD VILLA\nŞahane 3 odalı havuz villası, sahiplerine güneşle parlayan ihtişamlı günler vadediyor.\n\nDetaylı Bilgi : https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/",
-        "image": "https://www.regnumhotels.com/media/depeo3p1/regnumcarya_carya-golf-villa-bedroom2.jpg?format=webp&quality=100",
-        "width": 0.1,
-        "stroke": "#FDFDFD",
-        "fill": "#FDFDFD",
-        "stroke_op": 0.01,
-        "fill_op": 0.01,
-        "height": 10,
-        "levels": 1,
-        "building:levels": 1,
-        "desc_ru": "EMERALD VILLA\n\nВеликолепная вилла с 3 спальнями и бассейном обещает своим владельцам великолепные дни, озаренные солнцем.\n\nПодробная информация: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/",
-        "desc_en": "EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/EMERALD VILLA\n\nThis magnificent 3-bedroom villa with a swimming pool promises its owners wonderful days filled with sunshine.\n\nFor more information, please visit: https://www.regnumhotels.com/tr/konaklama/villalar/emerald-villa/"
+        "desc": "Tiara Villaları",
+        "width": 1,
+        "stroke": "#722E4B",
+        "fill": "#722E4B",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
       },
-      "id": "6ae46b2a-00c6-48b6-afa4-9035fbc6af3e"
+      "id": "84bfc665-80ab-452e-8bc6-149e16b62502"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008145475734594,
+              36.8640710225163
+            ],
+            [
+              31.00831579372681,
+              36.8640710225163
+            ],
+            [
+              31.008310709567688,
+              36.86397539561172
+            ],
+            [
+              31.008140391575473,
+              36.86397539561172
+            ],
+            [
+              31.008145475734594,
+              36.8640710225163
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "775d042b-233f-43e9-9513-12742c107867"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00813614896784,
+              36.86422903453273
+            ],
+            [
+              31.008306466960054,
+              36.86422903453273
+            ],
+            [
+              31.008301382800937,
+              36.86413340782589
+            ],
+            [
+              31.008131064808722,
+              36.86413340782589
+            ],
+            [
+              31.00813614896784,
+              36.86422903453273
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "628f0c00-fd57-4846-aed0-bae09ac6f7d8"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008136990519322,
+              36.86454981451092
+            ],
+            [
+              31.00830730851153,
+              36.86454981451092
+            ],
+            [
+              31.008302224352413,
+              36.86445418820553
+            ],
+            [
+              31.0081319063602,
+              36.86445418820553
+            ],
+            [
+              31.008136990519322,
+              36.86454981451092
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "e9cbdeeb-d1d6-4fe5-9cd1-69271067995f"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00814039169184,
+              36.864392490851614
+            ],
+            [
+              31.008310709684054,
+              36.864392490851614
+            ],
+            [
+              31.008305625524933,
+              36.86429686434934
+            ],
+            [
+              31.00813530753272,
+              36.86429686434934
+            ],
+            [
+              31.00814039169184,
+              36.864392490851614
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "f717893c-8062-46ee-b798-b07d68f23b23"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00411772590745,
+              36.86270430308427
+            ],
+            [
+              31.004306299071022,
+              36.8626617322053
+            ],
+            [
+              31.00426761732266,
+              36.86255724009219
+            ],
+            [
+              31.004059703395573,
+              36.8625959410096
+            ],
+            [
+              31.00411772590745,
+              36.86270430308427
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 357,
+        "name": "Roof Tee",
+        "category": "bar",
+        "width": 1,
+        "stroke": "#722E4B",
+        "fill": "#722E4B"
+      },
+      "id": "c5a2367b-53c2-44ce-8efd-6af08ee0e36a"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00395655464628,
+              36.86313674301735
+            ],
+            [
+              31.004110087094844,
+              36.86291493676687
+            ],
+            [
+              31.003878417926106,
+              36.862810310769234
+            ],
+            [
+              31.003717714534698,
+              36.862992530583185
+            ],
+            [
+              31.00395655464628,
+              36.86313674301735
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 1039,
+        "name": "Tiara Villaları",
+        "level": "0",
+        "desc": "Tiara Villaları",
+        "width": 1,
+        "stroke": "#722E4B",
+        "fill": "#722E4B",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
+      },
+      "id": "a8eceb4c-f7b9-4795-a40d-2dd0f81e2770"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.003811941986115,
+              36.863395957035834
+            ],
+            [
+              31.00396547443468,
+              36.86317415153779
+            ],
+            [
+              31.00373380526594,
+              36.86306952589507
+            ],
+            [
+              31.003573101874537,
+              36.86325174509088
+            ],
+            [
+              31.003811941986115,
+              36.863395957035834
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 1039,
+        "name": "Tiara Villaları",
+        "level": "0",
+        "desc": "Tiara Villaları",
+        "width": 1,
+        "stroke": "#722E4B",
+        "fill": "#722E4B",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
+      },
+      "id": "85fc24af-f544-42e0-9203-bb3e16a75f8e"
     },
     {
       "type": "Feature",
@@ -165,78 +367,147 @@
         "type": "LineString",
         "coordinates": [
           [
-            31.8059625289758,
-            36.59971218263075
+            31.008352112438295,
+            36.86484610268738
           ],
           [
-            31.806392683491957,
-            36.5995107137926
-          ],
-          [
-            31.806344888545716,
-            36.59941717451029
-          ],
-          [
-            31.806383721939532,
-            36.599035820878086
-          ],
-          [
-            31.80641956814922,
-            36.598997445565416
-          ],
-          [
-            31.806440478438198,
-            36.59888471797409
-          ],
-          [
-            31.806329952625017,
-            36.5987767871472
+            31.008336860077307,
+            36.86332014248559
           ]
         ]
       },
       "properties": {
-        "len_m": 132,
-        "name": "test",
+        "len_m": 170,
         "category": "path",
-        "stroke_op": 0.1,
-        "fill_op": 0.1
-      },
-      "id": "f58ed2ee-7cfd-43ae-b606-b70e062300fb"
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.80370489597766,
-          36.599031722221454
-        ]
-      },
-      "properties": {
-        "name": "Tropik Aquapark",
-        "category": "aquapark",
-        "desc": "Çocuk Aquapark",
-        "stroke": "#4D69D8",
-        "fill": "#4D69D8",
+        "level": "0",
+        "way": "shuttle",
+        "width": 5,
+        "stroke": "#FFFFFF",
+        "fill": "#FFFFFF",
         "stroke_op": 1,
         "fill_op": 1
       },
-      "id": "9a00a18f-22dd-4af3-aad9-9c3b18ac78d2"
+      "id": "af6c8751-e2ab-4950-a296-3247c3ca160b"
     },
     {
       "type": "Feature",
       "geometry": {
-        "type": "Point",
+        "type": "Polygon",
         "coordinates": [
-          31.80443222113689,
-          36.60064073094961
+          [
+            [
+              31.00375227573478,
+              36.86377057878083
+            ],
+            [
+              31.00390580818334,
+              36.863548774370216
+            ],
+            [
+              31.0036741390146,
+              36.86344414924042
+            ],
+            [
+              31.003513435623194,
+              36.863626367542906
+            ],
+            [
+              31.00375227573478,
+              36.86377057878083
+            ]
+          ]
         ]
       },
       "properties": {
-        "name": "Bar",
-        "category": "bar"
+        "area_m2": 1039,
+        "name": "Tiara Villaları",
+        "level": "0",
+        "desc": "Tiara Villaları",
+        "width": 1,
+        "stroke": "#722E4B",
+        "fill": "#722E4B",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
       },
-      "id": "1d286686-50cd-45b9-ae38-d12c42a01159"
+      "id": "ca57aa9d-b2e4-4e73-80d2-0cd4aafb6c83"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008148877139842,
+              36.863596296991844
+            ],
+            [
+              31.008319195132056,
+              36.863596296991844
+            ],
+            [
+              31.008314110972936,
+              36.863500669493135
+            ],
+            [
+              31.00814379298073,
+              36.863500669493135
+            ],
+            [
+              31.008148877139842,
+              36.863596296991844
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "226f2200-c75d-4186-b93d-14d50765edf1"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008149718458597,
+              36.863750240621215
+            ],
+            [
+              31.008320036450804,
+              36.863750240621215
+            ],
+            [
+              31.008314952291688,
+              36.86365461331518
+            ],
+            [
+              31.00814463429948,
+              36.86365461331518
+            ],
+            [
+              31.008149718458597,
+              36.863750240621215
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "area_m2": 252,
+        "category": "building",
+        "width": 2,
+        "stroke": "#FFFFFF",
+        "fill": "#7A0F1D",
+        "fill_op": 0.5
+      },
+      "id": "b99e244e-1e59-43af-99c5-dc8a51dd5441"
     }
   ]
 }
