@@ -164,6 +164,47 @@
         "width": 13
       },
       "id": "e9a4cb1c-4db0-404b-9fb1-1dba472a28c4"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            31.003660573184874,
+            36.86164866515399
+          ],
+          [
+            31.008499096890958,
+            36.861755798049
+          ],
+          [
+            31.008538000910445,
+            36.859317931402686
+          ],
+          [
+            31.005310647495776,
+            36.858987739028535
+          ],
+          [
+            31.003709104063503,
+            36.861590397687664
+          ]
+        ]
+      },
+      "properties": {
+        "len_m": 1314,
+        "name": "mutrat kara test yollar ne ola",
+        "category": "path",
+        "level": "0",
+        "way": "foot",
+        "width": 10,
+        "stroke": "#F3F2F2",
+        "fill": "#EB1B37",
+        "stroke_op": 0.9,
+        "fill_op": 0.7
+      },
+      "id": "7f7e31b6-f571-4c8a-8bcc-538cd625b6bf"
     }
   ]
 }
