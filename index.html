@@ -567,13 +567,26 @@ goBtn.onclick = ()=>{
 
 /* ================== POPUP ("Buraya Git") – adaptif ================== */
 let popup;
-function showPopup(f,lngLat,withGo){
-  const maxW = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px';
-  const p=f.properties||{}, L=t();
-  const name = p['name_'+LANG] || p.name || '';
-  const catKey=(p.category||'').toLowerCase(); const catLabel=L.cats[catKey] || p.category || '';
-  const hours = p['hours_'+LANG] || p.hours || ''; const level=p['level_'+LANG]||p.level||''; const desc=p['desc_'+LANG]||p.desc||''; const img=p['image_'+LANG]||p.image||'';
-  const btn = withGo? `<div style="margin-top:8px"><button class="goto-btn" data-x="${Array.isArray(lngLat)?lngLat[0]:lngLat.lng}" data-y="${Array.isArray(lngLat)?lngLat[1]:lngLat.lat}">${L.go||'Git'} ➜</button></div>` : '';
+function showPopup(f, lngLat, withGo){
+  // Ekranın %86’sı ama en fazla 320px
+  const mw = Math.min(320, Math.round(window.innerWidth * 0.86)) + 'px';
+
+  const p = f.properties || {}, L = t();
+  const name  = p['name_'+LANG]  || p.name  || '';
+  const catKey = (p.category || '').toLowerCase();
+  const catLabel = L.cats[catKey] || p.category || '';
+  const hours = p['hours_'+LANG] || p.hours || '';
+  const level = p['level_'+LANG] || p.level || '';
+  const desc  = p['desc_'+LANG]  || p.desc  || '';
+  const img   = p['image_'+LANG] || p.image || '';
+
+  const btn = withGo
+    ? `<div style="margin-top:8px"><button class="goto-btn"
+         data-x="${Array.isArray(lngLat)?lngLat[0]:lngLat.lng}"
+         data-y="${Array.isArray(lngLat)?lngLat[1]:lngLat.lat}">
+         ${L.go || 'Git'} ➜</button></div>`
+    : '';
+
   const html = `<div>
       <div style="font-weight:600;margin-bottom:6px;color:#0f5132">${name}</div>
       ${catLabel?`<div class="badge">${catLabel}</div>`:''}
@@ -581,13 +594,22 @@ function showPopup(f,lngLat,withGo){
       ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
       ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
       ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px">
-  <img src="${img}" alt="" style="max-width:100%;max-height:170px;object-fit:cover;border-radius:8px">
-</div>`:''}
-
+        <img src="${img}" alt="" style="max-width:100%;max-height:170px;object-fit:cover;border-radius:8px">
+      </div>`:''}
       ${btn}
     </div>`;
-  // her seferinde yeni, sabit max 320px — CSS yine 86vw sınırı koyuyor
-if (popup) popup.remove();
+
+  if (popup) popup.remove();
+  popup = new maplibregl.Popup({
+    closeButton: true,
+    closeOnClick: true,
+    maxWidth: mw
+  })
+  .setLngLat(lngLat)
+  .setHTML(html)
+  .addTo(map);
+}
+
 
 // ekran genişliğinin %80'i ama max 320px
 const maxW = Math.min(320, Math.round(window.innerWidth * 0.8)) + "px";
@@ -603,7 +625,9 @@ popup = new maplibregl.Popup({
 
 
 }
-window.addEventListener('resize', ()=>{ if(popup){ try{ popup.options.maxWidth = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px'; }catch{} } });
+
+
+
 document.addEventListener('click', (e)=>{
   const btn=e.target.closest('.goto-btn'); if(!btn) return;
   const x=parseFloat(btn.dataset.x), y=parseFloat(btn.dataset.y);
