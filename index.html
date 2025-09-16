@@ -17,13 +17,7 @@
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
   #map{position:fixed; inset:0}
 
-  /* MapLibre popup – mobil için adaptif */
-  .mapboxgl-popup{max-width:min(340px,86vw)!important}
-  .mapboxgl-popup-content{padding:10px 12px}
-  .mapboxgl-popup-content img{max-width:100%; height:auto; border-radius:8px}
-  @media (max-width:480px){
-    .mapboxgl-popup-content{padding:9px 10px}
-  }
+
 
   .lang-float{position:fixed; left:12px; top:12px; z-index:1200; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
   .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
@@ -59,6 +53,21 @@
   .row.searchrow{display:grid; grid-template-columns:1fr auto; gap:8px}
   .row.ctlsB .chip{padding:6px 10px}
   .muted{color:var(--muted)}
+/* MapLibre popup boyut/foto kontrolü */
+.maplibregl-popup{ max-width: min(320px, 86vw) !important; }
+.maplibregl-popup-content{ padding:10px 12px; }
+.maplibregl-popup-content img{
+  max-width:100%;
+  max-height:140px;  /* istersen 120 yap */
+  height:auto;
+  object-fit:cover;
+  border-radius:8px;
+}
+@media (max-width:480px){
+  .maplibregl-popup-content{ padding:9px 10px; }
+}
+
+
 </style>
 </head>
 <body>
@@ -165,7 +174,15 @@ const I18N = {
       nav:{depart:"Start", arrive:"Meta", turn_left:"Skręć w lewo", turn_right:"Skręć w prawo", straight:"Jedź prosto", roundabout:"Na rondzie zjedź zjazdem nr %n", onto:" na %s"}
   }
 };
-let LANG = localStorage.getItem("lang") || "tr";
+const SUP_LANGS = ['tr','en','ru','de','pl'];
+let LANG = localStorage.getItem("lang");
+if (!LANG) {
+  const nav = (navigator.language || navigator.userLanguage || 'en')
+                .slice(0,2).toLowerCase();
+  LANG = SUP_LANGS.includes(nav) ? nav : 'en';
+  localStorage.setItem('lang', LANG);
+}
+
 const t = () => I18N[LANG] || I18N.tr;
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
@@ -581,7 +598,7 @@ function showPopup(f,lngLat,withGo){
       ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" alt=""></div>`:''}
       ${btn}
     </div>`;
-  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true, maxWidth:maxW}))).setLngLat(lngLat).setHTML(html).addTo(map);
+  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true, maxWidth:320px}))).setLngLat(lngLat).setHTML(html).addTo(map);
 }
 window.addEventListener('resize', ()=>{ if(popup){ try{ popup.options.maxWidth = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px'; }catch{} } });
 document.addEventListener('click', (e)=>{
@@ -613,7 +630,7 @@ collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.sty
 
   const start=(y,ptrId)=>{ sy=y; st=get(); if(ptrId!=null) grab.setPointerCapture(ptrId); };
   const move=(y)=>{ if(sy==null)return; const dy=y-sy; set(Math.max(0,Math.min(mt,st+dy))); };
-  const end =()=>{ if(sy==null)return; const ty=get(); set(ty>mt*0.5?mt:0); sy=null; };
+  const end =()=>{ if(sy==null)return; const ty=get(); set(ty>mt*0.35?mt:0); sy=null; };
 
   // Pointer
   grab.addEventListener('pointerdown',e=>start(e.clientY,e.pointerId));
