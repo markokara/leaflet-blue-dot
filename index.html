@@ -16,13 +16,10 @@
   html,body{height:100%;margin:0}
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
   #map{position:fixed; inset:0}
-  /* OSM üstte yarı saydam: */
-  #osmOverlay{position:fixed; inset:0; pointer-events:none; z-index:5; mix-blend-mode:normal; opacity:var(--osm, .45)}
-
-  .lang-float{position:fixed; left:12px; top:12px; z-index:1002; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
+  .lang-float{position:fixed; left:12px; top:12px; z-index:1200; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
   .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
 
-  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .2s; width:min(860px,96vw); z-index:1001}
+  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .2s; width:min(860px,96vw); z-index:1100}
   .card{background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
   .p-8{padding:10px}
   .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
@@ -36,17 +33,21 @@
   .chip input{accent-color:#1b7a5b}
   .chip .tick{opacity:.18; transition:.15s}
   .chip input:checked ~ .tick{opacity:1}
-  .results{background:#fff; border:1px solid var(--border); border-radius:12px; max-height:36vh; overflow:auto; position:relative; z-index:2005; display:none}
+
+  .results{background:#fff; border:1px solid var(--border); border-radius:12px; max-height:36vh; overflow:auto; position:relative; z-index:2001; display:none; -webkit-overflow-scrolling:touch}
   .results .item{display:flex; justify-content:space-between; gap:8px; padding:10px 12px; cursor:pointer}
   .results .item:hover{background:#f1f7f4}
-  .results .hint{padding:8px 12px; color:var(--muted); font-size:12px}
+  .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
+
   .dir{display:none; background:#fff; border:1px solid var(--border); border-radius:12px}
   .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5efe9}
   .dir .list{max-height:30vh; overflow:auto; padding:8px 12px}
+
   .badge{display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#edf7f3; border:1px solid var(--border); font-size:12px}
-  .acc{position:fixed; right:12px; bottom:12px; z-index:1001; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+  .acc{position:fixed; right:12px; bottom:12px; z-index:1005; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
   @media (max-width:520px){ .panel{bottom:8px} }
   .row.searchrow{display:grid; grid-template-columns:1fr auto; gap:8px}
+  .row.ctlsB .chip{padding:6px 10px}
   .muted{color:var(--muted)}
 </style>
 </head>
@@ -61,10 +62,6 @@
 </div>
 
 <div id="map" aria-label="Harita"></div>
-<!-- OSM üst katman -->
-<iframe id="osmOverlay" title="OSM overlay" loading="eager"
-  srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#m{height:100%;margin:0}</style></head><body><div id="m"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><script>var m=L.map("m",{zoomControl:false,attributionControl:false,keyboard:false,scrollWheelZoom:false,dragging:false,boxZoom:false,doubleClickZoom:false,touchZoom:false});var t=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20});t.addTo(m);window.addEventListener("message",e=>{if(e.data&&e.data.type==="sync"){m.setView([e.data.lat,e.data.lon],e.data.z);}});<\/script></body></html>'>
-</iframe>
 
 <!-- Bottom sheet -->
 <div class="panel" id="sheet">
@@ -77,9 +74,9 @@
         <button id="go" title="Seçili hedefe rota" disabled>Git</button>
       </div>
 
-      <div class="row">
+      <div class="row ctlsB">
         <button id="pickStart">Başlangıç Seç</button>
-        <button id="pick">Hedef Seç</button>
+        <button id="pickDest">Hedef Seç</button>
         <button id="follow">📍 Konumum: Kapalı</button>
         <button id="reset">Sıfırla</button>
         <span class="grow"></span>
@@ -120,19 +117,21 @@ const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
-// OSM üst katman opaklığı (0–1)
-const OSM_OPACITY = 0.45; document.documentElement.style.setProperty('--osm', OSM_OPACITY);
 
-/* ================== i18n (kısaltılmış) ================== */
+/* OSM üst katman ayarları */
+const OSM_OPACITY = 0.45;   // 0–1
+const OSM_VISIBLE = true;   // true/false
+
+/* ================== i18n ================== */
 const I18N = {
   tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
-      ui:{pickStart:"Başlangıç Seç", pick:"Hedef Seç", followOn:"📍 Konumum: Açık", followOff:"📍 Konumum: Kapalı", reset:"Sıfırla", clearRoute:"Rota Temizle"},
+      ui:{pickStart:"Başlangıç Seç", pickDest:"Hedef Seç", followOn:"📍 Konumum: Açık", followOff:"📍 Konumum: Kapalı", reset:"Sıfırla", clearRoute:"Rota Temizle"},
       labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
       cats:{pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu"},
       nav:{depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s"}
   },
   en:{searchPH:"Search: restaurant, spa, pool…", go:"Go",
-      ui:{pickStart:"Pick Start", pick:"Pick Destination", followOn:"📍 My Location: On", followOff:"📍 My Location: Off", reset:"Reset", clearRoute:"Clear Route"},
+      ui:{pickStart:"Pick Start", pickDest:"Pick Destination", followOn:"📍 My Location: On", followOff:"📍 My Location: Off", reset:"Reset", clearRoute:"Clear Route"},
       labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
       cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"},
       nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s"}
@@ -142,140 +141,188 @@ let LANG = localStorage.getItem("lang") || "tr";
 const t = () => I18N[LANG] || I18N.tr;
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
-/* eşanlamlılar (kısaltılmış) */
-const SYNONYMS = { pool:['havuz','pool','basen','бассейн','schwimmbad'], restaurant:['restoran','restaurant','restauracja','ресторан'], spa:['spa','wellness','спа'], bar:['bar','бар'], cafe:['cafe','kafe','кафе'], shop:['shop','market','sklep','магазин'], toilet:['wc','toilet','tuvalet'], reception:['reception','resepsiyon','recepcja'], beach:['beach','plaj','plaża','пляж'], kidsclub:['kids club','kidsclub','miniclub','детский'], elevator:['elevator','asansör','лифт'], gate:['gate','kapı','giriş'], parking:['parking','otopark','parkplatz'], shuttle:['shuttle','servis','bus'], gym:['gym','fitness','spor'] };
+/* synonyms (kısaltılmış) */
+const SYNONYMS = { bar:['bar','бар'], cafe:['cafe','kafe','кафе'], restaurant:['restoran','restaurant','restauracja','ресторан'], pool:['havuz','pool','basen','бассейн'], spa:['spa','wellness','спа'], shop:['shop','market','sklep','магазин'], toilet:['wc','toilet','tuvalet'], reception:['reception','resepsiyon','recepcja'], beach:['beach','plaj','plaża','пляж'], kidsclub:['kids club','kidsclub','miniclub','детский'], elevator:['elevator','asansör','лифт'], gate:['gate','kapı','giriş'], parking:['parking','otopark','parkplatz'], shuttle:['shuttle','servis','bus'], gym:['gym','fitness','spor'] };
 const KEYWORD_TO_CAT = (()=>{const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m;})();
 
 /* ================== MAP ================== */
 const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:21, attributionControl:false, hash:false });
+const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:21, attributionControl:false });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
 
 /* DOM */
 const $=id=>document.getElementById(id);
-const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickBtn=$('pick'), pickStartBtn=$('pickStart'), followBtn=$('follow'), resetBtn=$('reset'), results=$('results'), acc=$('acc');
+const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickStartBtn=$('pickStart'), pickDestBtn=$('pickDest'), followBtn=$('follow'), resetBtn=$('reset'), results=$('results'), acc=$('acc');
 const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
 const baseSat=$('baseSat'), base3d=$('base3d');
 
 /* State */
-let allFeats=[], searchActive=false, searchIds=[], followState=false, lastKnown=null;
-let routesFC={type:'FeatureCollection',features:[]}; // ham yollar
-let graph=null; // topoloji
-let startLL=null, destLL=null;
+let allFeats=[], followState=false, lastKnown=null;
+let pickMode='none'; // 'start' | 'dest' | 'none'
+let startCoord=null, destCoord=null;
 
 /* Helpers */
 function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 
-/* SAFE JSON loader (boş/bozuk dosya yakalar) */
-async function loadJSONSafe(url){
-  try{
-    const r = await fetch(url,{cache:'no-store'});
-    if(!r.ok) return emptyFC();
-    const txt = await r.text();
-    if(!txt || !txt.trim()) return emptyFC();
-    return JSON.parse(txt);
-  }catch(e){ console.warn(url,'yüklenemedi:',e); return emptyFC(); }
-}
-
 /* LOAD */
 map.on('load', async ()=>{
-  // Satellite tabanı (raster)
+  // Satellite (altta)
   map.addSource('sat',{ type:'raster',
     tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
     tileSize:256, attribution:"© Mapbox © OSM"
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
-  // 3D kaynakları (başta kapalı)
+  // OSM raster ÜSTTE
+  map.addSource('osmRaster',{ type:'raster',
+    tiles:[`https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
+    tileSize:256, attribution:"© OpenMapTiles © OpenStreetMap contributors"
+  });
+  map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
+    paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
+
+  // 3D
   map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
   map.addSource('dem',{ type:'raster-dem', url:`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`, tileSize:256 });
-
   map.addLayer({ id:'bldg-3d', type:'fill-extrusion', source:'omt', 'source-layer':'building', layout:{visibility:'none'},
-    paint:{
-      'fill-extrusion-color':'#b9c9d6','fill-extrusion-opacity':0.85,
-      'fill-extrusion-height':['coalesce', ['to-number',['get','render_height']], ['to-number',['get','height']], 6],
-      'fill-extrusion-base'  :['coalesce', ['to-number',['get','render_min_height']], ['to-number',['get','min_height']], 0]
-    }, minzoom:14
-  });
+    paint:{'fill-extrusion-color':'#b9c9d6','fill-extrusion-opacity':0.85,'fill-extrusion-height':['coalesce', ['to-number',['get','render_height']], ['to-number',['get','height']], 6],'fill-extrusion-base':['coalesce', ['to-number',['get','render_min_height']], ['to-number',['get','min_height']], 0]}, minzoom:14 });
 
   // POI/çizimler
   map.addSource('indoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
   map.addSource('outdoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
-  map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // <- yönetimden gelen yollar
+  map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // ROUTES ağı
 
-  // indoor/outdoor stilleri
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
 
-  // routes (özellik rengi/kalınlığı ile)
-  map.addLayer({id:'routes-line',type:'line',source:'routes',
+  // ROUTES görünümü (kılıf + ana çizgi)
+  map.addLayer({id:'routes-casing', type:'line', source:'routes',
     paint:{
-      'line-color':['coalesce',['get','stroke'],'#22c55e'],
-      'line-opacity':['coalesce',['get','stroke_op'],0.95],
-      'line-width':['coalesce',['get','width'],3]
-    }, filter:['==',['geometry-type'],'LineString']
+      'line-color':'#ffffff','line-width':[
+        '+',['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],2.4], 2
+      ], 'line-opacity':0.6
+    }, layout:{'line-cap':'round','line-join':'round'}, minzoom:10
+  });
+  map.addLayer({id:'routes-net', type:'line', source:'routes',
+    paint:{
+      'line-color': ['coalesce',['get','stroke'], ['get','fill'], '#6c9f90'],
+      'line-width': ['coalesce',
+        ['to-number',['get','width']],
+        ['to-number',['get','stroke_w']],
+        ['to-number',['get','stroke-width']],
+        2.4
+      ],
+      'line-opacity': ['coalesce', ['to-number',['get','stroke_op']], 1]
+    },
+    layout:{'line-cap':'round','line-join':'round'},
+    minzoom:10
   });
 
-  // hedef/başlangıç/rota ve oklar
+  // hedef/rota/bluedot/start
   map.addSource('start',{type:'geojson',data:emptyFC()});
+  map.addLayer({id:'start-pt',type:'circle',source:'start',paint:{'circle-radius':7,'circle-color':'#22c55e','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
+
   map.addSource('dest',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'start-pt',type:'circle',source:'start',paint:{'circle-radius':6,'circle-color':'#16a34a','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
-  map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':6,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
+  map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':7,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
 
-  map.addSource('routeLine',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'route-line',type:'line',source:'routeLine',paint:{'line-color':['coalesce',['get','stroke'],'#1b7a5b'],'line-width':['coalesce',['get','width'],4]}});
+  map.addSource('route',{type:'geojson',data:emptyFC()});
+  map.addLayer({id:'route-line',type:'line',source:'route',
+    paint:{'line-color':'#1b7a5b','line-width':4}, layout:{'line-cap':'round','line-join':'round'}});
+  map.addLayer({id:'route-arrows',type:'symbol',source:'route',
+    layout:{'symbol-placement':'line','text-field':'▶','text-size':12,'symbol-spacing':50,'text-rotation-alignment':'map','text-keep-upright':false},
+    paint:{'text-color':'#1b7a5b','text-halo-color':'#fff','text-halo-width':1}});
 
-  // yol okları (metin – üçgen)
-  map.addSource('routeArrows',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'route-arrows',type:'symbol',source:'routeArrows',
-    layout:{'symbol-placement':'line','text-field':'▶','text-size':14,'text-keep-upright':true,'text-offset':[0,0]},
-    paint:{'text-color':['coalesce',['get','stroke'],'#1b7a5b'],'text-opacity':0.9}
-  });
-
-  // konum
+  // BLUEDOT
   map.addSource('me',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
   await loadJSONs();
   applyLang();
-  applyBasemap(); // Satellite varsayılan
+  applyBasemap();
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
-
-  // panel default AÇIK
-  requestAnimationFrame(()=>{ setSheet(0); });
 });
 
-/* iç/dış POI çizim katmanları */
 function addFeatureLayers(src){
   map.addLayer({id:`${src}-fill`,type:'fill',source:src,paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}});
-  map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','width'],1.8]}});
-  map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','width'],2.5]}});
+  map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}});
+  map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
   map.addLayer({id:`${src}-pts`,type:'circle',source:src,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 }
 
-/* JSON’ları yükle */
 async function loadJSONs(){
   const bust='v='+Date.now();
-  const [indoor,outdoor,routes] = await Promise.all([
-    loadJSONSafe('indoor.json?'+bust),
-    loadJSONSafe('outdoor.json?'+bust),
-    loadJSONSafe('routes.json?'+bust)
+
+  const [rawIndoor, rawOutdoor, routes] = await Promise.all([
+    fetch('indoor.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('indoor')),
+    fetch('outdoor.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('outdoor')),
+    fetch('routes.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('routes'))
   ]);
-  map.getSource('indoor').setData(indoor);
-  map.getSource('outdoor').setData(outdoor);
-  map.getSource('routes').setData(routes);
-  allFeats = indoor.features.map(f=>({...f,__src:'indoor'})).concat(outdoor.features.map(f=>({...f,__src:'outdoor'})));
-  routesFC = routes;
-  graph = buildGraph(routesFC.features.filter(f=>f.geometry && f.geometry.type==='LineString'));
+
+  // tüm feature'lara güvenli fid
+  const indoor  = ensureFid(rawIndoor,  'in');
+  const outdoor = ensureFid(rawOutdoor, 'out');
+
+  map.getSource('indoor').setData(indoor||emptyFC());
+  map.getSource('outdoor').setData(outdoor||emptyFC());
+
+  const validRoutes = validateRoutes(routes) ? routes : emptyFC();
+  map.getSource('routes').setData(validRoutes);
+
+  // POI’ler (arama için)
+  const indoorFs = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}));
+  const outdoorFs = (outdoor?.features||[]).map(f=>({...f,__src:'outdoor'}));
+  allFeats = indoorFs.concat(outdoorFs);
+
+  // Rota grafı
+  buildRouteGraph(validRoutes);
+
+  // routes ekran dışındaysa otomatik zoom
+  autoZoomToRoutes(validRoutes);
 }
 
-/* ================== BASMAP TOGGLE (2 seçenek) ================== */
+function ensureFid(fc, prefix){
+  if(!fc || !Array.isArray(fc.features)) return fc;
+  fc.features.forEach((f,i)=>{
+    if(!f.properties) f.properties = {};
+    if(!f.properties.fid) f.properties.fid = `${prefix}-${i}-${(f.id||'x')}`;
+  });
+  return fc;
+}
+
+function autoZoomToRoutes(fc){
+  const f = (fc.features||[]).filter(g=>g.geometry && g.geometry.type==='LineString');
+  if(!f.length) return;
+  let minX= Infinity, minY= Infinity, maxX= -Infinity, maxY= -Infinity;
+  f.forEach(ft=>{
+    (ft.geometry.coordinates||[]).forEach(([x,y])=>{
+      if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y;
+    });
+  });
+  if(!isFinite(minX)) return;
+  // mevcut görünüm bbox'ı ile kesişmiyorsa git
+  const curr = map.getBounds();
+  const intersects = !(maxX<curr.getWest() || minX>curr.getEast() || maxY<curr.getSouth() || minY>curr.getNorth());
+  if(!intersects){
+    map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:18});
+  }
+}
+
+function safeJson(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+function errLog(tag){ return e=>{ console.error(`[${tag}.json] yüklenemedi:`, e?.message||e); return emptyFC(); } }
+function validateRoutes(fc){
+  if(!fc || fc.type!=='FeatureCollection'){ console.warn('routes.json FeatureCollection değil'); return false; }
+  const hasLS = (fc.features||[]).some(f=>f.geometry && f.geometry.type==='LineString');
+  if(!hasLS){ console.warn('routes.json içinde LineString yok'); return false; }
+  return true;
+}
+
+/* ================== BASMAP TOGGLE + OSM üstte ================== */
 baseSat.addEventListener('change', applyBasemap);
 base3d.addEventListener('change', applyBasemap);
-
 function applyBasemap(){
+  const osmOpacity = OSM_VISIBLE ? OSM_OPACITY : 0;
   if(base3d.checked){
     map.setLayoutProperty('bldg-3d','visibility','visible');
     map.setTerrain({source:'dem', exaggeration:1});
@@ -287,12 +334,13 @@ function applyBasemap(){
     map.setTerrain(null);
     map.setLayoutProperty('bldg-3d','visibility','none');
   }
+  if(map.getLayer('osm-raster')) map.setPaintProperty('osm-raster','raster-opacity',osmOpacity);
 }
 
 /* ================== DİL ================== */
 function applyLang(){
   const L=t(); $('q').placeholder=L.searchPH; $('go').textContent=L.go;
-  $('pick').textContent=L.ui.pick; $('pickStart').textContent=L.ui.pickStart; $('reset').textContent=L.ui.reset;
+  $('pickStart').textContent=L.ui.pickStart; $('pickDest').textContent=L.ui.pickDest; $('reset').textContent=L.ui.reset;
   followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
   clearRouteBtn.textContent=L.ui.clearRoute; localStorage.setItem('lang',LANG);
 }
@@ -306,7 +354,7 @@ function detectCategory(qs){
 }
 q.addEventListener('input', ()=>{
   const val=(q.value||'').trim();
-  if(!val){ results.style.display='none'; searchActive=false; searchIds=[]; return; }
+  if(!val){ results.style.display='none'; return; }
   const qn=norm(val), maybeCat=detectCategory(val);
   const hits = allFeats.filter(f=>{
     const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
@@ -319,7 +367,6 @@ q.addEventListener('input', ()=>{
   renderResults(hits, maybeCat);
 });
 
-/* sonuç listesi – hem fare hem dokunma */
 function renderResults(list, cat){
   results.innerHTML='';
   const hint=document.createElement('div'); hint.className='hint'; hint.textContent='🔎 Sonuçlardan birine dokun';
@@ -331,129 +378,172 @@ function renderResults(list, cat){
     div.innerHTML=`<span>➤ ${(t().cats?.[cat]||cat)}</span> <small>${feats.length}</small>`;
     results.appendChild(div);
   }
-  list.slice(0,80).forEach(f=>{
-    const p=f.properties||{}; const meta=[f.__src==='indoor'?'Indoor':'Outdoor', p.category||'', p.level||''].filter(Boolean).join(' · ');
-    const div=document.createElement('div'); div.className='item'; div.dataset.fid=p.fid; div.dataset.src=f.__src;
+  list.slice(0,80).forEach((f,idx)=>{
+    const p=f.properties||{}; const meta=[p.category||'', p.level||'', (f.__src==='indoor'?'Indoor':'Outdoor')].filter(Boolean).join(' · ');
+    const div=document.createElement('div'); div.className='item'; 
+    div.dataset.fid = p.fid || `tmp-${idx}`;
+    div.dataset.src = f.__src;
     div.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${meta}</small>`;
     results.appendChild(div);
   });
   results.style.display='block';
 }
-function resultActivate(item){
-  const fid=item.dataset.fid;
-  if(fid && fid.startsWith('__cat__')){
-    const cat=fid.replace('__cat__','');
-    const ids=allFeats.filter(f=>(f.properties?.category||'').toLowerCase()===cat).map(f=>f.properties?.fid);
-    searchIds=ids; searchActive=true; results.style.display='none'; return;
-  }
-  const src=item.dataset.src;
-  const f=allFeats.find(x=>x.properties?.fid===fid);
-  if(!f) return;
-  searchIds=[fid]; searchActive=true; focusFeature(f,true); setDestination(coordOfFeature(f));
-  results.style.display='none'; goBtn.disabled=false;
-}
-results.addEventListener('click',e=>{const it=e.target.closest('.item'); if(it) resultActivate(it);});
-results.addEventListener('touchstart',e=>{const it=e.target.closest('.item'); if(it){ e.preventDefault(); resultActivate(it); }}, {passive:false});
 
-/* ================== KONUM ================== */
+/* sonuç tıklanınca: popup + "Buraya Git" */
+results.addEventListener('click', (e)=>{
+  const item=e.target.closest('.item'); if(!item) return;
+  const fid=item.dataset.fid;
+  if(fid && fid.startsWith('__cat__')){ results.style.display='none'; return; }
+  const f=allFeats.find(x=>x.properties && x.properties.fid===fid);
+  if(!f) return;
+  const center=coordOfFeature(f);
+  document.getElementById('sheet').style.setProperty('--ty','0px'); // panel yukarı
+  showPopup(f, Array.isArray(center)?center:[center.lng,center.lat], true);
+  setDestination(Array.isArray(center)?center:[center.lng,center.lat]);
+  results.style.display='none';
+  goBtn.disabled = !(startCoord || lastKnown);
+});
+
+/* ================== KONUM (BLUEDOT) ================== */
 if('geolocation' in navigator){
   try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
   navigator.geolocation.watchPosition(p=>{
     const accM=Math.round(p.coords.accuracy||999);
     lastKnown=[p.coords.longitude,p.coords.latitude];
-    map.getSource('me').setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
+    const meSrc=map.getSource('me'); if(meSrc){
+      meSrc.setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
+    }
     acc.textContent="±"+accM+" m"; acc.style.display='block';
-    if(followState) map.easeTo({center:lastKnown, duration:250});
-    // OSM üst katmanı ile senkron
-    syncOSMOverlay();
-  }, console.warn, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+    if(followState) map.easeTo({center:lastKnown});
+  }, (err)=>{ console.warn('geo error',err); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
 }
 followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = followState ? t().ui.followOn : t().ui.followOff; if(followState && lastKnown) map.easeTo({center:lastKnown}); };
 
-/* ================== BAŞLANGIÇ/HEDEF ================== */
-let pickMode=null; // 'start' | 'dest'
-pickBtn.onclick = ()=>{ pickMode = (pickMode==='dest'? null : 'dest'); pickBtn.classList.toggle('active', pickMode==='dest'); };
-pickStartBtn.onclick = ()=>{ pickMode = (pickMode==='start'? null : 'start'); pickStartBtn.classList.toggle('active', pickMode==='start'); };
+/* ================== HEDEF & BAŞLANGIÇ SEÇİMİ ================== */
+pickStartBtn.onclick=()=>{ pickMode = pickMode==='start' ? 'none' : 'start'; pickStartBtn.classList.toggle('active', pickMode==='start'); pickDestBtn.classList.remove('active'); };
+pickDestBtn.onclick =()=>{ pickMode = pickMode==='dest'  ? 'none' : 'dest';  pickDestBtn.classList.toggle('active',  pickMode==='dest');  pickStartBtn.classList.remove('active'); };
 
 map.on('click', e=>{
-  if(!pickMode){
-    // POI popup
+  if(pickMode==='start'){
+    startCoord=[e.lngLat.lng,e.lngLat.lat];
+    map.getSource('start').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:startCoord}}]});
+    pickMode='none'; pickStartBtn.classList.remove('active');
+    if(destCoord) goBtn.disabled=false;
+  }else if(pickMode==='dest'){
+    destCoord=[e.lngLat.lng,e.lngLat.lat];
+    map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:destCoord}}]});
+    pickMode='none'; pickDestBtn.classList.remove('active');
+    if(startCoord || lastKnown) goBtn.disabled=false;
+  }else{
     const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline']});
-    if(feats && feats[0]) showPopup(feats[0], e.lngLat); return;
+    if(feats && feats[0]) showPopup(feats[0], e.lngLat, true);
   }
-  const xy=[e.lngLat.lng,e.lngLat.lat];
-  if(pickMode==='start'){ setStart(xy); }
-  if(pickMode==='dest'){ setDestination(xy); goBtn.disabled=false; }
-  pickMode=null; pickBtn.classList.remove('active'); pickStartBtn.classList.remove('active');
 });
 
-function setStart(xy){ startLL=xy; map.getSource('start').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:xy}}]}); }
-function setDestination(xy){ destLL=xy; map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:xy}}]}); }
-function clearStart(){ startLL=null; map.getSource('start').setData(emptyFC()); }
-function clearDestination(){ destLL=null; map.getSource('dest').setData(emptyFC()); }
-function clearRoute(){ map.getSource('routeLine').setData(emptyFC()); map.getSource('routeArrows').setData(emptyFC()); dirBox.style.display='none'; dirList.innerHTML=''; dirSum.textContent='–'; dirSub.textContent=''; }
+function setDestination(xy){
+  destCoord=xy;
+  map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:xy}}]});
+}
 
-goBtn.onclick = async ()=>{
-  const a = startLL || lastKnown;
-  const b = destLL;
-  if(!a){ alert(LANG==='tr'?'Başlangıç gerekli (konum izni verin ya da haritadan seçin).':'Need a start point.'); return; }
-  if(!b){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
-  if(!graph){ alert('routes.json yok ya da boş'); return; }
-
-  // Başlangıç & hedefi çizgiye snap et, en kısa yolu hesapla
-  const route = routeAlongGraph(graph, a, b);
-  if(route && route.coordinates && route.coordinates.length>1){
-    const feat={type:'Feature', properties: route.style || {}, geometry:{type:'LineString', coordinates: route.coordinates}};
-    map.getSource('routeLine').setData({type:'FeatureCollection',features:[feat]});
-    map.getSource('routeArrows').setData({type:'FeatureCollection',features:[{type:'Feature',properties: route.style || {}, geometry:{type:'LineString',coordinates: route.coordinates}}]});
-    // Mesafe & süre tahmini
-    const distM = lengthOf(route.coordinates);
-    dirSum.textContent=(distM/1000).toFixed(2)+" km";
-    dirSub.textContent='· routes.json';
-    dirList.innerHTML='';
-    const step = document.createElement('div'); step.innerHTML = `<div>1.</div><div><div>${t().nav.straight}</div><div class="muted" style="font-size:12px">${fmtDist(distM)}</div></div>`;
-    dirList.appendChild(step);
-    dirBox.style.display='block';
-
-    const ex=bboxFromCoords(route.coordinates);
-    if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:19});
-    return;
+/* ================== ROTA (yalnızca routes.json) ================== */
+let ROUTE_GRAPH=null; // {nodes:[{id,xy}], adj:{id:[{to, w}]}}
+function buildRouteGraph(fc){
+  const nodes=[]; const idOf={}; const adj={};
+  function key(xy){ return xy[0].toFixed(7)+','+xy[1].toFixed(7); }
+  function getId(xy){
+    const k=key(xy); if(idOf[k]!=null) return idOf[k];
+    const id=nodes.length; idOf[k]=id; nodes.push({id,xy}); adj[id]=[]; return id;
   }
-  alert('Seçili yol ağı üzerinde bağlantı bulunamadı.');
+  (fc.features||[]).forEach(f=>{
+    if(!f.geometry||f.geometry.type!=='LineString') return;
+    const c=f.geometry.coordinates||[];
+    for(let i=0;i<c.length;i++){
+      const aId=getId(c[i]);
+      if(i>0){
+        const bId=getId(c[i-1]);
+        const w=dist(nodes[aId].xy, nodes[bId].xy);
+        adj[aId].push({to:bId, w}); adj[bId].push({to:aId, w});
+      }
+    }
+  });
+  ROUTE_GRAPH={nodes,adj};
+}
+function nearestNode(xy){
+  const nodes=ROUTE_GRAPH?.nodes||[]; let best=-1, bestD=Infinity;
+  for(let i=0;i<nodes.length;i++){
+    const d=dist(xy,nodes[i].xy); if(d<bestD){bestD=d; best=i;}
+  }
+  return best;
+}
+function dijkstra(startId, endId){
+  const N=ROUTE_GRAPH.nodes.length, adj=ROUTE_GRAPH.adj;
+  const distArr=new Array(N).fill(Infinity), prev=new Array(N).fill(-1), used=new Array(N).fill(false);
+  distArr[startId]=0;
+  for(let k=0;k<N;k++){
+    let u=-1, best=Infinity;
+    for(let i=0;i<N;i++){ if(!used[i] && distArr[i]<best){best=distArr[i]; u=i;} }
+    if(u===-1) break; used[u]=true; if(u===endId) break;
+    for(const e of adj[u]||[]){
+      const alt=distArr[u]+e.w; if(alt<distArr[e.to]){ distArr[e.to]=alt; prev[e.to]=u; }
+    }
+  }
+  if(prev[endId]===-1 && endId!==startId) return null;
+  const path=[]; let cur=endId; while(cur!==-1){ path.push(cur); if(cur===startId) break; cur=prev[cur]; }
+  return path.reverse();
+}
+function dist(a,b){ const dx=a[0]-b[0], dy=a[1]-b[1]; return Math.hypot(dx,dy); }
+
+/* Rota hesapla */
+goBtn.onclick = ()=>{
+  const srcStart = startCoord || lastKnown;
+  const srcDest  = destCoord;
+  if(!srcDest){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
+  if(!srcStart){ alert(LANG==='tr'?'Başlangıç seçin ya da konum izni verin.':'Pick a start or allow location.'); return; }
+  if(!ROUTE_GRAPH || ROUTE_GRAPH.nodes.length===0){ alert('routes.json yüklenemedi ya da boş.'); return; }
+
+  const sId = nearestNode(srcStart);
+  const eId = nearestNode(srcDest);
+  const nodePath = dijkstra(sId, eId);
+  if(!nodePath){ alert('Uygun rota bulunamadı. (Ağ kopuk olabilir)'); return; }
+
+  const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
+
+  // baş ve son bağlantıları ekle → tek LineString
+  const fullCoords = [];
+  if(srcStart) fullCoords.push(srcStart);
+  fullCoords.push(...nodeCoords);
+  if(srcDest)  fullCoords.push(srcDest);
+
+  const fc = {type:'FeatureCollection', features:[
+    {type:'Feature', geometry:{type:'LineString', coordinates: fullCoords}}
+  ]};
+
+  map.getSource('route').setData(fc);
+
+  const ex=bboxFromCoords(fullCoords);
+  if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
+
+  // adım listesi (basit)
+  dirList.innerHTML='';
+  for(let i=1;i<fullCoords.length;i++){
+    const m = hav(fullCoords[i-1], fullCoords[i]);
+    const el=document.createElement('div'); el.className='step';
+    el.innerHTML = `<div>${i}.</div><div><div>${t().nav.straight}</div><div class="muted" style="font-size:12px">${fmtDist(m)}</div></div>`;
+    dirList.appendChild(el);
+  }
+  dirSum.textContent=(lengthOf(fullCoords)/1000).toFixed(2)+' km';
+  dirSub.textContent='· routes.json';
+  dirBox.style.display='block';
 };
 
-clearRouteBtn.onclick=()=>clearRoute();
-collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
-resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); clearStart(); q.value=''; results.style.display='none'; pickMode=null; pickBtn.classList.remove('active'); pickStartBtn.classList.remove('active'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
-
-/* Bottom sheet – sürükle */
-(function(){
-  const sheet=$('sheet'), grab=$('grab'); const H=24; let sy=null, st=0, mt=0;
-  const set=v=> sheet.style.setProperty('--ty',v+'px');
-  const get=()=> parseFloat(getComputedStyle(sheet).getPropertyValue('--ty'))||0;
-  const calc=()=>{ const h=sheet.getBoundingClientRect().height||320; const byH=Math.max(0,h-(H+8)); const byV=Math.min(window.innerHeight*0.6,520); return Math.min(byH,byV); };
-  function recalc(){ mt=calc(); set(Math.min(get(),mt)); }
-  window.addEventListener('resize',recalc);
-  function setDefaultOpen(){ mt=calc(); set(0); } // varsayılan açık
-
-  function start(e){ sy=e.clientY||e.touches?.[0]?.clientY; st=get(); grab.setPointerCapture?.(e.pointerId); }
-  function move(e){ const y=e.clientY||e.touches?.[0]?.clientY; if(sy==null||y==null)return; const dy=y-sy; set(Math.max(0,Math.min(mt,st+dy))); }
-  function end(){ if(sy==null)return; const ty=get(); set(ty>mt*0.5?mt:0); sy=null; }
-
-  grab.addEventListener('pointerdown',start); grab.addEventListener('pointermove',move); grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
-  grab.addEventListener('touchstart',start,{passive:true}); grab.addEventListener('touchmove',move,{passive:false}); grab.addEventListener('touchend',end);
-
-  window.setSheet=set; window.setSheetDefault=setDefaultOpen;
-  requestAnimationFrame(()=>{ recalc(); setDefaultOpen(); });
-})();
-
-/* Popup */
+/* ================== POPUP ("Buraya Git") ================== */
 let popup;
-function showPopup(f,lngLat){
+function showPopup(f,lngLat,withGo){
   const p=f.properties||{}, L=t();
   const name = p['name_'+LANG] || p.name || '';
   const catKey=(p.category||'').toLowerCase(); const catLabel=L.cats[catKey] || p.category || '';
   const hours = p['hours_'+LANG] || p.hours || ''; const level=p['level_'+LANG]||p.level||''; const desc=p['desc_'+LANG]||p.desc||''; const img=p['image_'+LANG]||p.image||'';
+  const btn = withGo? `<div style="margin-top:8px"><button class="goto-btn" data-x="${Array.isArray(lngLat)?lngLat[0]:lngLat.lng}" data-y="${Array.isArray(lngLat)?lngLat[1]:lngLat.lat}">${L.go||'Git'} ➜</button></div>` : '';
   const html = `<div style="min-width:220px">
       <div style="font-weight:600;margin-bottom:6px;color:#0f5132">${name}</div>
       ${catLabel?`<div class="badge">${catLabel}</div>`:''}
@@ -461,13 +551,58 @@ function showPopup(f,lngLat){
       ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
       ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
       ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px"></div>`:''}
-      <div style="margin-top:8px"><button id="goHereBtn">Git →</button></div>
+      ${btn}
     </div>`;
   (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true}))).setLngLat(lngLat).setHTML(html).addTo(map);
-  setTimeout(()=>{ const btn=document.getElementById('goHereBtn'); if(btn){ btn.onclick=()=>{ setDestination([lngLat.lng,lngLat.lat]); goBtn.disabled=false; popup.remove(); }; } },0);
 }
-function closePopup(){ if(popup) popup.remove(); }
+document.addEventListener('click', (e)=>{
+  const btn=e.target.closest('.goto-btn'); if(!btn) return;
+  const x=parseFloat(btn.dataset.x), y=parseFloat(btn.dataset.y);
+  setDestination([x,y]);
+  goBtn.disabled = !(startCoord || lastKnown);
+  if(!goBtn.disabled) goBtn.click();
+});
 
+/* ================== Yardımcılar ================== */
+function lengthOf(coords){ let sum=0; for(let i=1;i<coords.length;i++) sum+=hav(coords[i-1],coords[i]); return sum; }
+function hav(a,b){ const R=6371000; const toRad=x=>x*Math.PI/180; const dLat=toRad(b[1]-a[1]); const dLon=toRad(b[0]-a[0]); const sa=Math.sin(dLat/2), sb=Math.sin(dLon/2); const aa=sa*sa + Math.cos(toRad(a[1]))*Math.cos(toRad(b[1]))*sb*sb; return 2*R*Math.asin(Math.sqrt(aa)); }
+function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
+function clearDestination(){ map.getSource('dest').setData(emptyFC()); destCoord=null; }
+function clearStart(){ map.getSource('start').setData(emptyFC()); startCoord=null; }
+function clearRoute(){ map.getSource('route').setData(emptyFC()); dirBox.style.display='none'; dirList.innerHTML=''; dirSum.textContent='–'; dirSub.textContent=''; }
+clearRouteBtn.onclick=()=>clearRoute();
+collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
+
+/* Bottom sheet: default AÇIK; sürükle ↑↓ (touch destekli) */
+(function(){
+  const sheet=$('sheet'), grab=$('grab'); const H=24; let sy=null, st=0, mt=0;
+  const set=v=> sheet.style.setProperty('--ty',v+'px');
+  const get=()=> parseFloat(getComputedStyle(sheet).getPropertyValue('--ty'))||0;
+  const calc=()=>{ const h=sheet.getBoundingClientRect().height||320; const byH=Math.max(0,h-(H+8)); const byV=Math.min(window.innerHeight*0.6,520); return Math.min(byH,byV); };
+  function recalc(){ mt=calc(); set(0); }
+  window.addEventListener('resize',recalc); requestAnimationFrame(()=>{ recalc(); set(0); });
+
+  const start=(y,ptrId)=>{ sy=y; st=get(); if(ptrId!=null) grab.setPointerCapture(ptrId); };
+  const move=(y)=>{ if(sy==null)return; const dy=y-sy; set(Math.max(0,Math.min(mt,st+dy))); };
+  const end =()=>{ if(sy==null)return; const ty=get(); set(ty>mt*0.5?mt:0); sy=null; };
+
+  // Pointer
+  grab.addEventListener('pointerdown',e=>start(e.clientY,e.pointerId));
+  grab.addEventListener('pointermove',e=>move(e.clientY));
+  grab.addEventListener('pointerup',end);
+  grab.addEventListener('pointercancel',end);
+
+  // Touch
+  grab.addEventListener('touchstart',e=>{ const t=e.touches[0]; start(t.clientY,null); },{passive:true});
+  grab.addEventListener('touchmove',e=>{ const t=e.touches[0]; move(t.clientY); },{passive:true});
+  grab.addEventListener('touchend',end);
+
+  $('q').addEventListener('focus',()=> set(0));
+})();
+
+resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); clearStart(); q.value=''; results.style.display='none'; pickMode='none'; pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active'); document.getElementById('sheet').style.setProperty('--ty','0px'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
+
+function closePopup(){ if(popup) popup.remove(); }
 function coordOfFeature(f){
   const g=f.geometry; if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
   if(g.type==='Point') return g.coordinates;
@@ -475,127 +610,7 @@ function coordOfFeature(f){
   if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
   return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
 }
-function focusFeature(f,open){
-  const ex=bboxFromGeom(f.geometry);
-  if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
-  if(open) showPopup(f, {lng:coordOfFeature(f)[0], lat:coordOfFeature(f)[1]});
-}
-
-/* küçük yardımcılar */
-function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
-function bboxFromGeom(g){ try{ const coords=g.type==='Polygon'?g.coordinates.flat(1):g.type==='MultiPolygon'?g.coordinates.flat(2):g.type==='LineString'?g.coordinates:g.type==='Point'?[g.coordinates]:[]; let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }catch{return null;} }
 function bboxFromCoords(coords){ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }
-function lengthOf(coords){ let d=0; for(let i=1;i<coords.length;i++){ d+=haversine(coords[i-1], coords[i]); } return d; }
-function haversine(a,b){ const R=6371000; const toRad=x=>x*Math.PI/180; const dLat=toRad(b[1]-a[1]), dLon=toRad(b[0]-a[0]); const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2); const c=2*Math.asin(Math.sqrt(s1*s1+Math.cos(toRad(a[1]))*Math.cos(toRad(b[1]))*s2*s2)); return R*c; }
-
-/* ===== OSM overlay senkron ===== */
-function syncOSMOverlay(){
-  const v = map.getCenter(); const z = map.getZoom();
-  const fr = document.getElementById('osmOverlay').contentWindow;
-  if(fr) fr.postMessage({type:'sync', lon:v.lng, lat:v.lat, z:Math.round(z)}, '*');
-}
-map.on('move', syncOSMOverlay);
-
-/* ===== routes.json -> grafik ve routing ===== */
-
-/* graf düğümleri: her LineString segmenti için uçlar; yakın noktaları birleştirir */
-function buildGraph(lines){
-  const nodes=[]; const edges=[];
-  const snapTol=1e-6; // ~ < 0.1 m
-  function key(pt){ return pt[0].toFixed(6)+','+pt[1].toFixed(6); }
-  const nodeIndex=new Map();
-  function addNode(pt){ const k=key(pt); if(nodeIndex.has(k)) return nodeIndex.get(k); const i=nodes.length; nodes.push(pt); nodeIndex.set(k,i); return i; }
-
-  lines.forEach(f=>{
-    const coords=f.geometry.coordinates;
-    for(let i=1;i<coords.length;i++){
-      const a=coords[i-1], b=coords[i];
-      const ia=addNode(a), ib=addNode(b);
-      const w=haversine(a,b);
-      const style={stroke:(f.properties&&f.properties.stroke)||'#1b7a5b', width:(f.properties&&f.properties.width)||4};
-      edges.push({u:ia,v:ib,w,style}); edges.push({u:ib,v:ia,w,style});
-    }
-  });
-  return {nodes,edges};
-}
-
-/* bir noktayı en yakın segmente snap et */
-function snapToGraph(g, pt){
-  let best=null, bestD=Infinity, bestT=0;
-  for(const e of g.edges){
-    const a=g.nodes[e.u], b=g.nodes[e.v];
-    const t = projectT(a,b,pt);
-    const p = lerp(a,b,t);
-    const d = haversine(p, pt);
-    if(d<bestD){ best={edge:e, p, t}; bestD=d; }
-  }
-  return best; // {edge, p:[lng,lat], t in [0,1]}
-}
-function projectT(a,b,p){
-  const ax=a[0], ay=a[1], bx=b[0], by=b[1], px=p[0], py=p[1];
-  const vx=bx-ax, vy=by-ay; const wx=px-ax, wy=py-ay; const c1=vx*wx+vy*wy; const c2=vx*vx+vy*vy; if(c2<=0) return 0; let t=c1/c2; if(t<0)t=0; if(t>1)t=1; return t;
-}
-function lerp(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
-
-/* A* en kısa yol (düğümler + eklenen snap noktaları) */
-function routeAlongGraph(g, startLL, destLL){
-  // snap start & dest
-  const sSnap = snapToGraph(g,startLL), dSnap = snapToGraph(g,destLL);
-  if(!sSnap||!dSnap) return null;
-  // sanal düğümler ekle
-  const sn = g.nodes.length, dn = sn+1;
-  const nodes = g.nodes.slice(); nodes.push(sSnap.p, dSnap.p);
-  const edges = g.edges.slice();
-  edges.push({u:sn,v:sSnap.edge.u,w:haversine(sSnap.p,g.nodes[sSnap.edge.u]),style:sSnap.edge.style});
-  edges.push({u:sn,v:sSnap.edge.v,w:haversine(sSnap.p,g.nodes[sSnap.edge.v]),style:sSnap.edge.style});
-  edges.push({u:dn,v:dSnap.edge.u,w:haversine(dSnap.p,g.nodes[dSnap.edge.u]),style:dSnap.edge.style});
-  edges.push({u:dn,v:dSnap.edge.v,w:haversine(dSnap.p,g.nodes[dSnap.edge.v]),style:dSnap.edge.style});
-
-  // A*
-  const N=nodes.length;
-  const adj=new Array(N).fill(0).map(()=>[]);
-  edges.forEach(e=>adj[e.u].push(e));
-  const open=new Set([sn]);
-  const gScore=new Array(N).fill(Infinity); gScore[sn]=0;
-  const fScore=new Array(N).fill(Infinity); fScore[sn]=haversine(nodes[sn], nodes[dn]);
-  const came=new Map();
-
-  function lowest(){ let best=null, bestF=Infinity; open.forEach(i=>{ if(fScore[i]<bestF){best=i;bestF=fScore[i];} }); return best; }
-
-  while(open.size){
-    const cur=lowest();
-    if(cur===dn) break;
-    open.delete(cur);
-    for(const e of adj[cur]){
-      const tentative=gScore[cur]+e.w;
-      if(tentative<gScore[e.v]){
-        came.set(e.v,{u:cur,edge:e});
-        gScore[e.v]=tentative;
-        fScore[e.v]=tentative + haversine(nodes[e.v], nodes[dn]);
-        open.add(e.v);
-      }
-    }
-  }
-  if(!came.has(dn)) return null;
-
-  // geri izle → koordinatlar
-  const coords=[nodes[dn]];
-  let cur=dn; let usedStyle=null;
-  while(cur!==sn){
-    const c=came.get(cur); if(!c) break;
-    usedStyle = usedStyle || c.edge.style;
-    coords.push(nodes[c.u]);
-    cur=c.u;
-  }
-  coords.reverse();
-  // ilk/sonu gerçek başlangıç/hedefe uzat
-  coords[0]=startLL; coords[coords.length-1]=destLL;
-  // oklar için aynı stil
-  return {coordinates:coords, style:usedStyle};
-}
-
-/* ========== Yardımcı görsellik/mesafe ========== */
-function stepText(s){ return t().nav.straight; }
 </script>
 </body>
 </html>
