@@ -588,14 +588,19 @@ function showPopup(f,lngLat,withGo){
     </div>`;
   // her seferinde yeni, sabit max 320px — CSS yine 86vw sınırı koyuyor
 if (popup) popup.remove();
+
+// ekran genişliğinin %80'i ama max 320px
+const maxW = Math.min(320, Math.round(window.innerWidth * 0.8)) + "px";
+
 popup = new maplibregl.Popup({
   closeButton: true,
   closeOnClick: true,
-  maxWidth: "320px"
+  maxWidth: maxW
 })
 .setLngLat(lngLat)
 .setHTML(html)
 .addTo(map);
+
 
 }
 window.addEventListener('resize', ()=>{ if(popup){ try{ popup.options.maxWidth = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px'; }catch{} } });
