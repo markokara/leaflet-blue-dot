@@ -611,21 +611,6 @@ function showPopup(f, lngLat, withGo){
 }
 
 
-// ekran genişliğinin %80'i ama max 320px
-const maxW = Math.min(320, Math.round(window.innerWidth * 0.8)) + "px";
-
-popup = new maplibregl.Popup({
-  closeButton: true,
-  closeOnClick: true,
-  maxWidth: maxW
-})
-.setLngLat(lngLat)
-.setHTML(html)
-.addTo(map);
-
-
-}
-
 
 
 document.addEventListener('click', (e)=>{
