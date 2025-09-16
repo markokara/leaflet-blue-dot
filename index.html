@@ -16,6 +16,15 @@
   html,body{height:100%;margin:0}
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
   #map{position:fixed; inset:0}
+
+  /* MapLibre popup – mobil için adaptif */
+  .mapboxgl-popup{max-width:min(340px,86vw)!important}
+  .mapboxgl-popup-content{padding:10px 12px}
+  .mapboxgl-popup-content img{max-width:100%; height:auto; border-radius:8px}
+  @media (max-width:480px){
+    .mapboxgl-popup-content{padding:9px 10px}
+  }
+
   .lang-float{position:fixed; left:12px; top:12px; z-index:1200; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
   .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
 
@@ -25,7 +34,8 @@
   .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .stack{display:flex; flex-direction:column; gap:10px}
   .grow{flex:1 1 auto}
-  .grab{width:56px; height:6px; background:#9fd3b3; border-radius:999px; margin:8px auto 0; box-shadow:inset 0 0 0 1px #83c7a1; cursor:grab; touch-action:none}
+  /* kavrama alanını büyüttüm */
+  .grab{width:72px; height:12px; background:#9fd3b3; border-radius:999px; margin:8px auto 0; box-shadow:inset 0 0 0 1px #83c7a1; cursor:grab; touch-action:none}
   input[type="search"]{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--field)}
   button{padding:9px 11px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field); white-space:nowrap}
   button:active{transform:translateY(1px)}
@@ -135,14 +145,51 @@ const I18N = {
       labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
       cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"},
       nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s"}
+  },
+  de:{searchPH:"Suche: Restaurant, Spa, Pool…", go:"Los",
+      ui:{pickStart:"Start wählen", pickDest:"Ziel wählen", followOn:"📍 Mein Standort: An", followOff:"📍 Mein Standort: Aus", reset:"Zurücksetzen", clearRoute:"Route löschen"},
+      labels:{name:"Name", category:"Typ", hours:"Öffnungszeiten", level:"Etage", desc:"Beschreibung"},
+      cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa/Wellness", bar:"Bar", cafe:"Café", shop:"Shop", toilet:"Toilette", reception:"Rezeption", beach:"Strand", kidsclub:"Kinderclub", elevator:"Aufzug", gate:"Eingangstor", parking:"Parkplatz", shuttle:"Shuttle", gym:"Fitnessstudio"},
+      nav:{depart:"Start", arrive:"Ankunft", turn_left:"Links abbiegen", turn_right:"Rechts abbiegen", straight:"Geradeaus", roundabout:"Im Kreisverkehr Ausfahrt %n nehmen", onto:" auf %s"}
+  },
+  ru:{searchPH:"Поиск: ресторан, спа, бассейн…", go:"Поехали",
+      ui:{pickStart:"Выбрать старт", pickDest:"Выбрать пункт", followOn:"📍 Моё местоположение: Вкл", followOff:"📍 Моё местоположение: Выкл", reset:"Сброс", clearRoute:"Очистить маршрут"},
+      labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание"},
+      cats:{pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет", reception:"Ресепшен", beach:"Пляж", kidsclub:"Детский клуб", elevator:"Лифт", gate:"Вход/ворота", parking:"Парковка", shuttle:"Шаттл", gym:"Спортзал"},
+      nav:{depart:"Начать", arrive:"Прибытие", turn_left:"Поверните налево", turn_right:"Поверните направо", straight:"Двигайтесь прямо", roundabout:"На круговом съезде — съезд №%n", onto:" на %s"}
+  },
+  pl:{searchPH:"Szukaj: restauracja, spa, basen…", go:"Jedź",
+      ui:{pickStart:"Wybierz start", pickDest:"Wybierz cel", followOn:"📍 Moja lokalizacja: Wł", followOff:"📍 Moja lokalizacja: Wył", reset:"Resetuj", clearRoute:"Wyczyść trasę"},
+      labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis"},
+      cats:{pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta", reception:"Recepcja", beach:"Plaża", kidsclub:"Klub dziecięcy", elevator:"Winda", gate:"Brama/Wejście", parking:"Parking", shuttle:"Shuttle", gym:"Siłownia"},
+      nav:{depart:"Start", arrive:"Meta", turn_left:"Skręć w lewo", turn_right:"Skręć w prawo", straight:"Jedź prosto", roundabout:"Na rondzie zjedź zjazdem nr %n", onto:" na %s"}
   }
 };
 let LANG = localStorage.getItem("lang") || "tr";
 const t = () => I18N[LANG] || I18N.tr;
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
-/* synonyms (kısaltılmış) */
-const SYNONYMS = { bar:['bar','бар'], cafe:['cafe','kafe','кафе'], restaurant:['restoran','restaurant','restauracja','ресторан'], pool:['havuz','pool','basen','бассейн'], spa:['spa','wellness','спа'], shop:['shop','market','sklep','магазин'], toilet:['wc','toilet','tuvalet'], reception:['reception','resepsiyon','recepcja'], beach:['beach','plaj','plaża','пляж'], kidsclub:['kids club','kidsclub','miniclub','детский'], elevator:['elevator','asansör','лифт'], gate:['gate','kapı','giriş'], parking:['parking','otopark','parkplatz'], shuttle:['shuttle','servis','bus'], gym:['gym','fitness','spor'] };
+/* synonyms – TR/EN/RU/DE/PL geniş */
+const SYNONYMS = {
+  bar:['bar','бар'],
+  cafe:['cafe','café','kafe','кафе','kawiarnia'],
+  restaurant:['restoran','restaurant','restauracja','ресторан','gaststätte'],
+  pool:['havuz','pool','basen','бассейн','schwimmbad'],
+  spa:['spa','wellness','спа','sauna'],
+  shop:['shop','market','marketplace','sklep','магазин','boutique','butik'],
+  toilet:['wc','toilet','tuvalet','łazienka','toaleta','туалет'],
+  reception:['reception','resepsiyon','recepcja','ресепшен','front desk'],
+  beach:['beach','plaj','plaża','пляж','strand'],
+  kidsclub:['kids club','kidsclub','mini club','miniclub','детский клуб','club dziecięcy'],
+  elevator:['elevator','lift','asansör','лифт','winda','aufzug'],
+  gate:['gate','kapı','giriş','brama','eingang','ворота'],
+  parking:['parking','otopark','parkplatz','парковка'],
+  shuttle:['shuttle','servis','bus','autobus','шаттл'],
+  gym:['gym','fitness','spor salonu','fitnessstudio','siłownia'],
+  info:['info','information','bilgi','инфо','informacja'],
+  shoping:['shopping','alışveriş','торговля','zakupy'],
+  pier:['pier','iskele','molo','причал']
+};
 const KEYWORD_TO_CAT = (()=>{const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m;})();
 
 /* ================== MAP ================== */
@@ -197,27 +244,18 @@ map.on('load', async ()=>{
 
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
 
-  // ROUTES görünümü (kılıf + ana çizgi)
+  // ROUTES görünümü
   map.addLayer({id:'routes-casing', type:'line', source:'routes',
-    paint:{
-      'line-color':'#ffffff','line-width':[
-        '+',['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],2.4], 2
-      ], 'line-opacity':0.6
-    }, layout:{'line-cap':'round','line-join':'round'}, minzoom:10
+    paint:{'line-color':'#ffffff','line-width':['+',['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],2.4],2],'line-opacity':0.6},
+    layout:{'line-cap':'round','line-join':'round'}, minzoom:10
   });
   map.addLayer({id:'routes-net', type:'line', source:'routes',
     paint:{
       'line-color': ['coalesce',['get','stroke'], ['get','fill'], '#6c9f90'],
-      'line-width': ['coalesce',
-        ['to-number',['get','width']],
-        ['to-number',['get','stroke_w']],
-        ['to-number',['get','stroke-width']],
-        2.4
-      ],
+      'line-width' : ['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],['to-number',['get','stroke-width']],2.4],
       'line-opacity': ['coalesce', ['to-number',['get','stroke_op']], 1]
     },
-    layout:{'line-cap':'round','line-join':'round'},
-    minzoom:10
+    layout:{'line-cap':'round','line-join':'round'}, minzoom:10
   });
 
   // hedef/rota/bluedot/start
@@ -228,8 +266,7 @@ map.on('load', async ()=>{
   map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':7,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
 
   map.addSource('route',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'route-line',type:'line',source:'route',
-    paint:{'line-color':'#1b7a5b','line-width':4}, layout:{'line-cap':'round','line-join':'round'}});
+  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}, layout:{'line-cap':'round','line-join':'round'}});
   map.addLayer({id:'route-arrows',type:'symbol',source:'route',
     layout:{'symbol-placement':'line','text-field':'▶','text-size':12,'symbol-spacing':50,'text-rotation-alignment':'map','text-keep-upright':false},
     paint:{'text-color':'#1b7a5b','text-halo-color':'#fff','text-halo-width':1}});
@@ -260,7 +297,7 @@ async function loadJSONs(){
     fetch('routes.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('routes'))
   ]);
 
-  // tüm feature'lara güvenli fid
+  // güvenli fid
   const indoor  = ensureFid(rawIndoor,  'in');
   const outdoor = ensureFid(rawOutdoor, 'out');
 
@@ -284,10 +321,7 @@ async function loadJSONs(){
 
 function ensureFid(fc, prefix){
   if(!fc || !Array.isArray(fc.features)) return fc;
-  fc.features.forEach((f,i)=>{
-    if(!f.properties) f.properties = {};
-    if(!f.properties.fid) f.properties.fid = `${prefix}-${i}-${(f.id||'x')}`;
-  });
+  fc.features.forEach((f,i)=>{ if(!f.properties) f.properties={}; if(!f.properties.fid) f.properties.fid=`${prefix}-${i}-${(f.id||'x')}`; });
   return fc;
 }
 
@@ -295,18 +329,11 @@ function autoZoomToRoutes(fc){
   const f = (fc.features||[]).filter(g=>g.geometry && g.geometry.type==='LineString');
   if(!f.length) return;
   let minX= Infinity, minY= Infinity, maxX= -Infinity, maxY= -Infinity;
-  f.forEach(ft=>{
-    (ft.geometry.coordinates||[]).forEach(([x,y])=>{
-      if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y;
-    });
-  });
+  f.forEach(ft=>{ (ft.geometry.coordinates||[]).forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); });
   if(!isFinite(minX)) return;
-  // mevcut görünüm bbox'ı ile kesişmiyorsa git
   const curr = map.getBounds();
   const intersects = !(maxX<curr.getWest() || minX>curr.getEast() || maxY<curr.getSouth() || minY>curr.getNorth());
-  if(!intersects){
-    map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:18});
-  }
+  if(!intersects) map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:18});
 }
 
 function safeJson(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
@@ -380,7 +407,7 @@ function renderResults(list, cat){
   }
   list.slice(0,80).forEach((f,idx)=>{
     const p=f.properties||{}; const meta=[p.category||'', p.level||'', (f.__src==='indoor'?'Indoor':'Outdoor')].filter(Boolean).join(' · ');
-    const div=document.createElement('div'); div.className='item'; 
+    const div=document.createElement('div'); div.className='item';
     div.dataset.fid = p.fid || `tmp-${idx}`;
     div.dataset.src = f.__src;
     div.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${meta}</small>`;
@@ -536,25 +563,27 @@ goBtn.onclick = ()=>{
   dirBox.style.display='block';
 };
 
-/* ================== POPUP ("Buraya Git") ================== */
+/* ================== POPUP ("Buraya Git") – adaptif ================== */
 let popup;
 function showPopup(f,lngLat,withGo){
+  const maxW = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px';
   const p=f.properties||{}, L=t();
   const name = p['name_'+LANG] || p.name || '';
   const catKey=(p.category||'').toLowerCase(); const catLabel=L.cats[catKey] || p.category || '';
   const hours = p['hours_'+LANG] || p.hours || ''; const level=p['level_'+LANG]||p.level||''; const desc=p['desc_'+LANG]||p.desc||''; const img=p['image_'+LANG]||p.image||'';
   const btn = withGo? `<div style="margin-top:8px"><button class="goto-btn" data-x="${Array.isArray(lngLat)?lngLat[0]:lngLat.lng}" data-y="${Array.isArray(lngLat)?lngLat[1]:lngLat.lat}">${L.go||'Git'} ➜</button></div>` : '';
-  const html = `<div style="min-width:220px">
+  const html = `<div>
       <div style="font-weight:600;margin-bottom:6px;color:#0f5132">${name}</div>
       ${catLabel?`<div class="badge">${catLabel}</div>`:''}
       ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
       ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
       ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
-      ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px"></div>`:''}
+      ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" alt=""></div>`:''}
       ${btn}
     </div>`;
-  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true}))).setLngLat(lngLat).setHTML(html).addTo(map);
+  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true, maxWidth:maxW}))).setLngLat(lngLat).setHTML(html).addTo(map);
 }
+window.addEventListener('resize', ()=>{ if(popup){ try{ popup.options.maxWidth = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px'; }catch{} } });
 document.addEventListener('click', (e)=>{
   const btn=e.target.closest('.goto-btn'); if(!btn) return;
   const x=parseFloat(btn.dataset.x), y=parseFloat(btn.dataset.y);
@@ -573,7 +602,7 @@ function clearRoute(){ map.getSource('route').setData(emptyFC()); dirBox.style.d
 clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
 
-/* Bottom sheet: default AÇIK; sürükle ↑↓ (touch destekli) */
+/* Bottom sheet: default AÇIK; sürükle ↑↓ (touch destekli) – kavrama alanı büyütüldü */
 (function(){
   const sheet=$('sheet'), grab=$('grab'); const H=24; let sy=null, st=0, mt=0;
   const set=v=> sheet.style.setProperty('--ty',v+'px');
