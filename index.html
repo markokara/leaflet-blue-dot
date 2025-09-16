@@ -165,7 +165,9 @@ const I18N = {
       nav:{depart:"Start", arrive:"Meta", turn_left:"Skręć w lewo", turn_right:"Skręć w prawo", straight:"Jedź prosto", roundabout:"Na rondzie zjedź zjazdem nr %n", onto:" na %s"}
   }
 };
-let LANG = localStorage.getItem("lang") || "tr";
+let LANG = (localStorage.getItem("lang") || (navigator.language||'tr')).slice(0,2).toLowerCase();
+if(!I18N[LANG]) LANG = 'tr';
+
 const t = () => I18N[LANG] || I18N.tr;
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 
@@ -578,10 +580,23 @@ function showPopup(f,lngLat,withGo){
       ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
       ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
       ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
-      ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" alt=""></div>`:''}
+      ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px">
+  <img src="${img}" alt="" style="max-width:100%;max-height:170px;object-fit:cover;border-radius:8px">
+</div>`:''}
+
       ${btn}
     </div>`;
-  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true, maxWidth:maxW}))).setLngLat(lngLat).setHTML(html).addTo(map);
+  // her seferinde yeni, sabit max 320px — CSS yine 86vw sınırı koyuyor
+if (popup) popup.remove();
+popup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  maxWidth: "320px"
+})
+.setLngLat(lngLat)
+.setHTML(html)
+.addTo(map);
+
 }
 window.addEventListener('resize', ()=>{ if(popup){ try{ popup.options.maxWidth = Math.min(340, Math.round(window.innerWidth*0.86)) + 'px'; }catch{} } });
 document.addEventListener('click', (e)=>{
