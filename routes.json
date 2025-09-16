@@ -78,12 +78,14 @@
       },
       "properties": {
         "len_m": 244,
-        "name": "test",
+        "name": "test10",
         "category": "path",
         "way": "foot",
         "width": 1,
         "stroke": "#EB1E39",
-        "fill": "#EB1E39"
+        "fill": "#EB1E39",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
       },
       "id": "0ada5abd-a299-4c60-a219-9323e0209fa2"
     },
