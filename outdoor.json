@@ -44,31 +44,43 @@
         "coordinates": [
           [
             [
-              31.804690210897835,
-              36.60045874954437
+              31.806177609103408,
+              36.59878639703953
             ],
             [
-              31.80712963024281,
-              36.59898652114954
+              31.806345250538186,
+              36.598750008488906
             ],
             [
               31.806276538899255,
               36.59868640979694
             ],
             [
-              31.804690210897835,
-              36.60045874954437
+              31.806237014178087,
+              36.59872635700786
+            ],
+            [
+              31.806177609103408,
+              36.59878639703953
             ]
           ]
         ]
       },
       "properties": {
-        "area_m2": 15343,
+        "area_m2": 102,
         "name": "bar test",
         "category": "bar",
         "width": 5,
         "stroke": "#EB1E39",
-        "fill": "#EB1E39"
+        "fill": "#EB1E39",
+        "hours": "09:00- 13:00",
+        "level": "0",
+        "desc": "BU bir testtir. menü için tıkla:\n\nhttps://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Lines",
+        "image": "https://explorewashingtonstate.com/wp-content/uploads/2022/02/Seattle-Drink-at-Bangrak-Market-featured.jpg",
+        "stroke_op": 0.7,
+        "fill_op": 0.9,
+        "desc_en": "english is good",
+        "desc_ru": "ah bu ruslar"
       },
       "id": "8e46b860-0524-4ddd-b1ec-d4bac13389e9"
     }
