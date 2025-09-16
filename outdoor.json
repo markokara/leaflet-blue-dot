@@ -1,111 +1,67 @@
 {
+  "type": "FeatureCollection",
+  "features": [
+    {
       "type": "Feature",
+      "id": "18fa3607-289e-4abf-834d-5e9a82c403aa",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
-            [
-              31.006374498412484,
-              36.8617689959229
-            ],
-            [
-              31.007385505632254,
-              36.861619606752726
-            ],
-            [
-              31.00733884376495,
-              36.86141046142386
-            ],
-            [
-              31.006306061196977,
-              36.86155238153087
-            ],
-            [
-              31.006374498412484,
-              36.8617689959229
-            ]
+            [31.006374498412484, 36.8617689959229],
+            [31.007385505632254, 36.861619606752726],
+            [31.00733884376495, 36.86141046142386],
+            [31.006306061196977, 36.86155238153087],
+            [31.006374498412484, 36.8617689959229]
           ]
         ]
       },
       "properties": {
         "area_m2": 3499,
+        "name_tr": "Ana Havuz (Isıtmalı)",
+        "name_en": "Main Pool (Heated)",
+        "name_ru": "Главный бассейн (с подогревом)",
         "name": "Ana Havuz (Isıtmalı)",
         "category": "pool",
         "level": "0",
-        "desc_tr": "Otelimizde, 7000 m2’lik bir Aquaworld ile birlikte dış mekânda\n7 adet, iç mekânda ise çocuk havuzu dahil 2 adet havuz\nbulunmaktadır. Açık havuzlar yaz döneminde 20.00’den itibaren,\nAna havuz kış döneminde 19.00’dan itibaren kimyasal olarak\ntemizlenmekte olduğundan kullanılmamasını rica ederiz.\nHavuzlar kötü hava şartları, havuz hijyeni ve güvenliği nedeniyle\ngeçici olarak kapatılabilir. Açık hava havuz ısıtma sistemi\n1 Ekim ve 1 Haziran arası hava şartlarına bağlı açılmaktadır.\nSPA: Eco Kapalı Havuz (ısıtılabilir), Eco Açık Havuz (ısıtılabilir)\nAçık: Ana Havuz (ısıtılabilir), Yetişkin Havuzu (+16),\nAktivite Havuzu, Gölgeli Çocuk Havuzu",
-        "desc_en": "Main Pool (Heated)\n\n\nOur hotel features an Aquaworld covering 7,000 m² along with\n7 outdoor pools and 2 indoor pools, including a children's pool. As the outdoor pools are chemically cleaned from 8:00 pm during the summer season\nand the main pool from 7:00 pm during the winter season,\nwe kindly request that you refrain from using them during these times.\nThe pools may be temporarily closed due to bad weather conditions, pool hygiene and safety reasons.\nThe outdoor pool heating system is operational between 1 October and 1 June, depending on weather conditions.\nSPA: Eco Indoor Pool (heated), Eco Outdoor Pool (heated)\nOutdoor: Main Pool (heated), Adult Pool (+16),\nActivity Pool, Shaded Children's Pool",
-        "desc_ru": "Главный бассейн (с подогревом)\n\nВ нашем отеле, наряду с аквапарком Aquaworld площадью 7000 м², имеется\n7 открытых бассейнов и 2 крытых бассейна, включая детский бассейн.\nОткрытые бассейны в летний период с 20:00, Открытые бассейны в летний период с 20:00,\nглавный бассейн в зимний период с 19:00 проходят химическую\nочистку, поэтому просим не пользоваться ими.\nБассейны могут быть временно закрыты из-за плохих погодных условий, гигиены и безопасности.\nСистема подогрева открытых бассейнов работает с 1 октября по 1 июня в зависимости от погодных условий.\nSPA: Eco закрытый бассейн (с подогревом), Eco открытый бассейн (с подогревом)\nСПА: Eco Крытый бассейн (с подогревом), Eco Открытый бассейн (с подогревом)\nОткрытый: Главный бассейн (с подогревом), Бассейн для взрослых (+16),\nБассейн для активных игр, Тенистый детский бассейн"
-      },
-      "id": "18fa3607-289e-4abf-834d-5e9a82c403aa"
+        "desc_tr": "Otelimizde, 7000 m²’lik bir Aquaworld ile birlikte dış mekânda 7 adet, iç mekânda ise çocuk havuzu dahil 2 adet havuz bulunmaktadır. Açık havuzlar yaz döneminde 20.00’den itibaren, ana havuz kış döneminde 19.00’dan itibaren kimyasal olarak temizlenmektedir; bu saatlerde kullanmayınız. Hava/hijyen/güvenlik nedeniyle geçici kapanmalar olabilir. Dış havuz ısıtması 1 Ekim–1 Haziran arası hava durumuna bağlıdır.",
+        "desc_en": "Our hotel features a 7,000 m² Aquaworld with 7 outdoor pools and 2 indoor pools (incl. kids pool). Outdoor pools are chemically cleaned from 8:00 pm in summer, and the main pool from 7:00 pm in winter; please do not use them at those times. Pools may be closed temporarily for weather/hygiene/safety. Outdoor pool heating operates Oct 1–Jun 1 depending on weather.",
+        "desc_ru": "В отеле имеется Aquaworld 7000 м², 7 открытых и 2 крытых бассейна (включая детский). Летом открытые бассейны очищаются с 20:00, зимой главный бассейн — с 19:00; просим не пользоваться в это время. Возможны временные закрытия из-за погоды/гигиены/безопасности. Подогрев открытых бассейнов работает 1 окт.–1 июн. в зависимости от погоды."
+      }
     },
     {
       "type": "Feature",
+      "id": "cd4e0cdd-1604-4f25-b30a-f9abfe3f2d38",
       "geometry": {
         "type": "Point",
-        "coordinates": [
-          31.006396274045493,
-          36.86183124128627
-        ]
+        "coordinates": [31.006396274045493, 36.86183124128627]
       },
       "properties": {
+        "name_tr": "Green Bar",
+        "name_en": "Green Bar",
+        "name_ru": "Green Bar",
         "name": "Green Bar",
-        "desc_tr": "YAZ KIŞ\n\n16.00 - 00.00 \n\nKIŞ\n\n16.00 - 00.00",
-        "desc_en": "SUMMER \n\n4:00 p.m. - 12:00 a.m.\n\nWINTER\n\n4:00 p.m. - 12:00 a.m.",
-        "desc_ru": "ЛЕТО\n\n16.00 - 00.00 \n\nЗИМА\n\n16.00 - 00.00"
-      },
-      "id": "cd4e0cdd-1604-4f25-b30a-f9abfe3f2d38"
+        "category": "bar",
+        "level": "0",
+        "hours_tr": "16:00–00:00 (Yaz/Kış)",
+        "hours_en": "4:00 pm–12:00 am (Summer/Winter)",
+        "hours_ru": "16:00–00:00 (Лето/Зима)",
+        "desc_tr": "YAZ/KIŞ: 16.00–00.00",
+        "desc_en": "SUMMER/WINTER: 4:00 pm–12:00 am",
+        "desc_ru": "ЛЕТО/ЗИМА: 16:00–00:00"
+      }
     },
     {
       "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            31.00343233424501,
-            36.86377056010183
-          ],
-          [
-            31.003543188792058,
-            36.86390131051762
-          ],
-          [
-            31.003455672079532,
-            36.86398069446733
-          ],
-          [
-            31.00340316205201,
-            36.86404606941652
-          ],
-          [
-            31.003444003229035,
-            36.864186158481346
-          ],
-          [
-            31.003537354300047,
-            36.86433558649847
-          ],
-          [
-            31.00357236098506,
-            36.864414969997014
-          ]
-        ]
-      },
-      "properties": {
-        "len_m": 82
-      },
-      "id": "c876b5ab-5279-4485-b937-8e3948ae1765"
-    },
-    
-    {
-      "type": "Feature",
+      "id": "5d3427a4-372c-4512-b9ca-e7811b3262aa",
       "geometry": {
         "type": "Point",
-        "coordinates": [
-          31.003530459419718,
-          36.86264724786089
-        ]
+        "coordinates": [31.003530459419718, 36.86264724786089]
       },
       "properties": {
+        "name_tr": "Regnum Carya Giriş",
+        "name_en": "Regnum Carya Entrance",
+        "name_ru": "Вход Regnum Carya",
         "name": "Regnum Carya Giriş",
         "category": "gate",
         "level": "0",
@@ -114,90 +70,65 @@
         "fill": "#8A444E",
         "stroke_op": 0.9,
         "fill_op": 0.75,
-        "desc_tr": "Regnum Carya Entrance Gate",
-        "desc_ru": "Входные ворота Regnum Carya"
-      },
-      "id": "5d3427a4-372c-4512-b9ca-e7811b3262aa"
+        "desc_tr": "Regnum Carya ana giriş kapısı.",
+        "desc_ru": "Основные входные ворота Regnum Carya."
+      }
     },
     {
       "type": "Feature",
+      "id": "2235b6d1-3b45-49ef-98a5-3da63a8fdab1",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
-            [
-              31.003818346863525,
-              36.864280885403886
-            ],
-            [
-              31.00345152532727,
-              36.864094056963935
-            ],
-            [
-              31.003626599181587,
-              36.86388721066376
-            ],
-            [
-              31.003885041410754,
-              36.86403400488474
-            ],
-            [
-              31.003759988657666,
-              36.864214160980765
-            ],
-            [
-              31.003818346863525,
-              36.864280885403886
-            ]
+            [31.003818346863525, 36.864280885403886],
+            [31.00345152532727, 36.864094056963935],
+            [31.003626599181587, 36.86388721066376],
+            [31.003885041410754, 36.86403400488474],
+            [31.003759988657666, 36.864214160980765],
+            [31.003818346863525, 36.864280885403886]
           ]
         ]
       },
       "properties": {
         "area_m2": 1265,
+        "name_tr": "Tiara Vilları",
+        "name_en": "Tiara Villas",
+        "name_ru": "Виллы Tiara",
         "name": "Tiara vilları",
         "category": "building",
         "stroke": "#F6F1F7",
         "fill": "#877E89",
         "fill_op": 0.6
-      },
-      "id": "2235b6d1-3b45-49ef-98a5-3da63a8fdab1"
+      }
     },
     {
       "type": "Feature",
+      "id": "4fd853d7-e023-4a2a-a84e-d7233f656f29",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
-            [
-              31.003747483382373,
-              36.863733743780784
-            ],
-            [
-              31.003576578080366,
-              36.86362698401827
-            ],
-            [
-              31.003714136108755,
-              36.86346017157642
-            ],
-            [
-              31.003897546686073,
-              36.86356025910051
-            ],
-            [
-              31.003747483382373,
-              36.863733743780784
-            ]
+            [31.003747483382373, 36.863733743780784],
+            [31.003576578080366, 36.86362698401827],
+            [31.003714136108755, 36.86346017157642],
+            [31.003897546686073, 36.86356025910051],
+            [31.003747483382373, 36.863733743780784]
           ]
         ]
       },
       "properties": {
         "area_m2": 697,
+        "name_tr": "Tiata Vilları",
+        "name_en": "Tiata Villas",
+        "name_ru": "Виллы Tiata",
         "name": "Tiata Vilları",
+        "category": "building",
         "level": "0",
         "stroke": "#F6F1F7",
         "fill": "#837B84",
         "fill_op": 0.6
-      },
-      "id": "4fd853d7-e023-4a2a-a84e-d7233f656f29"
+      }
     }
+  ]
+}
