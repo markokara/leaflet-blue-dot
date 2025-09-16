@@ -594,6 +594,15 @@ function showPopup(f, lngLat, withGo){
   const level = p['level_'+LANG] || p.level || '';
   const desc  = p['desc_'+LANG]  || p.desc  || '';
   const img   = p['image_'+LANG] || p.image || '';
+    // EKRANA GÖRE GENİŞLİK
+  const isPhone = window.matchMedia('(max-width:480px)').matches;
+  const mw = (
+    isPhone
+      ? Math.min(260, Math.round(window.innerWidth * 0.82)) // mobil
+      : Math.min(340, Math.round(window.innerWidth * 0.50)) // masaüstü
+  ) + 'px';
+
+
 
   const btn = withGo
     ? `<div style="margin-top:8px"><button class="goto-btn"
@@ -618,7 +627,7 @@ function showPopup(f, lngLat, withGo){
   popup = new maplibregl.Popup({
   closeButton: true,
   closeOnClick: true,
-  maxWidth: '150px'   // sabit üst limit
+  maxWidth: 'mw'   // sabit üst limit
   })
   .setLngLat(lngLat)
   .setHTML(html)
