@@ -16,15 +16,16 @@
   html,body{height:100%;margin:0}
   body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
   #map{position:fixed; inset:0}
-  .lang-float{position:fixed; left:12px; top:12px; z-index:1002; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
+  .lang-float{position:fixed; left:12px; top:12px; z-index:1200; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
   .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
-  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .2s; width:min(860px,96vw); z-index:1001}
+
+  .panel{position:fixed; left:50%; bottom:0; transform:translate(-50%,var(--ty,0px)); transition:transform .2s; width:min(860px,96vw); z-index:1100}
   .card{background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
   .p-8{padding:10px}
   .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .stack{display:flex; flex-direction:column; gap:10px}
   .grow{flex:1 1 auto}
-  .grab{width:56px; height:6px; background:#9fd3b3; border-radius:999px; margin:8px auto 0; box-shadow:inset 0 0 0 1px #83c7a1; cursor:grab}
+  .grab{width:56px; height:6px; background:#9fd3b3; border-radius:999px; margin:8px auto 0; box-shadow:inset 0 0 0 1px #83c7a1; cursor:grab; touch-action:none}
   input[type="search"]{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--field)}
   button{padding:9px 11px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field); white-space:nowrap}
   button:active{transform:translateY(1px)}
@@ -32,15 +33,18 @@
   .chip input{accent-color:#1b7a5b}
   .chip .tick{opacity:.18; transition:.15s}
   .chip input:checked ~ .tick{opacity:1}
-  .results{background:#fff; border:1px solid var(--border); border-radius:12px; max-height:36vh; overflow:auto; position:relative; z-index:1003; display:none; pointer-events:auto}
+
+  .results{background:#fff; border:1px solid var(--border); border-radius:12px; max-height:36vh; overflow:auto; position:relative; z-index:2001; display:none; -webkit-overflow-scrolling:touch}
   .results .item{display:flex; justify-content:space-between; gap:8px; padding:10px 12px; cursor:pointer}
   .results .item:hover{background:#f1f7f4}
   .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
+
   .dir{display:none; background:#fff; border:1px solid var(--border); border-radius:12px}
   .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5efe9}
   .dir .list{max-height:30vh; overflow:auto; padding:8px 12px}
+
   .badge{display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#edf7f3; border:1px solid var(--border); font-size:12px}
-  .acc{position:fixed; right:12px; bottom:12px; z-index:1001; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
+  .acc{position:fixed; right:12px; bottom:12px; z-index:1005; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
   @media (max-width:520px){ .panel{bottom:8px} }
   .row.searchrow{display:grid; grid-template-columns:1fr auto; gap:8px}
   .row.ctlsB .chip{padding:6px 10px}
@@ -154,7 +158,7 @@ const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirLis
 const baseSat=$('baseSat'), base3d=$('base3d');
 
 /* State */
-let allFeats=[], searchActive=false, searchIds=[], followState=false, lastKnown=null;
+let allFeats=[], followState=false, lastKnown=null;
 let pickMode='none'; // 'start' | 'dest' | 'none'
 let startCoord=null, destCoord=null;
 
@@ -172,13 +176,13 @@ map.on('load', async ()=>{
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
-  // OSM raster ÜSTTE (burada before parametresi yok → en üste eklenir)
+  // OSM raster ÜSTTE
   map.addSource('osmRaster',{ type:'raster',
     tiles:[`https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
     tileSize:256, attribution:"© OpenMapTiles © OpenStreetMap contributors"
   });
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
-    paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}}); // ← üstte
+    paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
 
   // 3D
   map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
@@ -189,36 +193,23 @@ map.on('load', async ()=>{
   // POI/çizimler
   map.addSource('indoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
   map.addSource('outdoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
-  map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // ROUTES
+  map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // ROUTES ağı
   map.addSource('models',{type:'geojson', data:emptyFC(), promoteId:'fid'});
 
+  // Misafir katmanları
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
 
-  // ROUTES görünümü (data-driven; admin’deki property adlarını esnek okur)
+  // ROUTES görünümü (senin JSON önerinle birebir)
   map.addLayer({id:'routes-net', type:'line', source:'routes',
     paint:{
-      'line-color': [
-        'coalesce',
-        ['get','stroke'],
-        ['get','stroke_color'],
-        ['get','strokeColor'],
-        '#6c9f90'
-      ],
-      'line-width': [
-        'coalesce',
+      'line-color': ['coalesce',['get','stroke'], ['get','fill'], '#6c9f90'],
+      'line-width': ['coalesce',
         ['to-number',['get','stroke_w']],
-        ['to-number',['get','stroke-width']],
-        ['to-number',['get','strokeWidth']],
         ['to-number',['get','width']],
+        ['to-number',['get','stroke-width']],
         2.4
       ],
-      'line-opacity': [
-        'coalesce',
-        ['to-number',['get','stroke_op']],
-        ['to-number',['get','line_opacity']],
-        ['to-number',['get','opacity']],
-        0.9
-      ]
+      'line-opacity': ['coalesce', ['to-number',['get','stroke_op']], 1]
     },
     minzoom:14
   });
@@ -232,10 +223,13 @@ map.on('load', async ()=>{
 
   map.addSource('route',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}});
-  // Oklar sadece rota üzerinde
   map.addLayer({id:'route-arrows',type:'symbol',source:'route',
     layout:{'symbol-placement':'line','text-field':'▶','text-size':12,'symbol-spacing':50,'text-rotation-alignment':'map','text-keep-upright':false},
     paint:{'text-color':'#1b7a5b','text-halo-color':'#fff','text-halo-width':1}});
+
+  // BLUEDOT (daha önce eksikti)
+  map.addSource('me',{type:'geojson',data:emptyFC()});
+  map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
   await loadJSONs();
   applyLang();
@@ -264,9 +258,12 @@ async function loadJSONs(){
   const validRoutes = validateRoutes(routes) ? routes : emptyFC();
   map.getSource('routes').setData(validRoutes);
 
-  allFeats = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}))
-          .concat((outdoor?.features||[]).map(f=>({...f,__src:'outdoor'})));
+  // POI’ler (arama için)
+  const indoorFs = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}));
+  const outdoorFs = (outdoor?.features||[]).map(f=>({...f,__src:'outdoor'}));
+  allFeats = indoorFs.concat(outdoorFs);
 
+  // Rota grafı
   buildRouteGraph(validRoutes);
 }
 
@@ -295,7 +292,6 @@ function applyBasemap(){
     map.setTerrain(null);
     map.setLayoutProperty('bldg-3d','visibility','none');
   }
-  // OSM raster daima üstte; sadece opaklık kontrol ediyoruz
   if(map.getLayer('osm-raster')) map.setPaintProperty('osm-raster','raster-opacity',osmOpacity);
 }
 
@@ -308,7 +304,7 @@ function applyLang(){
 }
 langSel.value=LANG; langSel.addEventListener('change',()=>{LANG=langSel.value; applyLang();});
 
-/* ================== ARAMA → rev1: tıkla ⇒ popup + "Buraya Git" ================== */
+/* ================== ARAMA ================== */
 function detectCategory(qs){
   const nq=norm(qs), dict=I18N[LANG]?.cats||{};
   for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq)||nq.includes(norm(label))) return k; }
@@ -316,7 +312,7 @@ function detectCategory(qs){
 }
 q.addEventListener('input', ()=>{
   const val=(q.value||'').trim();
-  if(!val){ results.style.display='none'; searchActive=false; searchIds=[]; return; }
+  if(!val){ results.style.display='none'; return; }
   const qn=norm(val), maybeCat=detectCategory(val);
   const hits = allFeats.filter(f=>{
     const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
@@ -341,7 +337,7 @@ function renderResults(list, cat){
     results.appendChild(div);
   }
   list.slice(0,80).forEach(f=>{
-    const p=f.properties||{}; const meta=[f.__src==='indoor'?'Indoor':'Outdoor', p.category||'', p.level||''].filter(Boolean).join(' · ');
+    const p=f.properties||{}; const meta=[p.category||'', p.level||'', (f.__src==='indoor'?'Indoor':'Outdoor')].filter(Boolean).join(' · ');
     const div=document.createElement('div'); div.className='item'; div.dataset.fid=p.fid; div.dataset.src=f.__src;
     div.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${meta}</small>`;
     results.appendChild(div);
@@ -349,39 +345,33 @@ function renderResults(list, cat){
   results.style.display='block';
 }
 
-/* hem click hem pointerdown ile güvenli seçim; paneli yukarı çekiyoruz */
-['click','pointerdown'].forEach(evt=>{
-  results.addEventListener(evt, (e)=>{
-    const item=e.target.closest('.item'); if(!item) return;
-    const fid=item.dataset.fid;
-    if(fid && fid.startsWith('__cat__')){
-      const cat=fid.replace('__cat__','');
-      const ids=allFeats.filter(f=>(f.properties?.category||'').toLowerCase()===cat).map(f=>f.properties?.fid);
-      searchIds=ids; searchActive=true; results.style.display='none'; return;
-    }
-    const f=allFeats.find(x=>x.properties?.fid===fid);
-    if(!f) return;
-    const center=coordOfFeature(f);
-    // paneli yukarı aç
-    document.getElementById('sheet').style.setProperty('--ty','0px');
-    // popup + git butonu
-    showPopup(f, Array.isArray(center)?center:[center.lng,center.lat], true);
-    setDestination(Array.isArray(center)?center:[center.lng,center.lat]);
-    results.style.display='none';
-    goBtn.disabled = !(startCoord || lastKnown) ? true : false;
-  }, {passive:true});
+/* sonuç tıklanınca: popup + "Buraya Git" */
+results.addEventListener('click', (e)=>{
+  const item=e.target.closest('.item'); if(!item) return;
+  const fid=item.dataset.fid;
+  if(fid && fid.startsWith('__cat__')){ results.style.display='none'; return; }
+  const f=allFeats.find(x=>x.properties?.fid===fid);
+  if(!f) return;
+  const center=coordOfFeature(f);
+  document.getElementById('sheet').style.setProperty('--ty','0px'); // panel yukarı
+  showPopup(f, Array.isArray(center)?center:[center.lng,center.lat], true);
+  setDestination(Array.isArray(center)?center:[center.lng,center.lat]);
+  results.style.display='none';
+  goBtn.disabled = !(startCoord || lastKnown);
 });
 
-/* ================== BLUE DOT ================== */
+/* ================== KONUM (BLUEDOT) ================== */
 if('geolocation' in navigator){
   try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
   navigator.geolocation.watchPosition(p=>{
     const accM=Math.round(p.coords.accuracy||999);
     lastKnown=[p.coords.longitude,p.coords.latitude];
-    map.getSource('me').setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
+    const meSrc=map.getSource('me'); if(meSrc){
+      meSrc.setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
+    }
     acc.textContent="±"+accM+" m"; acc.style.display='block';
     if(followState) map.easeTo({center:lastKnown});
-  }, console.warn, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+  }, (err)=>{ console.warn('geo error',err); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
 }
 followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = followState ? t().ui.followOn : t().ui.followOff; if(followState && lastKnown) map.easeTo({center:lastKnown}); };
 
@@ -463,8 +453,8 @@ function pathToGeoJSON(ids){
 }
 function dist(a,b){ const dx=a[0]-b[0], dy=a[1]-b[1]; return Math.hypot(dx,dy); }
 
-/* Git (rota hesapla) */
-goBtn.onclick = async ()=>{
+/* Rota hesapla */
+goBtn.onclick = ()=>{
   const srcStart = startCoord || lastKnown;
   const srcDest  = destCoord;
   if(!srcDest){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
@@ -477,19 +467,26 @@ goBtn.onclick = async ()=>{
   if(!nodePath){ alert('Uygun rota bulunamadı. (Ağ kopuk olabilir)'); return; }
 
   const fc = pathToGeoJSON(nodePath);
+  const coords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
+  if(coords.length<2){ alert('Rota kısa.'); return; }
+
   map.getSource('route').setData(fc);
 
-  const coords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
   const ex=bboxFromCoords(coords); if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
   const total = lengthOf(coords);
   dirSum.textContent=(total/1000).toFixed(2)+' km';
   dirSub.textContent='· routes.json';
   dirList.innerHTML='';
-  listSteps(coords);
+  // basit adımlar: hepsi "Düz devam"
+  coords.slice(1).forEach((c,i)=>{
+    const el=document.createElement('div'); el.className='step';
+    el.innerHTML = `<div>${i+1}.</div><div><div>${t().nav.straight}</div><div class="muted" style="font-size:12px">${fmtDist(hav(coords[i],coords[i+1]))}</div></div>`;
+    dirList.appendChild(el);
+  });
   dirBox.style.display='block';
 };
 
-/* ================== POPUP (rev1: "Buraya Git") ================== */
+/* ================== POPUP ("Buraya Git") ================== */
 let popup;
 function showPopup(f,lngLat,withGo){
   const p=f.properties||{}, L=t();
@@ -519,13 +516,14 @@ document.addEventListener('click', (e)=>{
 /* ================== Yardımcılar ================== */
 function lengthOf(coords){ let sum=0; for(let i=1;i<coords.length;i++) sum+=hav(coords[i-1],coords[i]); return sum; }
 function hav(a,b){ const R=6371000; const toRad=x=>x*Math.PI/180; const dLat=toRad(b[1]-a[1]); const dLon=toRad(b[0]-a[0]); const sa=Math.sin(dLat/2), sb=Math.sin(dLon/2); const aa=sa*sa + Math.cos(toRad(a[1]))*Math.cos(toRad(b[1]))*sb*sb; return 2*R*Math.asin(Math.sqrt(aa)); }
+function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
 function clearDestination(){ map.getSource('dest').setData(emptyFC()); destCoord=null; }
 function clearStart(){ map.getSource('start').setData(emptyFC()); startCoord=null; }
 function clearRoute(){ map.getSource('route').setData(emptyFC()); dirBox.style.display='none'; dirList.innerHTML=''; dirSum.textContent='–'; dirSub.textContent=''; }
 clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
 
-/* Bottom sheet: default AÇIK; sürükle ↑↓ */
+/* Bottom sheet: default AÇIK; sürükle ↑↓ (touch destekli) */
 (function(){
   const sheet=$('sheet'), grab=$('grab'); const H=24; let sy=null, st=0, mt=0;
   const set=v=> sheet.style.setProperty('--ty',v+'px');
@@ -533,16 +531,28 @@ collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.sty
   const calc=()=>{ const h=sheet.getBoundingClientRect().height||320; const byH=Math.max(0,h-(H+8)); const byV=Math.min(window.innerHeight*0.6,520); return Math.min(byH,byV); };
   function recalc(){ mt=calc(); set(0); }
   window.addEventListener('resize',recalc); requestAnimationFrame(()=>{ recalc(); set(0); });
-  const start=e=>{ sy=e.clientY; st=get(); grab.setPointerCapture(e.pointerId); };
-  const move=e=>{ if(sy==null)return; const dy=e.clientY-sy; set(Math.max(0,Math.min(mt,st+dy))); };
+
+  const start=(y,ptrId)=>{ sy=y; st=get(); if(ptrId!=null) grab.setPointerCapture(ptrId); };
+  const move=(y)=>{ if(sy==null)return; const dy=y-sy; set(Math.max(0,Math.min(mt,st+dy))); };
   const end =()=>{ if(sy==null)return; const ty=get(); set(ty>mt*0.5?mt:0); sy=null; };
-  grab.addEventListener('pointerdown',start); grab.addEventListener('pointermove',move);
-  grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
+
+  // Pointer
+  grab.addEventListener('pointerdown',e=>start(e.clientY,e.pointerId));
+  grab.addEventListener('pointermove',e=>move(e.clientY));
+  grab.addEventListener('pointerup',end);
+  grab.addEventListener('pointercancel',end);
+
+  // Touch
+  grab.addEventListener('touchstart',e=>{ const t=e.touches[0]; start(t.clientY,null); },{passive:true});
+  grab.addEventListener('touchmove',e=>{ const t=e.touches[0]; move(t.clientY); },{passive:true});
+  grab.addEventListener('touchend',end);
+
   $('q').addEventListener('focus',()=> set(0));
 })();
 
-resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); clearStart(); q.value=''; results.style.display='none'; pickMode='none'; pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
+resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); clearStart(); q.value=''; results.style.display='none'; pickMode='none'; pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active'); document.getElementById('sheet').style.setProperty('--ty','0px'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
 
+function closePopup(){ if(popup) popup.remove(); }
 function coordOfFeature(f){
   const g=f.geometry; if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
   if(g.type==='Point') return g.coordinates;
@@ -550,7 +560,6 @@ function coordOfFeature(f){
   if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
   return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
 }
-function bboxFromGeom(g){ try{ const coords=g.type==='Polygon'?g.coordinates.flat(1):g.type==='MultiPolygon'?g.coordinates.flat(2):g.type==='LineString'?g.coordinates:g.type==='Point'?[g.coordinates]:[]; let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }catch{return null;} }
 function bboxFromCoords(coords){ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }
 </script>
 </body>
