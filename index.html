@@ -30,11 +30,12 @@
   word-break: break-word;           /* güvene al */
 }
 .maplibregl-popup-content img{
-  width:100%;                       /* taşma olmasın */
-  max-height:170px;
-  height:auto;
-  object-fit:cover;
-  border-radius:8px;
+  width: 200px;        /* sabit genişlik */
+  height: auto;
+  max-height: 120px;
+  display: block;
+  margin: 0 auto;      /* ortala */
+  border-radius: 8px;
 }
 @media (max-width:480px){
   .maplibregl-popup-content{padding:9px 10px}
