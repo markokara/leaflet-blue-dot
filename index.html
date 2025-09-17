@@ -1,668 +1,2899 @@
-<!doctype html>
-<html lang="tr">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Long Beach – Misafir Harita</title>
-
-<link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
-<script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
-
-<style>
-  :root{
-    --shadow:0 10px 28px rgba(0,0,0,.18);
-    --muted:#5b6a6a; --bg:#fff; --brand:#0f5132; --border:#cfe3da; --field:#f4fbf7; --chip:#e6f4ef;
-  }
-  html,body{height:100%;margin:0}
-  body{font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eaf4f0}
-  #map{position:fixed; inset:0}
-
-  /* MapLibre popup – küçük, mobil uyumlu */
-  .maplibregl-popup{ max-width:min(320px,86vw)!important; }
-  .maplibregl-popup-content{ padding:10px 12px; overflow-wrap:anywhere; }
-  .maplibregl-popup-content img{
-    width:100%;
-    max-height:140px; /* istersen 120px yap */
-    height:auto; object-fit:cover; border-radius:8px;
-  }
-  @media (max-width:480px){ .maplibregl-popup-content{padding:9px 10px} }
-
-  .lang-float{position:fixed; left:12px; top:12px; z-index:1200; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:6px 8px}
-  .lang-float select{border:1px solid var(--border); background:var(--field); border-radius:10px; padding:6px 8px}
-
-  /* Bottom sheet – yeni değişken: --panel-ty */
-  .panel{
-    position:fixed; left:50%; bottom:0;
-    transform:translate(-50%,var(--panel-ty,0px));
-    transition:transform .2s ease;
-    width:min(860px,96vw); z-index:1100
-  }
-  .card{background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
-  .p-8{padding:10px}
-  .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-  .stack{display:flex; flex-direction:column; gap:10px}
-  .grow{flex:1 1 auto}
-
-  /* İki yeşil çizgili tutacak (tek .grab ile) */
-  .grab{position:relative; width:64px; height:28px; margin:8px auto 0; cursor:grab}
-  .grab::before,.grab::after{
-    content:""; position:absolute; left:50%; transform:translateX(-50%);
-    width:56px; height:6px; background:#9fd3b3; border-radius:999px; box-shadow:inset 0 0 0 1px #83c7a1;
-  }
-  .grab::before{ top:6px } .grab::after{ bottom:6px }
-
-  input[type="search"]{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--field)}
-  button{padding:9px 11px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field); white-space:nowrap}
-  button:active{transform:translateY(1px)}
-  .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--chip); font-size:13px}
-  .chip input{accent-color:#1b7a5b}
-  .chip .tick{opacity:.18; transition:.15s}
-  .chip input:checked ~ .tick{opacity:1}
-
-  .results{background:#fff; border:1px solid var(--border); border-radius:12px; max-height:36vh; overflow:auto; position:relative; z-index:2001; display:none; -webkit-overflow-scrolling:touch}
-  .results .item{display:flex; justify-content:space-between; gap:8px; padding:10px 12px; cursor:pointer}
-  .results .item:hover{background:#f1f7f4}
-  .results .hint{padding:8px 12px; color:var(--muted); font-size:12px; pointer-events:none}
-
-  .dir{display:none; background:#fff; border:1px solid var(--border); border-radius:12px}
-  .dir .hdr{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #e5efe9}
-  .dir .list{max-height:30vh; overflow:auto; padding:8px 12px}
-
-  .badge{display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#edf7f3; border:1px solid var(--border); font-size:12px}
-  .acc{position:fixed; right:12px; bottom:12px; z-index:1005; background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow)}
-  @media (max-width:520px){ .panel{bottom:8px} }
-
-  .row.searchrow{display:grid; grid-template-columns:1fr auto; gap:8px}
-  .row.ctlsB .chip{padding:6px 10px}
-  .muted{color:var(--muted)}
-</style>
-</head>
-<body>
-
-<!-- Dil -->
-<div class="lang-float">
-  <select id="lang" aria-label="Dil">
-    <option value="tr" selected>TR</option><option value="en">EN</option>
-    <option value="ru">RU</option><option value="de">DE</option><option value="pl">PL</option>
-  </select>
-</div>
-
-<div id="map" aria-label="Harita"></div>
-
-<!-- Bottom sheet -->
-<div class="panel" id="sheet">
-  <div class="card">
-    <div class="grab" id="grab"></div>
-    <div class="p-8 stack" id="sheetContent">
-
-      <div class="row searchrow">
-        <input id="q" class="grow" type="search" placeholder="Ara: restoran, spa, havuz…"/>
-        <button id="go" title="Seçili hedefe rota" disabled>Git</button>
-      </div>
-
-      <div class="row ctlsB">
-        <button id="pickStart">Başlangıç Seç</button>
-        <button id="pickDest">Hedef Seç</button>
-        <button id="follow">📍 Konumum: Kapalı</button>
-        <button id="reset">Sıfırla</button>
-        <span class="grow"></span>
-        <label class="chip" title="Satellite (raster)">
-          <input type="radio" name="basemap" id="baseSat" checked><span>Satellite</span><span class="tick">✓</span>
-        </label>
-        <label class="chip" title="MapLibre 3D (terrain + binalar)">
-          <input type="radio" name="basemap" id="base3d"><span>MapLibre 3D</span><span class="tick">✓</span>
-        </label>
-      </div>
-
-      <div id="results" class="results"></div>
-
-      <div id="dir" class="dir">
-        <div class="hdr">
-          <div><span class="sum" id="dirSum">–</span> <span class="muted" id="dirSub"></span></div>
-          <div class="row">
-            <button id="collapseDir">▲</button>
-            <button id="clearRoute">Rota Temizle</button>
-          </div>
-        </div>
-        <div class="list" id="dirList"></div>
-      </div>
-
-      <div class="muted" style="font-size:11px; text-align:right">© aihotelstech · © OpenStreetMap contributors · © MapTiler · © Mapbox</div>
-    </div>
-  </div>
-</div>
-
-<div id="acc" class="acc" style="display:none"></div>
-
-<script>
-/* ================== ANAHTARLAR ================== */
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
-const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
-
-/* ================== AYARLAR ================== */
-const HOTEL_BBOX = [31.004958004107237, 36.85433223152813, 31.0196581129091, 36.869973060180395]; // [minX,minY,maxX,maxY]
-const PADDING = {top:110,right:16,bottom:140,left:16};
-const DEFAULT_PITCH = 55, DEFAULT_BEARING = 0;
-
-/* OSM üst katman ayarları */
-const OSM_OPACITY = 0.20;   // 0–1
-const OSM_VISIBLE = true;   // true/false
-
-/* ================== i18n ================== */
-const I18N = {
-  tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
-      ui:{pickStart:"Başlangıç Seç", pickDest:"Hedef Seç", followOn:"📍 Konumum: Açık", followOff:"📍 Konumum: Kapalı", reset:"Sıfırla", clearRoute:"Rota Temizle"},
-      labels:{name:"İsim", category:"Tür", hours:"Saat", level:"Kat", desc:"Açıklama"},
-      cats:{pool:"Havuz", restaurant:"Restoran", spa:"Spa", bar:"Bar", cafe:"Kafe", shop:"Dükkan", toilet:"WC", reception:"Resepsiyon", beach:"Plaj", kidsclub:"Çocuk Kulübü", elevator:"Asansör", gate:"Kapı", parking:"Otopark", shuttle:"Servis", gym:"Spor Salonu"},
-      nav:{depart:"Başla", arrive:"Varış", turn_left:"Sola dön", turn_right:"Sağa dön", straight:"Düz devam", roundabout:"Göbekte %n. çıkış", onto:" → %s"}
-  },
-  en:{searchPH:"Search: restaurant, spa, pool…", go:"Go",
-      ui:{pickStart:"Pick Start", pickDest:"Pick Destination", followOn:"📍 My Location: On", followOff:"📍 My Location: Off", reset:"Reset", clearRoute:"Clear Route"},
-      labels:{name:"Name", category:"Type", hours:"Hours", level:"Level", desc:"Description"},
-      cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa", bar:"Bar", cafe:"Cafe", shop:"Shop", toilet:"Toilet", reception:"Reception", beach:"Beach", kidsclub:"Kids Club", elevator:"Elevator", gate:"Gate", parking:"Parking", shuttle:"Shuttle", gym:"Gym"},
-      nav:{depart:"Depart", arrive:"Arrive", turn_left:"Turn left", turn_right:"Turn right", straight:"Go straight", roundabout:"At roundabout take exit %n", onto:" onto %s"}
-  },
-  de:{searchPH:"Suche: Restaurant, Spa, Pool…", go:"Los",
-      ui:{pickStart:"Start wählen", pickDest:"Ziel wählen", followOn:"📍 Mein Standort: An", followOff:"📍 Mein Standort: Aus", reset:"Zurücksetzen", clearRoute:"Route löschen"},
-      labels:{name:"Name", category:"Typ", hours:"Öffnungszeiten", level:"Etage", desc:"Beschreibung"},
-      cats:{pool:"Pool", restaurant:"Restaurant", spa:"Spa/Wellness", bar:"Bar", cafe:"Café", shop:"Shop", toilet:"Toilette", reception:"Rezeption", beach:"Strand", kidsclub:"Kinderclub", elevator:"Aufzug", gate:"Eingangstor", parking:"Parkplatz", shuttle:"Shuttle", gym:"Fitnessstudio"},
-      nav:{depart:"Start", arrive:"Ankunft", turn_left:"Links abbiegen", turn_right:"Rechts abbiegen", straight:"Geradeaus", roundabout:"Im Kreisverkehr Ausfahrt %n nehmen", onto:" auf %s"}
-  },
-  ru:{searchPH:"Поиск: ресторан, спа, бассейн…", go:"Поехали",
-      ui:{pickStart:"Выбрать старт", pickDest:"Выбрать пункт", followOn:"📍 Моё местоположение: Вкл", followOff:"📍 Моё местоположение: Выкл", reset:"Сброс", clearRoute:"Очистить маршрут"},
-      labels:{name:"Название", category:"Тип", hours:"Часы", level:"Этаж", desc:"Описание"},
-      cats:{pool:"Бассейн", restaurant:"Ресторан", spa:"Спа", bar:"Бар", cafe:"Кафе", shop:"Магазин", toilet:"Туалет", reception:"Ресепшен", beach:"Пляж", kidsclub:"Детский клуб", elevator:"Лифт", gate:"Вход/ворота", parking:"Парковка", shuttle:"Шаттл", gym:"Спортзал"},
-      nav:{depart:"Начать", arrive:"Прибытие", turn_left:"Поверните налево", turn_right:"Поверните направо", straight:"Двигайтесь прямо", roundabout:"На круговом съезде — съезд №%n", onto:" на %s"}
-  },
-  pl:{searchPH:"Szukaj: restauracja, spa, basen…", go:"Jedź",
-      ui:{pickStart:"Wybierz start", pickDest:"Wybierz cel", followOn:"📍 Moja lokalizacja: Wł", followOff:"📍 Moja lokalizacja: Wył", reset:"Resetuj", clearRoute:"Wyczyść trasę"},
-      labels:{name:"Nazwa", category:"Typ", hours:"Godziny", level:"Poziom", desc:"Opis"},
-      cats:{pool:"Basen", restaurant:"Restauracja", spa:"Spa", bar:"Bar", cafe:"Kawiarnia", shop:"Sklep", toilet:"Toaleta", reception:"Recepcja", beach:"Plaża", kidsclub:"Klub dziecięcy", elevator:"Winda", gate:"Brama/Wejście", parking:"Parking", shuttle:"Shuttle", gym:"Siłownia"},
-      nav:{depart:"Start", arrive:"Meta", turn_left:"Skręć w lewo", turn_right:"Skręć w prawo", straight:"Jedź prosto", roundabout:"Na rondzie zjedź zjazdem nr %n", onto:" na %s"}
-  }
-};
-const SUP_LANGS = ['tr','en','ru','de','pl'];
-let LANG = localStorage.getItem("lang");
-if (!LANG) {
-  const nav = (navigator.language || navigator.userLanguage || 'en').slice(0,2).toLowerCase();
-  LANG = SUP_LANGS.includes(nav) ? nav : 'en';
-  localStorage.setItem('lang', LANG);
-}
-
-const t = () => I18N[LANG] || I18N.tr;
-const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-
-/* synonyms – TR/EN/RU/DE/PL geniş */
-const SYNONYMS = {
-  bar:['bar','бар'],
-  cafe:['cafe','café','kafe','кафе','kawiarnia'],
-  restaurant:['restoran','restaurant','restauracja','ресторан','gaststätte'],
-  pool:['havuz','pool','basen','бассейн','schwimmbad'],
-  spa:['spa','wellness','спа','sauna'],
-  shop:['shop','market','marketplace','sklep','магазин','boutique','butik'],
-  toilet:['wc','toilet','tuvalet','łazienka','toaleta','туалет'],
-  reception:['reception','resepsiyon','recepcja','ресепшен','front desk'],
-  beach:['beach','plaj','plaża','пляж','strand'],
-  kidsclub:['kids club','kidsclub','mini club','miniclub','детский клуб','club dziecięcy'],
-  elevator:['elevator','lift','asansör','лифт','winda','aufzug'],
-  gate:['gate','kapı','giriş','brama','eingang','ворота'],
-  parking:['parking','otopark','parkplatz','парковка'],
-  shuttle:['shuttle','servis','bus','autobus','шаттл'],
-  gym:['gym','fitness','spor salonu','fitnessstudio','siłownia'],
-  info:['info','information','bilgi','инфо','informacja'],
-  shoping:['shopping','alışveriş','торговля','zakupy'],
-  pier:['pier','iskele','molo','причал']
-};
-const KEYWORD_TO_CAT = (()=>{const m={}; Object.entries(SYNONYMS).forEach(([k,a])=>a.forEach(w=>m[norm(w)]=k)); return m;})();
-
-/* ================== MAP ================== */
-const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:21, attributionControl:false });
-map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
-map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
-
-/* DOM */
-const $=id=>document.getElementById(id);
-const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickStartBtn=$('pickStart'), pickDestBtn=$('pickDest'), followBtn=$('follow'), resetBtn=$('reset'), results=$('results'), acc=$('acc');
-const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
-const baseSat=$('baseSat'), base3d=$('base3d');
-
-/* State */
-let allFeats=[], followState=false, lastKnown=null;
-let pickMode='none'; // 'start' | 'dest' | 'none'
-let startCoord=null, destCoord=null;
-
-/* Helpers */
-function emptyFC(){return {type:'FeatureCollection',features:[]};}
-function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
-function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
-
-/* LOAD */
-map.on('load', async ()=>{
-  // Satellite (altta)
-  map.addSource('sat',{ type:'raster',
-    tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
-    tileSize:256, attribution:"© Mapbox © OSM"
-  });
-  map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
-
-  // OSM raster ÜSTTE
-  map.addSource('osmRaster',{ type:'raster',
-    tiles:[`https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
-    tileSize:256, attribution:"© OpenMapTiles © OpenStreetMap contributors"
-  });
-  map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
-    paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
-
-  // 3D
-  map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
-  map.addSource('dem',{ type:'raster-dem', url:`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`, tileSize:256 });
-  map.addLayer({ id:'bldg-3d', type:'fill-extrusion', source:'omt', 'source-layer':'building', layout:{visibility:'none'},
-    paint:{'fill-extrusion-color':'#b9c9d6','fill-extrusion-opacity':0.85,'fill-extrusion-height':['coalesce', ['to-number',['get','render_height']], ['to-number',['get','height']], 6],'fill-extrusion-base':['coalesce', ['to-number',['get','render_min_height']], ['to-number',['get','min_height']], 0]}, minzoom:14 });
-
-  // POI/çizimler
-  map.addSource('indoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
-  map.addSource('outdoor',{type:'geojson', data:emptyFC(), promoteId:'fid'});
-  map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // ROUTES ağı
-
-  addFeatureLayers('indoor'); addFeatureLayers('outdoor');
-
-  // ROUTES görünümü
-  map.addLayer({id:'routes-casing', type:'line', source:'routes',
-    paint:{'line-color':'#ffffff','line-width':['+',['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],2.4],2],'line-opacity':0.6},
-    layout:{'line-cap':'round','line-join':'round'}, minzoom:10
-  });
-  map.addLayer({id:'routes-net', type:'line', source:'routes',
-    paint:{
-      'line-color': ['coalesce',['get','stroke'], ['get','fill'], '#6c9f90'],
-      'line-width' : ['coalesce',['to-number',['get','width']],['to-number',['get','stroke_w']],['to-number',['get','stroke-width']],2.4],
-      'line-opacity': ['coalesce', ['to-number',['get','stroke_op']], 1]
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "01-regnum-carya-entrance",
+        "category": "gate",
+        "name_tr": "🚪 Regnum Carya Giriş",
+        "name_en": "🚪 Regnum Carya Entrance",
+        "name_ru": "🚪 Вход Regnum Carya",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/01-regnum-carya-entrance/800/500",
+        "icon_text": "🚪",
+        "stroke": "#6a1b9a",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ab47bc",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.003510,
+          36.862627
+        ]
+      },
+      "id": "76b42dde-9ac5-4639-bdb1-7b6ed11be5b3"
     },
-    layout:{'line-cap':'round','line-join':'round'}, minzoom:10
-  });
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "02-carya-golf-club-entrance",
+        "category": "gate",
+        "name_tr": "⛳️ Carya Golf Club Giriş",
+        "name_en": "⛳️ Carya Golf Club Entrance",
+        "name_ru": "⛳️ Вход Carya Golf Club",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "At our hotel you may enjoy golf at Carya Golf Club, the first and only 18-hole floodlit golf course in Europe, and National Golf Club, Turkey’s first 18-hole championship golf course.-",
+        "desc_tr": "GOLF; Otelimizde hizmet alabileceğiniz Avrupa’nın ilk ve tek 18 delikli gece aydınlatmalı golf sahası Carya Golf Club ve Türkiye’nin ilk 18 delikli şampiyona golf sahası National Golf Club bulunmaktadır.",
+        "desc_en": "",
+        "desc_ru": "ГОЛЬФ; В нашем отеле вы можете насладиться гольфом в гольф- клубе Carya Golf Club, первом и единственном 18-луночном освещенном поле для гольфа в Европе. Национальный Гольф-клуб National Golf Club, первое в Турции чемпионское поле для гольфа на 18 лунок.",
+        "image": "https://picsum.photos/seed/02-carya-golf-club-entrance/800/500",
+        "icon_text": "⛳️",
+        "stroke": "#6a1b9a",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ab47bc",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.014730,
+          36.863520
+        ]
+      },
+      "id": "29e2b994-9e9f-4be3-9da1-799a26f7f0a4"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "03-main-building",
+        "category": "info",
+        "name_tr": "🏨 Ana Bina",
+        "name_en": "🏨 Main Building",
+        "name_ru": "🏨 Главный корпус",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/03-main-building/800/500",
+        "icon_text": "🏨",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.004839,
+          36.861843
+        ]
+      },
+      "id": "37fcdf4e-bb20-4233-86c8-45a43fd1c5be"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "04-convention-centre",
+        "category": "info",
+        "name_tr": "🏛️ Kongre Merkezi",
+        "name_en": "🏛️ Convention Centre",
+        "name_ru": "🏛️ Конгресс-центр",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/04-convention-centre/800/500",
+        "icon_text": "🏛️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006792,
+          36.862391
+        ]
+      },
+      "id": "6bcd9f89-4bac-45d9-a944-13aff495b5ad"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "05-convention-centre-reception",
+        "category": "reception",
+        "name_tr": "🛎️ Kongre Merkezi Resepsiyonu",
+        "name_en": "🛎️ Convention Centre Reception",
+        "name_ru": "🛎️ Ресепшен Конгресс-центра",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/05-convention-centre-reception/800/500",
+        "icon_text": "🛎️",
+        "stroke": "#1b5e20",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "907ccc38-d9ec-4152-8dc5-e7cb60ee3931"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "06-carya-golf-club-building",
+        "category": "info",
+        "name_tr": "🏌️ Carya Golf Club Binası",
+        "name_en": "🏌️ Carya Golf Club Building",
+        "name_ru": "🏌️ Здание Carya Golf Club",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/06-carya-golf-club-building/800/500",
+        "icon_text": "🏌️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006720,
+          36.867287
+        ]
+      },
+      "id": "a73a2e37-c9ca-40f4-93aa-576fb49bd3ac"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "07-syoket-steakhouse",
+        "category": "restaurant",
+        "name_tr": "🥩 Syok-et Steakhouse",
+        "name_en": "🥩 Syok-et Steakhouse",
+        "name_ru": "🥩 Стейк-хаус Syok-et",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/07-syoket-steakhouse/800/500",
+        "icon_text": "🥩",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006333,
+          36.866673
+        ]
+      },
+      "id": "be3b566d-d9d5-4362-bc5d-b6f917eb39fe"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "08-performance-lab",
+        "category": "gym",
+        "name_tr": "🏋️‍♀️ Performans Laboratuvarı",
+        "name_en": "🏋️‍♀️ Performance Laboratory",
+        "name_ru": "🏋️‍♀️ Лаборатория производительности",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/08-performance-lab/800/500",
+        "icon_text": "🏋️‍♀️",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.004880,
+          36.868288
+        ]
+      },
+      "id": "2cf677b5-71d2-4e54-992f-ace30494323f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "09-driving-range",
+        "category": "info",
+        "name_tr": "🏌️‍♂️ Driving Range",
+        "name_en": "🏌️‍♂️ Driving Range",
+        "name_ru": "🏌️‍♂️ Поле для разминки",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/09-driving-range/800/500",
+        "icon_text": "🏌️‍♂️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.005738,
+          36.867287
+        ]
+      },
+      "id": "abbc2c7e-6f3c-413d-9d38-e61ef15fb9f3"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "10-halfway-house",
+        "category": "cafe",
+        "name_tr": "☕ Halfway House",
+        "name_en": "☕ Halfway House",
+        "name_ru": "☕ Halfway House",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/10-halfway-house/800/500",
+        "icon_text": "☕",
+        "stroke": "#8e24aa",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ba68c8",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.005857,
+          36.867546
+        ]
+      },
+      "id": "d71d8feb-55f3-4e9a-9d3c-5e54a4da169f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "11-roof-tee",
+        "category": "info",
+        "name_tr": "⛳️ Roof Tee",
+        "name_en": "⛳️ Roof Tee",
+        "name_ru": "⛳️ Roof Tee",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/11-roof-tee/800/500",
+        "icon_text": "⛳️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "61863977-ee9b-413d-ac4c-17328c123e2d"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "12-walking-path-entrance",
+        "category": "gate",
+        "name_tr": "🚶‍♀️ Yürüyüş Yolu Girişi",
+        "name_en": "🚶‍♀️ Walking Path Entrance",
+        "name_ru": "🚶‍♀️ Вход на пешую дорожку",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/12-walking-path-entrance/800/500",
+        "icon_text": "🚶‍♀️",
+        "stroke": "#6a1b9a",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ab47bc",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "419c4c87-b098-47e5-9b27-4492b35a76ac"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "13-pearl-pool-rooms",
+        "category": "info",
+        "name_tr": "🏡 Pearl Pool Rooms",
+        "name_en": "🏡 Pearl Pool Rooms",
+        "name_ru": "🏡 Номера Pearl Pool",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/13-pearl-pool-rooms/800/500",
+        "icon_text": "🏡",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008134126338124,
+              36.86455865285221
+            ],
+            [
+              31.008556579871932,
+              36.8645615182232
+            ],
+            [
+              31.008592380791097,
+              36.86330935043054
+            ],
+            [
+              31.00811622587854,
+              36.863323677322015
+            ],
+            [
+              31.008134126338124,
+              36.86455865285221
+            ]
+          ]
+        ]
+      },
+      "id": "2b5d4d2b-b165-4e43-a43a-e3d7dfd02f10"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "14-emerald-villas",
+        "category": "info",
+        "name_tr": "💎 Emerald Villas",
+        "name_en": "💎 Emerald Villas",
+        "name_ru": "💎 Виллы Emerald",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/14-emerald-villas/800/500",
+        "icon_text": "💎",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.00837757396505,
+              36.864853783272
+            ],
+            [
+              31.008624601815004,
+              36.86485664863193
+            ],
+            [
+              31.008624601815004,
+              36.864633151938875
+            ],
+            [
+              31.008366833623747,
+              36.86463028657056
+            ],
+            [
+              31.00837757396505,
+              36.864853783272
+            ]
+          ]
+        ]
+      },
+      "id": "d17eaf07-94a8-454e-8e1b-63ca15091a7b"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "15-crown-villa",
+        "category": "info",
+        "name_tr": "👑 Crown Villa",
+        "name_en": "👑 Crown Villa",
+        "name_ru": "👑 Вилла Crown",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/15-crown-villa/800/500",
+        "icon_text": "👑",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+           [
+              31.01075118939285,
+              36.86335233122803
+            ],
+            [
+              31.01075118939285,
+              36.86315748424519
+            ],
+            [
+              31.01119154338625,
+              36.86315461875596
+            ],
+            [
+              31.01119154338625,
+              36.863343735044225
+            ],
+            [
+              31.01075118939285,
+              36.86335233122803
+            ]
+        ]
+      ]
+      },
+      "id": "9dcbd05c-a823-42cc-9dc9-30c4b2c7e64a"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "16-tiara-villas",
+        "category": "info",
+        "name_tr": "👑 Tiara Villas",
+        "name_en": "👑 Tiara Villas",
+        "name_ru": "👑 Виллы Tiara",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/16-tiara-villas/800/500",
+        "icon_text": "👑",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "277e8864-381f-48ce-b605-3d8f5161be79"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "17-sapphire-villas",
+        "category": "info",
+        "name_tr": "💠 Sapphire Villas",
+        "name_en": "💠 Sapphire Villas",
+        "name_ru": "💠 Виллы Sapphire",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/17-sapphire-villas/800/500",
+        "icon_text": "💠",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "a769376f-0b1b-48c6-938f-8533e3e259e7"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "18-villa-lounge",
+        "category": "bar",
+        "name_tr": "🍸 Villa Lounge",
+        "name_en": "🍸 Villa Lounge",
+        "name_ru": "🍸 Villa Lounge",
+        "hours_tr": "09:00–00:00",
+        "hours_en": "09:00–00:00",
+        "hours_ru": "09:00–00:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/18-villa-lounge/800/500",
+        "icon_text": "🍸",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "55d6c463-6303-4740-b312-01d73c9eb4da"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "19-ev-charging",
+        "category": "parking",
+        "name_tr": "🔌 Elektrikli Araç Şarj",
+        "name_en": "🔌 EV Charging Station",
+        "name_ru": "🔌 Зарядка для электромобилей",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/19-ev-charging/800/500",
+        "icon_text": "🔌",
+        "stroke": "#263238",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#90a4ae",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "5a0ad774-76af-4313-b15d-a0218166ef85"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "20-helipad",
+        "category": "info",
+        "name_tr": "🚁 Helikopter Pisti",
+        "name_en": "🚁 Helipad",
+        "name_ru": "🚁 Вертолетная площадка",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/20-helipad/800/500",
+        "icon_text": "🚁",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "054a36dd-4f44-4e0e-8ce1-b7fb238e35ed"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "21-tennis-basketball-courts",
+        "category": "gym",
+        "name_tr": "🎾 Tenis & Basketbol Sahaları",
+        "name_en": "🎾 Tennis & Basketball Courts",
+        "name_ru": "🎾 Корты теннис/баскетбол",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "TENİS / BASKETBOL; 4 adet toprak zeminli tenis sahası, 2 adet sert zeminli tenis sahası, 1 adet basketbol sahası bulunmaktadır.",
+        "desc_en": "TENNIS/BASKETBALL; 4 red clay tennis courts, 2 tennis hard court, 1 Basketball court",
+        "desc_ru": "В отеле имеется 4 теннисных корта с грунтовым покрытием, 2 теннисных корта с твердым покрытием и 1 баскетбольная площадка.",
+        "image": "https://picsum.photos/seed/21-tennis-basketball-courts/800/500",
+        "icon_text": "🎾",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+             [
+              31.003226532831885,
+              36.86245862826824
+            ],
+            [
+              31.003262019376237,
+              36.86187353532135
+            ],
+            [
+              31.00429822570779,
+              36.86190761853358
+            ],
+            [
+              31.004291128350182,
+              36.862203005649306
+            ],
+            [
+              31.00348913311388,
+              36.86216892256884
+            ],
+            [
+              31.003467841203513,
+              36.86246998934037
+            ],
+            [
+              31.003226532831885,
+              36.86245862826824
+            ]
+          ]
+        ]
+      },
+      "id": "6a2b217b-d692-4e44-a70c-b685d7f13407"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "22-tennis-club",
+        "category": "gym",
+        "name_tr": "🎾 Tenis Kulübü",
+        "name_en": "🎾 Tennis Club",
+        "name_ru": "🎾 Теннисный клуб",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/22-tennis-club/800/500",
+        "icon_text": "🎾",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.003334,
+          36.861758
+        ]
+      },
+      "id": "068cb534-f112-44f6-bd38-d6d6e26d1a22"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "23-corner-bar",
+        "category": "bar",
+        "name_tr": "🍹 Corner Bar",
+        "name_en": "🍹 Corner Bar",
+        "name_ru": "🍹 Corner Bar",
+        "hours_tr": "Yaz 09:00–19:00 • Kış 09:00–16:00",
+        "hours_en": "Summer 09:00–19:00 • Winter 09:00–16:00",
+        "hours_ru": "Лето 09:00–19:00 • Зима 09:00–16:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/23-corner-bar/800/500",
+        "icon_text": "🍹",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006506,
+          36.861960
+        ]
+      },
+      "id": "eebdc455-5c6d-420b-b4f8-ab19b352a7d6"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "24-le-fumee-shisha",
+        "category": "bar",
+        "name_tr": "💨 Le Fumée Shisha",
+        "name_en": "💨 Le Fumée Shisha",
+        "name_ru": "💨 Кальянная Le Fumée",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/24-le-fumee-shisha/800/500",
+        "icon_text": "💨",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "92451c7a-39b6-4976-8d3c-baa1315c2d1d"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "25-main-pool-heated",
+        "category": "pool",
+        "name_tr": "🏊 Ana Havuz (Isıtmalı)",
+        "name_en": "🏊 Main Pool (Heated)",
+        "name_ru": "🏊 Главный бассейн (с подогревом)",
+        "hours_tr": "09:00–19:00",
+        "hours_en": "09:00–19:00",
+        "hours_ru": "09:00–19:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/25-main-pool-heated/800/500",
+        "icon_text": "🏊",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.006367770582404,
+              36.86175681933747
+            ],
+            [
+              31.0073758305444,
+              36.86161781839495
+            ],
+            [
+              31.00733273989814,
+              36.861421335406774
+            ],
+            [
+              31.006324679936146,
+              36.861561381848276
+            ],
+            [
+              31.006367770582404,
+              36.86175681933747
+            ]
+          ]
+        ]
+      },
+      "id": "68579288-63b5-4da7-a984-bed6d238a9e8"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "26-green-bar",
+        "category": "bar",
+        "name_tr": "🍀 Green Bar",
+        "name_en": "🍀 Green Bar",
+        "name_ru": "🍀 Green Bar",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "Menüde alkollü ve alkolsüz içecekler, atıştırmalıklar bulunmaktadır.http://info lbresorts.com/wp-content/uploads/2025/09/AISOS-Turkce1.jpg",
+        
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/26-green-bar/800/500",
+        "icon_text": "🍀",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "7f77922c-7412-4c67-90d1-153336ea031f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "27-adult-pool-16",
+        "category": "pool",
+        "name_tr": "🛟 Yetişkin Havuzu (+16)",
+        "name_en": "🛟 Adult Pool (+16)",
+        "name_ru": "🛟 +16 Взрослый бассейн",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/27-adult-pool-16/800/500",
+        "icon_text": "🛟",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008576748231704,
+              36.86232094295241
+            ],
+            [
+              31.008724748550726,
+              36.86234341916523
+            ],
+            [
+              31.0088883791885,
+              36.8616805245958
+            ],
+            [
+              31.008731591875616,
+              36.8616577083348
+            ],
+            [
+              31.008576748231704,
+              36.86232094295241
+            ]
+          ]
+        ]
+      },
+      "id": "80b68c25-f41d-4ed0-ba2e-68d6a6fcb39e"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "28-activity-pool",
+        "category": "pool",
+        "name_tr": "🎯 Aktivite Havuzu",
+        "name_en": "🎯 Activity Pool",
+        "name_ru": "🎯 Бассейн активностей",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/28-activity-pool/800/500",
+        "icon_text": "🎯",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.008576748231704,
+              36.86232094295241
+            ],
+            [
+              31.008724748550726,
+              36.86234341916523
+            ],
+            [
+              31.0088883791885,
+              36.8616805245958
+            ],
+            [
+              31.008731591875616,
+              36.8616577083348
+            ],
+            [
+              31.008576748231704,
+              36.86232094295241
+            ]
+          ]
+        ]
+      },
+      "id": "f81e68c7-1b5d-4d4f-821c-e889f1034eac"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "29-bamboo-kids-world",
+        "category": "kidsclub",
+        "name_tr": "🐼 Bamboo Kids World",
+        "name_en": "🐼 Bamboo Kids World",
+        "name_ru": "🐼 Bamboo Kids World",
+        "hours_tr": "Mini 4–7 • Junior 8–12",
+        "hours_en": "Mini 4–7 • Junior 8–12",
+        "hours_ru": "Мини 4–7 • Джуниор 8–12",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/29-bamboo-kids-world/800/500",
+        "icon_text": "🐼",
+        "stroke": "#ef6c00",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffb74d",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              31.009317405965092,
+              36.86237185518088
+            ],
+            [
+              31.00955116155251,
+              36.862408360927134
+            ],
+            [
+              31.009827677292442,
+              36.86180373247548
+            ],
+            [
+              31.00960247373553,
+              36.86174897344239
+            ],
+            [
+              31.009317405965092,
+              36.86237185518088
+            ]
+          ]
+        ]
+      },
+      "id": "b3b8245f-7446-4bd7-9198-52b648b931a5"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "30-leo-club",
+        "category": "kidsclub",
+        "name_tr": "🦁 Leo Club",
+        "name_en": "🦁 Leo Club",
+        "name_ru": "🦁 Leo Club",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/30-leo-club/800/500",
+        "icon_text": "🦁",
+        "stroke": "#ef6c00",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffb74d",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "42bc00de-9fcf-4e05-8fc4-54a4a283d273"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "31-wave-pool",
+        "category": "pool",
+        "name_tr": "🌊 Dalga Havuzu",
+        "name_en": "🌊 Wave Pool",
+        "name_ru": "🌊 Волновой бассейн",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/31-wave-pool/800/500",
+        "icon_text": "🌊",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "e78ef262-a303-43de-99f7-3f5629d229e6"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "32-aqualantis",
+        "category": "pool",
+        "name_tr": "🛝 Aqualantis (Aquaworld)",
+        "name_en": "🛝 Aqualantis (Aquaworld)",
+        "name_ru": "🛝 Aqualantis (Aquaworld)",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "Kids Splash, Baby Splash, Icon Tower, Lazy River vb.",
+        "desc_en": "Kids Splash, Baby Splash, Icon Tower, Lazy River etc.",
+        "desc_ru": "Kids Splash, Baby Splash, Icon Tower, Lazy River и др.",
+        "image": "https://picsum.photos/seed/32-aqualantis/800/500",
+        "icon_text": "🛝",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "52437e59-f39c-4a9c-a103-a07fcbabc5e0"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "33-football-fields",
+        "category": "gym",
+        "name_tr": "⚽ Futbol Sahaları",
+        "name_en": "⚽ Football Fields",
+        "name_ru": "⚽ Футбольные поля",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/33-football-fields/800/500",
+        "icon_text": "⚽",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "9e1a7b1c-90c3-40aa-a626-08593381a5b5"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "34-malia-peruvian-restaurant",
+        "category": "restaurant",
+        "name_tr": "🍽️ Malia Peruvian Restaurant",
+        "name_en": "🍽️ Malia Peruvian Restaurant",
+        "name_ru": "🍽️ Перуанский ресторан Malia",
+        "hours_tr": "19:00–22:00",
+        "hours_en": "19:00–22:00",
+        "hours_ru": "19:00–22:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/34-malia-peruvian-restaurant/800/500",
+        "icon_text": "🍽️",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "d29850f4-5e5f-4901-9d62-680bd740cc9f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "35-amber-spa-wellness",
+        "category": "spa",
+        "name_tr": "💆 Amber Spa & Wellness",
+        "name_en": "💆 Amber Spa & Wellness",
+        "name_ru": "💆 Amber Spa & Wellness",
+        "hours_tr": "09:00–20:00",
+        "hours_en": "09:00–20:00",
+        "hours_ru": "09:00–20:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/35-amber-spa-wellness/800/500",
+        "icon_text": "💆",
+        "stroke": "#00838f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#26c6da",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.011106,
+          36.859968
+        ]
+      },
+      "id": "a7b5bade-5897-4135-bbd0-570b8a6f2036"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "36-amber-cave-bar",
+        "category": "bar",
+        "name_tr": "🍸 Amber Cave Bar",
+        "name_en": "🍸 Amber Cave Bar",
+        "name_ru": "🍸 Amber Cave Bar",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/36-amber-cave-bar/800/500",
+        "icon_text": "🍸",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "a1004aba-b30a-45e7-beba-f81b10f0c222"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "37-gusto-snack-bar",
+        "category": "bar",
+        "name_tr": "🥪 Gusto Snack-Bar",
+        "name_en": "🥪 Gusto Snack-Bar",
+        "name_ru": "🥪 Gusto Snack-Bar",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/37-gusto-snack-bar/800/500",
+        "icon_text": "🥪",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.009002,
+          31.009002
+        ]
+      },
+      "id": "1d4d6d50-6df7-4813-a4c0-ec99a5ae2a6e"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "38-amphitheatre",
+        "category": "info",
+        "name_tr": "🎭 Amfitiyatro",
+        "name_en": "🎭 Amphitheatre",
+        "name_ru": "🎭 Амфитеатр",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/38-amphitheatre/800/500",
+        "icon_text": "🎭",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "4ed3ea57-4c1e-43e2-9cc4-a695fa45b655"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "39-alibabas-farm",
+        "category": "info",
+        "name_tr": "🐐 Alibaba's Farm",
+        "name_en": "🐐 Alibaba's Farm",
+        "name_ru": "🐐 Ферма Alibaba",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/39-alibabas-farm/800/500",
+        "icon_text": "🐐",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "dfb5dd2f-a38e-49e2-b84d-f97f3ffbb152"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "40-ubon-thai-restaurant",
+        "category": "restaurant",
+        "name_tr": "🍜 Ubon Thai Restaurant",
+        "name_en": "🍜 Ubon Thai Restaurant",
+        "name_ru": "🍜 Тайский ресторан Ubon",
+        "hours_tr": "19:00–22:00",
+        "hours_en": "19:00–22:00",
+        "hours_ru": "19:00–22:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/40-ubon-thai-restaurant/800/500",
+        "icon_text": "🍜",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006009,
+          36.860060
+        ]
+      },
+      "id": "4b3fc0d8-c550-4f1c-810c-64190eff28d6"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "41-waterfall",
+        "category": "water",
+        "name_tr": "💧 Şelale",
+        "name_en": "💧 Waterfall",
+        "name_ru": "💧 Водопад",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/41-waterfall/800/500",
+        "icon_text": "💧",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#90caf9",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "62d2f823-a7f7-4a3d-862d-634f5cc05bd3"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "42-pearl-event-area",
+        "category": "info",
+        "name_tr": "🎪 Pearl Etkinlik Alanı",
+        "name_en": "🎪 Pearl Event Area",
+        "name_ru": "🎪 Площадка Pearl",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/42-pearl-event-area/800/500",
+        "icon_text": "🎪",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "6b1439f9-4f33-49fb-bf1f-2a3651af909a"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "43-kids-action-pool",
+        "category": "pool",
+        "name_tr": "👶 Çocuk Macera Havuzu",
+        "name_en": "👶 Kids Action Pool",
+        "name_ru": "👶 Детский бассейн",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/43-kids-action-pool/800/500",
+        "icon_text": "👶",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "5885d5f4-074e-4abd-b549-c575c54270d6"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "44-16plus-pool",
+        "category": "pool",
+        "name_tr": "🧘‍♀️ +16 Yetişkin Havuzu",
+        "name_en": "🧘‍♀️ +16 Adult Pool",
+        "name_ru": "🧘‍♀️ +16 Взрослый бассейн",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/44-16plus-pool/800/500",
+        "icon_text": "🧘‍♀️",
+        "stroke": "#1565c0",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#42a5f5",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "c6d68a50-18af-480e-97cd-c2820ede5bb2"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "45-beach-volley-football-padel",
+        "category": "gym",
+        "name_tr": "🏐 Plaj Voleybolu & Futbol, Padel",
+        "name_en": "🏐 Beach Volleyball & Football, Padel",
+        "name_ru": "🏐 Пляжный волейбол, футбол, падел",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/45-beach-volley-football-padel/800/500",
+        "icon_text": "🏐",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "6cfd0205-1d72-4e10-b5b2-a43854c83395"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "46-entertainment-info-desk",
+        "category": "info",
+        "name_tr": "🎤 Eğlence Info Desk",
+        "name_en": "🎤 Entertainment Info Desk",
+        "name_ru": "🎤 Инфо по развлечениям",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/46-entertainment-info-desk/800/500",
+        "icon_text": "🎤",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "3e92a39c-79d3-4f5c-a4fb-3c726ff186d0"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "47-sandal-fish-restaurant",
+        "category": "restaurant",
+        "name_tr": "🐟 Sandal Balık Restoranı",
+        "name_en": "🐟 Sandal Fish Restaurant",
+        "name_ru": "🐟 Рыбный ресторан Sandal",
+        "hours_tr": "19:00–22:00",
+        "hours_en": "19:00–22:00",
+        "hours_ru": "19:00–22:00",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/47-sandal-fish-restaurant/800/500",
+        "icon_text": "🐟",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "df5cf832-65c1-4ca4-b565-6813372972dc"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "48-baby-care-room",
+        "category": "toilet",
+        "name_tr": "👶 Bebek Bakım Odası",
+        "name_en": "👶 Baby Care Room",
+        "name_ru": "👶 Комната ухода за детьми",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/48-baby-care-room/800/500",
+        "icon_text": "👶",
+        "stroke": "#455a64",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#90a4ae",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "b54386a9-f01b-477e-a183-55b63151c486"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "49-jungle-gym",
+        "category": "gym",
+        "name_tr": "🧗 Jungle Gym",
+        "name_en": "🧗 Jungle Gym",
+        "name_ru": "🧗 Jungle Gym",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/49-jungle-gym/800/500",
+        "icon_text": "🧗",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "58435558-7826-4fe6-8cbd-8fb0194288bd"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "50-pama-beach-wear",
+        "category": "shop",
+        "name_tr": "🛍️ PAMA Beach Wear",
+        "name_en": "🛍️ PAMA Beach Wear",
+        "name_ru": "🛍️ PAMA Beach Wear",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/50-pama-beach-wear/800/500",
+        "icon_text": "🛍️",
+        "stroke": "#5d4037",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#a1887f",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "3c86c6c9-31e0-4335-afac-b1254bb0799f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "51-palm-beach-area-snack",
+        "category": "bar",
+        "name_tr": "🥤 Palm Beach AREA Snack",
+        "name_en": "🥤 Palm Beach AREA Snack",
+        "name_ru": "🥤 Palm Beach AREA Snack",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/51-palm-beach-area-snack/800/500",
+        "icon_text": "🥤",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "8a7e812c-7075-4c7b-9ab4-5ac8a76c77b8"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "52-icecream-gozleme-stand",
+        "category": "cafe",
+        "name_tr": "🍦 Dondurma / Gözleme Standı",
+        "name_en": "🍦 Ice Cream / Gözleme Stand",
+        "name_ru": "🍦 Мороженое / Гёзлеме",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/52-icecream-gozleme-stand/800/500",
+        "icon_text": "🍦",
+        "stroke": "#8e24aa",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ba68c8",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "d494947c-2f92-421b-a67f-6ec8fdc0d62f"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "53-medical-disabled-wc",
+        "category": "toilet",
+        "name_tr": "♿ Medikal Hizmetler, Engelli WC",
+        "name_en": "♿ Medical Services, Disabled WC",
+        "name_ru": "♿ Медуслуги, туалет для инвалидов",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/53-medical-disabled-wc/800/500",
+        "icon_text": "♿",
+        "stroke": "#455a64",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#90a4ae",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "b71a99d2-307d-4d18-ae3c-f3f549ef9fcf"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "54-alia-beach-club",
+        "category": "bar",
+        "name_tr": "🏖️ Alia Beach Club",
+        "name_en": "🏖️ Alia Beach Club",
+        "name_ru": "🏖️ Alia Beach Club",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/54-alia-beach-club/800/500",
+        "icon_text": "🏖️",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006783,
+          31.006783
+        ]
+      },
+      "id": "63a87629-a80e-47f6-986b-358807d78a94"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "55-beach-pavilions",
+        "category": "beach",
+        "name_tr": "⛱️ Beach Pavilions",
+        "name_en": "⛱️ Beach Pavilions",
+        "name_ru": "⛱️ Пляжные павильоны",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/55-beach-pavilions/800/500",
+        "icon_text": "⛱️",
+        "stroke": "#f9a825",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffd54f",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "id": "560ae95c-c631-44a0-ad46-965d043f539e"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "56-beach-harbour-bar",
+        "category": "bar",
+        "name_tr": "⚓ Beach & Harbour Bar",
+        "name_en": "⚓ Beach & Harbour Bar",
+        "name_ru": "⚓ Бар у пляжа/причала",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/56-beach-harbour-bar/800/500",
+        "icon_text": "⚓",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "619b662e-f2a4-4d56-bad1-e5eeb0e3b621"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "57-pier",
+        "category": "beach",
+        "name_tr": "🛳️ İskele / Pier",
+        "name_en": "🛳️ Pier",
+        "name_ru": "🛳️ Пирс",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/57-pier/800/500",
+        "icon_text": "🛳️",
+        "stroke": "#f9a825",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffd54f",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "49a28fb2-3448-4d8d-8e48-813e3d8317be"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "58-water-sports",
+        "category": "beach",
+        "name_tr": "🚤 Su Sporları",
+        "name_en": "🚤 Water Sports",
+        "name_ru": "🚤 Водные виды спорта",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/58-water-sports/800/500",
+        "icon_text": "🚤",
+        "stroke": "#f9a825",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffd54f",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "96ee9838-675d-4216-aefa-5b0ebffaf1ea"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-olive-main-restaurant",
+        "category": "restaurant",
+        "name_tr": "🍽️ Olive Ana Restoran",
+        "name_en": "🍽️ Olive Main Restaurant",
+        "name_ru": "🍽️ Ресторан Olive",
+        "hours_tr": "Kahvaltı 06:30–10:00; Öğle 12:30–15:00; Akşam 19:00–21:30",
+        "hours_en": "Breakfast 06:30–10:00; Lunch 12:30–15:00; Dinner 19:00–21:30",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "Alt lobi katında açık büfe olarak konuklarımızın hizmetindedir.Bahçe ve kapalı alan oturma düzenine sahip Olive Ana Restoran'da kahvaltı, öğle ve akşam yemekleri servis edilmektedir. menü için lütfen tıklayınız. https://www.regnumhotels.com/en/",
+        "desc_en": "Offers open-buffet service for guests on the lower lobby floor.Breakfast, lunch and dinner are served in the Olive Main Restaurant, which has both indoor and outdoor seating areas. https://www.regnumhotels.com/en/",
 
-  // hedef/rota/bluedot/start
-  map.addSource('start',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'start-pt',type:'circle',source:'start',paint:{'circle-radius':7,'circle-color':'#22c55e','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
-
-  map.addSource('dest',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'dest-pt',type:'circle',source:'dest',paint:{'circle-radius':7,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.8}});
-
-  map.addSource('route',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#1b7a5b','line-width':4}, layout:{'line-cap':'round','line-join':'round'}});
-  map.addLayer({id:'route-arrows',type:'symbol',source:'route',
-    layout:{'symbol-placement':'line','text-field':'▶','text-size':12,'symbol-spacing':50,'text-rotation-alignment':'map','text-keep-upright':false},
-    paint:{'text-color':'#1b7a5b','text-halo-color':'#fff','text-halo-width':1}});
-
-  // BLUEDOT
-  map.addSource('me',{type:'geojson',data:emptyFC()});
-  map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
-
-  await loadJSONs();
-  applyLang();
-  applyBasemap();
-  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
-});
-
-function addFeatureLayers(src){
-  map.addLayer({id:`${src}-fill`,type:'fill',source:src,paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}});
-  map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}});
-  map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
-  map.addLayer({id:`${src}-pts`,type:'circle',source:src,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
-}
-
-async function loadJSONs(){
-  const bust='v='+Date.now();
-
-  const [rawIndoor, rawOutdoor, routes] = await Promise.all([
-    fetch('indoor.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('indoor')),
-    fetch('outdoor.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('outdoor')),
-    fetch('routes.json?'+bust,{cache:'no-store'}).then(safeJson).catch(errLog('routes'))
-  ]);
-
-  // güvenli fid
-  const indoor  = ensureFid(rawIndoor,  'in');
-  const outdoor = ensureFid(rawOutdoor, 'out');
-
-  map.getSource('indoor').setData(indoor||emptyFC());
-  map.getSource('outdoor').setData(outdoor||emptyFC());
-
-  const validRoutes = validateRoutes(routes) ? routes : emptyFC();
-  map.getSource('routes').setData(validRoutes);
-
-  // POI’ler (arama için)
-  const indoorFs = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}));
-  const outdoorFs = (outdoor?.features||[]).map(f=>({...f,__src:'outdoor'}));
-  allFeats = indoorFs.concat(outdoorFs);
-
-  // Rota grafı
-  buildRouteGraph(validRoutes);
-
-  // routes ekran dışındaysa otomatik zoom
-  autoZoomToRoutes(validRoutes);
-}
-
-function ensureFid(fc, prefix){
-  if(!fc || !Array.isArray(fc.features)) return fc;
-  fc.features.forEach((f,i)=>{ if(!f.properties) f.properties={}; if(!f.properties.fid) f.properties.fid=`${prefix}-${i}-${(f.id||'x')}`; });
-  return fc;
-}
-
-function autoZoomToRoutes(fc){
-  const f = (fc.features||[]).filter(g=>g.geometry && g.geometry.type==='LineString');
-  if(!f.length) return;
-  let minX= Infinity, minY= Infinity, maxX= -Infinity, maxY= -Infinity;
-  f.forEach(ft=>{ (ft.geometry.coordinates||[]).forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); });
-  if(!isFinite(minX)) return;
-  const curr = map.getBounds();
-  const intersects = !(maxX<curr.getWest() || minX>curr.getEast() || maxY<curr.getSouth() || minY<curr.getNorth());
-  if(!intersects) map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:18});
-}
-
-function safeJson(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
-function errLog(tag){ return e=>{ console.error(`[${tag}.json] yüklenemedi:`, e?.message||e); return emptyFC(); } }
-function validateRoutes(fc){
-  if(!fc || fc.type!=='FeatureCollection'){ console.warn('routes.json FeatureCollection değil'); return false; }
-  const hasLS = (fc.features||[]).some(f=>f.geometry && f.geometry.type==='LineString');
-  if(!hasLS){ console.warn('routes.json içinde LineString yok'); return false; }
-  return true;
-}
-
-/* ================== BASMAP TOGGLE + OSM üstte ================== */
-baseSat.addEventListener('change', applyBasemap);
-base3d.addEventListener('change', applyBasemap);
-function applyBasemap(){
-  const osmOpacity = OSM_VISIBLE ? OSM_OPACITY : 0;
-  if(base3d.checked){
-    map.setLayoutProperty('bldg-3d','visibility','visible');
-    map.setTerrain({source:'dem', exaggeration:1});
-    if(!map.getLayer('sky')){
-      map.addLayer({ id:'sky', type:'sky', paint:{'sky-type':'atmosphere','sky-atmosphere-sun':[0,45],'sky-atmosphere-sun-intensity':10} });
+        "desc_ru": "К услугам наших гостей в виде шведского стола на нижнем этаже вестибюля. Завтрак, обед и ужин подаются в главном ресторане Olive, в котором есть как внутренние, так и открытые зоны для сидения. https://www.regnumhotels.com/en/",
+        "image": "https://picsum.photos/seed/gfl-olive-main-restaurant/800/500",
+        "icon_text": "🍽️",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.008077,
+          36.861894
+        ]
+      },
+      "id": "a22a3d41-3b66-4224-b525-1aa06aba070b"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-olive-terrace",
+        "category": "restaurant",
+        "name_tr": "🌿 Olive Restoran Terası",
+        "name_en": "🌿 Olive Restaurant Terrace",
+        "name_ru": "🌿 Терраса Olive",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-olive-terrace/800/500",
+        "icon_text": "🌿",
+        "stroke": "#6d4c41",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#8d6e63",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "18bd963d-f929-4997-8598-eb5cb8bb075d"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-photographer",
+        "category": "shop",
+        "name_tr": "📸 Fotoğrafçı",
+        "name_en": "📸 Photographer",
+        "name_ru": "📸 Фотограф",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-photographer/800/500",
+        "icon_text": "📸",
+        "stroke": "#5d4037",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#a1887f",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "bcb410e0-4132-4680-8d5c-4a8c33cd5804"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-macaron-patisserie",
+        "category": "cafe",
+        "name_tr": "🥐 Macaron Pastanesi",
+        "name_en": "🥐 Macaron Patisserie",
+        "name_ru": "🥐 Кондитерская Macaron",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-macaron-patisserie/800/500",
+        "icon_text": "🥐",
+        "stroke": "#8e24aa",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ba68c8",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "664ddd62-5141-41fa-a13d-f9d3892d8cc0"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-one-lobby-bar",
+        "category": "bar",
+        "name_tr": "🍹 One Lobby Bar",
+        "name_en": "🍹 One Lobby Bar",
+        "name_ru": "🍹 One Lobby Bar",
+        "hours_tr": "24 SAAT (yaz)",
+        "hours_en": "24 HOURS (summer)",
+        "hours_ru": "24 ЧАСА (лето)",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-one-lobby-bar/800/500",
+        "icon_text": "🍹",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006753,
+          36.862578
+        ]
+      },
+      "id": "82b85b87-a5ab-4133-ad9f-a56a334f3b6b"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-score-sports-bar",
+        "category": "bar",
+        "name_tr": "🏈 Score Sports Bar",
+        "name_en": "🏈 Score Sports Bar",
+        "name_ru": "🏈 Score Sports Bar",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-score-sports-bar/800/500",
+        "icon_text": "🏈",
+        "stroke": "#2e7d32",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35,
+        "icon_sz": 7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.006071,
+          36.861867
+        ]
+      },
+      "id": "95197250-67ae-4c9d-b9bb-6d8368aba15b"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "gfl-knock-knock-game-centre",
+        "category": "kidsclub",
+        "name_tr": "🎮 Knock Knock Oyun Salonu",
+        "name_en": "🎮 Knock Knock Game Centre",
+        "name_ru": "🎮 Игровой центр Knock Knock",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-1",
+        "level_tr": "Bahçe Katı",
+        "level_en": "Garden Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/gfl-knock-knock-game-centre/800/500",
+        "icon_text": "🎮",
+        "stroke": "#ef6c00",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#ffb74d",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "71812a4c-e699-4506-bfab-3d14f798240b"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-entrance",
+        "category": "info",
+        "name_tr": "🚪 Giriş",
+        "name_en": "🚪 Entrance",
+        "name_ru": "🚪 Вход",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-entrance/800/500",
+        "icon_text": "🚪",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "7af9d80b-4b3e-4c78-b3b7-663a37300316"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-reception",
+        "category": "reception",
+        "name_tr": "🛎️ Resepsiyon",
+        "name_en": "🛎️ Reception",
+        "name_ru": "🛎️ Ресепшен",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-reception/800/500",
+        "icon_text": "🛎️",
+        "stroke": "#1b5e20",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#66bb6a",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "76cc0c15-63ad-498e-9bee-7087391107ae"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-golf-reservation-desk",
+        "category": "info",
+        "name_tr": "⛳️ Golf Rezervasyon Deski",
+        "name_en": "⛳️ Golf Reservation Desk",
+        "name_ru": "⛳️ Стойка бронирования гольфа",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-golf-reservation-desk/800/500",
+        "icon_text": "⛳️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "d90d648a-63af-48f4-a200-bc934427987e"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-guest-relations",
+        "category": "info",
+        "name_tr": "🤝 Misafir İlişkileri",
+        "name_en": "🤝 Guest Relations",
+        "name_ru": "🤝 Отдел по работе с гостями",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-guest-relations/800/500",
+        "icon_text": "🤝",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.007144,
+          36.862561
+        ]
+      },
+      "id": "887b0d24-da80-4a0d-88cd-3e091630d50e"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-transfer-desk",
+        "category": "info",
+        "name_tr": "🚐 Transfer Deski",
+        "name_en": "🚐 Transfer Desk",
+        "name_ru": "🚐 Стойка трансфера",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-transfer-desk/800/500",
+        "icon_text": "🚐",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "aae3bbc0-cf5e-45ee-9b87-6e287b34e912"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-business-centre",
+        "category": "info",
+        "name_tr": "💼 Business Centre",
+        "name_en": "💼 Business Centre",
+        "name_ru": "💼 Бизнес-центр",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-business-centre/800/500",
+        "icon_text": "💼",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "862f10c6-c9d7-4ef9-bcd7-67825e93f1e3"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-beehive-fitness-club",
+        "category": "gym",
+        "name_tr": "🏋️ Beehive Fitness Club",
+        "name_en": "🏋️ Beehive Fitness Club",
+        "name_ru": "🏋️ Фитнес-клуб Beehive",
+        "hours_tr": "08:00–20:00",
+        "hours_en": "08:00–20:00",
+        "hours_ru": "08:00–20:00",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "BEEHIVE FITNESS CLUB Beehive, yüksek teknoloji fitness ekipmanlarının yer aldığı alanında uzmanlaşmış eğitmenlerle birlikte çalışma fırsatı sunulan bir fitness merkezidir. 08.00-20.00 saatleri arasında hizmet verilmektedir.Les Mills; Misafirlerimiz Fitness Center’da gerçekleştirilenLes Mills derslerine katılabilirler.",
+        "desc_en": "Beehive is a fitness centre equipped with high-tech fitness equipment offering the opportunity to work with trainers who are experts in their field. Service is provided between 08.00 and 20.00. Les Mills; Our guests may attend Les Mills classes held at the Fitness Centre.",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-beehive-fitness-club/800/500",
+        "icon_text": "🏋️",
+        "stroke": "#37474f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#78909c",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.007423,
+          36.862610
+        ]
+      },
+      "id": "b3d04b39-f653-4fd3-83aa-08958b96e434"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-health-services",
+        "category": "info",
+        "name_tr": "🩺 Sağlık Hizmetleri",
+        "name_en": "🩺 Health Services",
+        "name_ru": "🩺 Медицинская служба",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-health-services/800/500",
+        "icon_text": "🩺",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "c8b7716d-8283-4410-8265-2d6ed0014027"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-doctor",
+        "category": "info",
+        "name_tr": "👨‍⚕️ Doktor",
+        "name_en": "👨‍⚕️ Doctor",
+        "name_ru": "👨‍⚕️ Врач",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-doctor/800/500",
+        "icon_text": "👨‍⚕️",
+        "stroke": "#33691e",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#9ccc65",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "id": "e6c8be1a-3f58-4328-965b-6d8c5c2973ae"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "lobby-revive-wellbeing",
+        "category": "spa",
+        "name_tr": "🌿 Revive Wellbeing",
+        "name_en": "🌿 Revive Wellbeing",
+        "name_ru": "🌿 Revive Wellbeing",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "0",
+        "level_tr": "Lobi Katı",
+        "level_en": "Lobby Floor",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/lobby-revive-wellbeing/800/500",
+        "icon_text": "🌿",
+        "stroke": "#00838f",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#26c6da",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.007865,
+          36.862825
+        ]
+      },
+      "id": "df569993-aeaf-4986-a4b6-086697171f20"
     }
-  }else{
-    if(map.getLayer('sky')) map.removeLayer('sky');
-    map.setTerrain(null);
-    map.setLayoutProperty('bldg-3d','visibility','none');
-  }
-  if(map.getLayer('osm-raster')) map.setPaintProperty('osm-raster','raster-opacity',osmOpacity);
+  ]
 }
-
-/* ================== DİL ================== */
-function applyLang(){
-  const L=t(); $('q').placeholder=L.searchPH; $('go').textContent=L.go;
-  $('pickStart').textContent=L.ui.pickStart; $('pickDest').textContent=L.ui.pickDest; $('reset').textContent=L.ui.reset;
-  followBtn.textContent = followState ? L.ui.followOn : L.ui.followOff;
-  clearRouteBtn.textContent=L.ui.clearRoute; localStorage.setItem('lang',LANG);
-}
-langSel.value=LANG; langSel.addEventListener('change',()=>{LANG=langSel.value; applyLang();});
-
-/* ================== ARAMA ================== */
-function detectCategory(qs){
-  const nq=norm(qs), dict=I18N[LANG]?.cats||{};
-  for(const [k,label] of Object.entries(dict)){ if(norm(label).includes(nq)||nq.includes(norm(label))) return k; }
-  return KEYWORD_TO_CAT[nq] || null;
-}
-q.addEventListener('input', ()=>{
-  const val=(q.value||'').trim();
-  if(!val){ results.style.display='none'; return; }
-  const qn=norm(val), maybeCat=detectCategory(val);
-  const hits = allFeats.filter(f=>{
-    const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
-    if(maybeCat && cat===maybeCat) return true;
-    const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
-    if(names.some(n=>n.includes(qn))) return true;
-    const ex=[p.desc,p['desc_'+LANG],p.level,p['level_'+LANG],p.hours,p['hours_'+LANG]].filter(Boolean).map(norm);
-    return ex.some(d=>d.includes(qn));
-  });
-  renderResults(hits, maybeCat);
-});
-
-function renderResults(list, cat){
-  results.innerHTML='';
-  const hint=document.createElement('div'); hint.className='hint'; hint.textContent='🔎 Sonuçlardan birine dokun';
-  results.appendChild(hint);
-
-  if(cat){
-    const feats=allFeats.filter(f=>(f.properties?.category||'').toLowerCase()===cat);
-    const div=document.createElement('div'); div.className='item'; div.dataset.fid='__cat__'+cat;
-    div.innerHTML=`<span>➤ ${(t().cats?.[cat]||cat)}</span> <small>${feats.length}</small>`;
-    results.appendChild(div);
-  }
-  list.slice(0,80).forEach((f,idx)=>{
-    const p=f.properties||{}; const meta=[p.category||'', p.level||'', (f.__src==='indoor'?'Indoor':'Outdoor')].filter(Boolean).join(' · ');
-    const div=document.createElement('div'); div.className='item';
-    div.dataset.fid = p.fid || `tmp-${idx}`;
-    div.dataset.src = f.__src;
-    div.innerHTML=`<span>${nameInAnyLang(p)||'(isimsiz)'}</span><small>${meta}</small>`;
-    results.appendChild(div);
-  });
-  results.style.display='block';
-}
-
-/* sonuç tıklanınca: popup + "Buraya Git" */
-results.addEventListener('click', (e)=>{
-  const item=e.target.closest('.item'); if(!item) return;
-  const fid=item.dataset.fid;
-  if(fid && fid.startsWith('__cat__')){ results.style.display='none'; return; }
-  const f=allFeats.find(x=>x.properties && x.properties.fid===fid);
-  if(!f) return;
-  const center=coordOfFeature(f);
-  document.getElementById('sheet').style.setProperty('--panel-ty','0px'); // panel yukarı
-  showPopup(f, Array.isArray(center)?center:[center.lng,center.lat], true);
-  setDestination(Array.isArray(center)?center:[center.lng,center.lat]);
-  results.style.display='none';
-  goBtn.disabled = !(startCoord || lastKnown);
-});
-
-/* ================== KONUM (BLUEDOT) ================== */
-if('geolocation' in navigator){
-  try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
-  navigator.geolocation.watchPosition(p=>{
-    const accM=Math.round(p.coords.accuracy||999);
-    lastKnown=[p.coords.longitude,p.coords.latitude];
-    const meSrc=map.getSource('me'); if(meSrc){
-      meSrc.setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
-    }
-    acc.textContent="±"+accM+" m"; acc.style.display='block';
-    if(followState) map.easeTo({center:lastKnown});
-  }, (err)=>{ console.warn('geo error',err); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
-}
-followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = followState ? t().ui.followOn : t().ui.followOff; if(followState && lastKnown) map.easeTo({center:lastKnown}); };
-
-/* ================== HEDEF & BAŞLANGIÇ SEÇİMİ ================== */
-pickStartBtn.onclick=()=>{ pickMode = pickMode==='start' ? 'none' : 'start'; pickStartBtn.classList.toggle('active', pickMode==='start'); pickDestBtn.classList.remove('active'); };
-pickDestBtn.onclick =()=>{ pickMode = pickMode==='dest'  ? 'none' : 'dest';  pickDestBtn.classList.toggle('active',  pickMode==='dest');  pickStartBtn.classList.remove('active'); };
-
-map.on('click', e=>{
-  if(pickMode==='start'){
-    startCoord=[e.lngLat.lng,e.lngLat.lat];
-    map.getSource('start').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:startCoord}}]});
-    pickMode='none'; pickStartBtn.classList.remove('active');
-    if(destCoord) goBtn.disabled=false;
-  }else if(pickMode==='dest'){
-    destCoord=[e.lngLat.lng,e.lngLat.lat];
-    map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:destCoord}}]});
-    pickMode='none'; pickDestBtn.classList.remove('active');
-    if(startCoord || lastKnown) goBtn.disabled=false;
-  }else{
-    const feats = map.queryRenderedFeatures(e.point, {layers:['indoor-pts','outdoor-pts','indoor-fill','outdoor-fill','indoor-line','outdoor-line','indoor-fill-outline','outdoor-fill-outline']});
-    if(feats && feats[0]) showPopup(feats[0], e.lngLat, true);
-  }
-});
-
-function setDestination(xy){
-  destCoord=xy;
-  map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:xy}}]});
-}
-
-/* ================== ROTA (yalnızca routes.json) ================== */
-let ROUTE_GRAPH=null; // {nodes:[{id,xy}], adj:{id:[{to, w}]}}
-function buildRouteGraph(fc){
-  const nodes=[]; const idOf={}; const adj={};
-  function key(xy){ return xy[0].toFixed(7)+','+xy[1].toFixed(7); }
-  function getId(xy){
-    const k=key(xy); if(idOf[k]!=null) return idOf[k];
-    const id=nodes.length; idOf[k]=id; nodes.push({id,xy}); adj[id]=[]; return id;
-  }
-  (fc.features||[]).forEach(f=>{
-    if(!f.geometry||f.geometry.type!=='LineString') return;
-    const c=f.geometry.coordinates||[];
-    for(let i=0;i<c.length;i++){
-      const aId=getId(c[i]);
-      if(i>0){
-        const bId=getId(c[i-1]);
-        const w=dist(nodes[aId].xy, nodes[bId].xy);
-        adj[aId].push({to:bId, w}); adj[bId].push({to:aId, w});
-      }
-    }
-  });
-  ROUTE_GRAPH={nodes,adj};
-}
-function nearestNode(xy){
-  const nodes=ROUTE_GRAPH?.nodes||[]; let best=-1, bestD=Infinity;
-  for(let i=0;i<nodes.length;i++){
-    const d=dist(xy,nodes[i].xy); if(d<bestD){bestD=d; best=i;}
-  }
-  return best;
-}
-function dijkstra(startId, endId){
-  const N=ROUTE_GRAPH.nodes.length, adj=ROUTE_GRAPH.adj;
-  const distArr=new Array(N).fill(Infinity), prev=new Array(N).fill(-1), used=new Array(N).fill(false);
-  distArr[startId]=0;
-  for(let k=0;k<N;k++){
-    let u=-1, best=Infinity;
-    for(let i=0;i<N;i++){ if(!used[i] && distArr[i]<best){best=distArr[i]; u=i;} }
-    if(u===-1) break; used[u]=true; if(u===endId) break;
-    for(const e of adj[u]||[]){
-      const alt=distArr[u]+e.w; if(alt<distArr[e.to]){ distArr[e.to]=alt; prev[e.to]=u; }
-    }
-  }
-  if(prev[endId]===-1 && endId!==startId) return null;
-  const path=[]; let cur=endId; while(cur!==-1){ path.push(cur); if(cur===startId) break; cur=prev[cur]; }
-  return path.reverse();
-}
-function dist(a,b){ const dx=a[0]-b[0], dy=a[1]-b[1]; return Math.hypot(dx,dy); }
-
-/* Rota hesapla */
-goBtn.onclick = ()=>{
-  const srcStart = startCoord || lastKnown;
-  const srcDest  = destCoord;
-  if(!srcDest){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
-  if(!srcStart){ alert(LANG==='tr'?'Başlangıç seçin ya da konum izni verin.':'Pick a start or allow location.'); return; }
-  if(!ROUTE_GRAPH || ROUTE_GRAPH.nodes.length===0){ alert('routes.json yüklenemedi ya da boş.'); return; }
-
-  const sId = nearestNode(srcStart);
-  const eId = nearestNode(srcDest);
-  const nodePath = dijkstra(sId, eId);
-  if(!nodePath){ alert('Uygun rota bulunamadı. (Ağ kopuk olabilir)'); return; }
-
-  const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
-
-  // baş ve son bağlantıları ekle → tek LineString
-  const fullCoords = [];
-  if(srcStart) fullCoords.push(srcStart);
-  fullCoords.push(...nodeCoords);
-  if(srcDest)  fullCoords.push(srcDest);
-
-  const fc = {type:'FeatureCollection', features:[
-    {type:'Feature', geometry:{type:'LineString', coordinates: fullCoords}}
-  ]};
-
-  map.getSource('route').setData(fc);
-
-  const ex=bboxFromCoords(fullCoords);
-  if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
-
-  // adım listesi (basit)
-  dirList.innerHTML='';
-  for(let i=1;i<fullCoords.length;i++){
-    const m = hav(fullCoords[i-1], fullCoords[i]);
-    const el=document.createElement('div'); el.className='step';
-    el.innerHTML = `<div>${i}.</div><div><div>${t().nav.straight}</div><div class="muted" style="font-size:12px">${fmtDist(m)}</div></div>`;
-    dirList.appendChild(el);
-  }
-  dirSum.textContent=(lengthOf(fullCoords)/1000).toFixed(2)+' km';
-  dirSub.textContent='· routes.json';
-  dirBox.style.display='block';
-};
-
-/* ================== POPUP (küçük) ================== */
-let popup;
-function showPopup(f,lngLat,withGo){
-  const p=f.properties||{}, L=t();
-  const name = p['name_'+LANG] || p.name || '';
-  const catKey=(p.category||'').toLowerCase(); const catLabel=L.cats[catKey] || p.category || '';
-  const hours = p['hours_'+LANG] || p.hours || ''; const level=p['level_'+LANG]||p.level||''; const desc=p['desc_'+LANG]||p.desc||''; const img=p['image_'+LANG]||p.image||'';
-  const btn = withGo? `<div style="margin-top:8px"><button class="goto-btn" data-x="${Array.isArray(lngLat)?lngLat[0]:lngLat.lng}" data-y="${Array.isArray(lngLat)?lngLat[1]:lngLat.lat}">${L.go||'Git'} ➜</button></div>` : '';
-  const html = `<div style="min-width:220px">
-      <div style="font-weight:600;margin-bottom:6px;color:#0f5132">${name}</div>
-      ${catLabel?`<div class="badge">${catLabel}</div>`:''}
-      ${hours?`<div style="margin-top:6px"><small>${L.labels.hours}:</small> ${hours}</div>`:''}
-      ${level?`<div><small>${L.labels.level}:</small> ${level}</div>`:''}
-      ${desc?`<div style="margin-top:6px" class="muted">${linkify(desc)}</div>`:''}
-      ${/^https?:\/\//i.test(img)?`<div style="margin-top:6px"><img src="${img}" alt=""></div>`:''}
-      ${btn}
-    </div>`;
-  (popup||(popup=new maplibregl.Popup({closeButton:true, closeOnClick:true}))).setLngLat(lngLat).setHTML(html).addTo(map);
-}
-document.addEventListener('click', (e)=>{
-  const btn=e.target.closest('.goto-btn'); if(!btn) return;
-  const x=parseFloat(btn.dataset.x), y=parseFloat(btn.dataset.y);
-  setDestination([x,y]);
-  goBtn.disabled = !(startCoord || lastKnown);
-  if(!goBtn.disabled) goBtn.click();
-});
-
-/* ================== Yardımcılar ================== */
-function lengthOf(coords){ let sum=0; for(let i=1;i<coords.length;i++) sum+=hav(coords[i-1],coords[i]); return sum; }
-function hav(a,b){ const R=6371000; const toRad=x=>x*Math.PI/180; const dLat=toRad(b[1]-a[1]); const dLon=toRad(b[0]-a[0]); const sa=Math.sin(dLat/2), sb=Math.sin(dLon/2); const aa=sa*sa + Math.cos(toRad(a[1]))*Math.cos(toRad(b[1]))*sb*sb; return 2*R*Math.asin(Math.sqrt(aa)); }
-function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
-function clearDestination(){ map.getSource('dest').setData(emptyFC()); destCoord=null; }
-function clearStart(){ map.getSource('start').setData(emptyFC()); startCoord=null; }
-function clearRoute(){ map.getSource('route').setData(emptyFC()); dirBox.style.display='none'; dirList.innerHTML=''; dirSum.textContent='–'; dirSub.textContent=''; }
-clearRouteBtn.onclick=()=>clearRoute();
-collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
-
-/* Bottom sheet: drag + click-to-toggle (iki çizgili tutacak) */
-(function(){
-  const sheet=$('sheet'), grab=$('grab');
-  const H_GRAB=24; // kapalıyken görünen yükseklik
-  const setTy=v=> sheet.style.setProperty('--panel-ty',v+'px');
-  const getTy=()=> parseFloat(getComputedStyle(sheet).getPropertyValue('--panel-ty'))||0;
-  function maxTravel(){
-    const h=sheet.getBoundingClientRect().height||320;
-    const byH=Math.max(0,h-(H_GRAB+8));
-    const byV=Math.min(window.innerHeight*0.6,520);
-    return Math.min(byH,byV);
-  }
-  let MAX=0, sy=null, st=0;
-  function recalc(){ MAX=maxTravel(); setTy(Math.min(getTy(),MAX)); }
-  window.addEventListener('resize',recalc);
-  requestAnimationFrame(()=>{ recalc(); setTy(0); }); // Açık başlat (sadece tutacak)
-
-  grab.addEventListener('pointerdown',e=>{ sy=e.clientY; st=getTy(); grab.setPointerCapture(e.pointerId); });
-  grab.addEventListener('pointermove',e=>{ if(sy==null)return; const dy=e.clientY-sy; setTy(Math.max(0,Math.min(MAX,st+dy))); });
-  function end(){ if(sy==null)return; const ty=getTy(); setTy(ty>MAX*0.5?MAX:0); sy=null; }
-  grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
-
-  // Tek tıkla aç/kapa
-  grab.addEventListener('click',()=>{ const ty=getTy(); setTy(ty===0?MAX:0); });
-
-  // Arama odakta iken otomatik aç
-  $('q').addEventListener('focus',()=> setTy(0));
-})();
-
-resetBtn.onclick=()=>{ closePopup(); clearRoute(); clearDestination(); clearStart(); q.value=''; results.style.display='none'; pickMode='none'; pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active'); document.getElementById('sheet').style.setProperty('--panel-ty','0px'); map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING}); };
-
-function closePopup(){ if(popup) popup.remove(); }
-function coordOfFeature(f){
-  const g=f.geometry; if(!g) return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
-  if(g.type==='Point') return g.coordinates;
-  if(g.type==='Polygon'){ const ring=g.coordinates[0]; return ring[Math.floor(ring.length/2)]; }
-  if(g.type==='LineString'){ const c=g.coordinates; return c[Math.floor(c.length/2)]; }
-  return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
-}
-function bboxFromCoords(coords){ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }
-</script>
-</body>
-</html>
