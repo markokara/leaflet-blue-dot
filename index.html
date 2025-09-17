@@ -44,12 +44,12 @@
   .grow{flex:1 1 auto}
 
   /* İki yeşil çizgili tutacak (tek .grab ile) */
-  .grab{position:relative; width:64px; height:18px; margin:8px auto 0; cursor:grab}
+  .grab{position:relative; width:64px; height:28px; margin:8px auto 0; cursor:grab}
   .grab::before,.grab::after{
     content:""; position:absolute; left:50%; transform:translateX(-50%);
     width:56px; height:6px; background:#9fd3b3; border-radius:999px; box-shadow:inset 0 0 0 1px #83c7a1;
   }
-  .grab::before{ top:3px } .grab::after{ bottom:3px }
+  .grab::before{ top:6px } .grab::after{ bottom:6px }
 
   input[type="search"]{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:var(--field)}
   button{padding:9px 11px; border:1px solid var(--border); border-radius:12px; cursor:pointer; background:var(--field); white-space:nowrap}
@@ -145,7 +145,7 @@ const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 /* OSM üst katman ayarları */
-const OSM_OPACITY = 0.65;   // 0–1
+const OSM_OPACITY = 0.45;   // 0–1
 const OSM_VISIBLE = true;   // true/false
 
 /* ================== i18n ================== */
@@ -638,7 +638,7 @@ collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.sty
   let MAX=0, sy=null, st=0;
   function recalc(){ MAX=maxTravel(); setTy(Math.min(getTy(),MAX)); }
   window.addEventListener('resize',recalc);
-  requestAnimationFrame(()=>{ recalc(); setTy(MAX); }); // kapalı başlat (sadece tutacak)
+  requestAnimationFrame(()=>{ recalc(); setTy(0); }); // Açık başlat (sadece tutacak)
 
   grab.addEventListener('pointerdown',e=>{ sy=e.clientY; st=getTy(); grab.setPointerCapture(e.pointerId); });
   grab.addEventListener('pointermove',e=>{ if(sy==null)return; const dy=e.clientY-sy; setTy(Math.max(0,Math.min(MAX,st+dy))); });
