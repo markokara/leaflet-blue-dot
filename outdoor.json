@@ -3,132 +3,75 @@
   "features": [
     {
       "type": "Feature",
-      "id": "18fa3607-289e-4abf-834d-5e9a82c403aa",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
-            [31.006374498412484, 36.8617689959229],
-            [31.007385505632254, 36.861619606752726],
-            [31.00733884376495, 36.86141046142386],
-            [31.006306061196977, 36.86155238153087],
-            [31.006374498412484, 36.8617689959229]
+            [
+              31.006365588347798,
+              36.861763898402515
+            ],
+            [
+              31.007378427447296,
+              36.8616349299469
+            ],
+            [
+              31.007336993126245,
+              36.861417525977714
+            ],
+            [
+              31.006291927192095,
+              36.86154280987374
+            ],
+            [
+              31.006365588347798,
+              36.861763898402515
+            ]
           ]
         ]
       },
       "properties": {
-        "area_m2": 3499,
-        "name_tr": "Ana Havuz (Isıtmalı)",
-        "name_en": "Main Pool (Heated)",
-        "name_ru": "Главный бассейн (с подогревом)",
-        "name": "Ana Havuz (Isıtmalı)",
+        "area_m2": 3607,
+        "name": "Ana Havuz Isıtmalı",
         "category": "pool",
+        "hours": "09:00 - 19:00",
         "level": "0",
-        "desc_tr": "Otelimizde, 7000 m²’lik bir Aquaworld ile birlikte dış mekânda 7 adet, iç mekânda ise çocuk havuzu dahil 2 adet havuz bulunmaktadır. Açık havuzlar yaz döneminde 20.00’den itibaren, ana havuz kış döneminde 19.00’dan itibaren kimyasal olarak temizlenmektedir; bu saatlerde kullanmayınız. Hava/hijyen/güvenlik nedeniyle geçici kapanmalar olabilir. Dış havuz ısıtması 1 Ekim–1 Haziran arası hava durumuna bağlıdır.",
-        "desc_en": "Our hotel features a 7,000 m² Aquaworld with 7 outdoor pools and 2 indoor pools (incl. kids pool). Outdoor pools are chemically cleaned from 8:00 pm in summer, and the main pool from 7:00 pm in winter; please do not use them at those times. Pools may be closed temporarily for weather/hygiene/safety. Outdoor pool heating operates Oct 1–Jun 1 depending on weather.",
-        "desc_ru": "В отеле имеется Aquaworld 7000 м², 7 открытых и 2 крытых бассейна (включая детский). Летом открытые бассейны очищаются с 20:00, зимой главный бассейн — с 19:00; просим не пользоваться в это время. Возможны временные закрытия из-за погоды/гигиены/безопасности. Подогрев открытых бассейнов работает 1 окт.–1 июн. в зависимости от погоды."
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "cd4e0cdd-1604-4f25-b30a-f9abfe3f2d38",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [31.006396274045493, 36.86183124128627]
-      },
-      "properties": {
-        "name_tr": "Green Bar",
-        "name_en": "Green Bar",
-        "name_ru": "Green Bar",
-        "name": "Green Bar",
-        "category": "bar",
-        "level": "0",
-        "hours_tr": "16:00–00:00 (Yaz/Kış)",
-        "hours_en": "4:00 pm–12:00 am (Summer/Winter)",
-        "hours_ru": "16:00–00:00 (Лето/Зима)",
-        "desc_tr": "YAZ/KIŞ: 16.00–00.00",
-        "desc_en": "SUMMER/WINTER: 4:00 pm–12:00 am",
-        "desc_ru": "ЛЕТО/ЗИМА: 16:00–00:00"
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "5d3427a4-372c-4512-b9ca-e7811b3262aa",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [31.003530459419718, 36.86264724786089]
-      },
-      "properties": {
-        "name_tr": "Regnum Carya Giriş",
-        "name_en": "Regnum Carya Entrance",
-        "name_ru": "Вход Regnum Carya",
-        "name": "Regnum Carya Giriş",
-        "category": "gate",
-        "level": "0",
+        "desc": "HAVUZLAR\nOtelimizde, 7000 m2’lik bir Aquaworld ile birlikte dış mekânda\n7 adet, iç mekânda ise çocuk havuzu dahil 2 adet havuz\nbulunmaktadır. Açık havuzlar yaz döneminde 20.00’den itibaren,\nAna havuz kış döneminde 19.00’dan itibaren kimyasal olarak\ntemizlenmekte olduğundan kullanılmamasını rica ederiz.\nHavuzlar kötü hava şartları, havuz hijyeni ve güvenliği nedeniyle\ngeçici olarak kapatılabilir. Açık hava havuz ısıtma sistemi\n1 Ekim ve 1 Haziran arası hava şartlarına bağlı açılmaktadır.\nSPA: Eco Kapalı Havuz (ısıtılabilir), Eco Açık Havuz (ısıtılabilir)\nAçık: Ana Havuz (ısıtılabilir), Yetişkin Havuzu (+16),\nAktivite Havuzu, Gölgeli Çocuk Havuzu",
+        "image": "https://www.limahavuz.com/wp-content/uploads/2021/06/naturel-havuz-23.jpg",
+        "icon_text": "ikon eklenmeli muhakkak",
         "width": 0.5,
-        "stroke": "#F9EAEC",
-        "fill": "#8A444E",
+        "stroke": "#1565c0",
+        "fill": "#\"#42a5f5",
         "stroke_op": 0.9,
-        "fill_op": 0.75,
-        "desc_tr": "Regnum Carya ana giriş kapısı.",
-        "desc_ru": "Основные входные ворота Regnum Carya."
-      }
+        "fill_op": 0.9,
+        "desc_en": "Our hotel features an outdoor Aquaworld covering 7,000 m²,\nalong with 7 outdoor pools and 2 indoor pools, including a children's pool. We kindly request that the outdoor pools not be used after 8:00 p.m. during the summer season,\nand the main pool not be used after 7:00 p.m. during the winter season,\nas they undergo chemical cleaning.\nThe pools may be temporarily closed due to adverse weather conditions, pool hygiene, and safety reasons.\nThe outdoor pool heating system operates between 1 October and 1 June, depending on weather conditions.\nSPA: Eco Indoor Pool (heated), Eco Outdoor Pool (heated)\nOutdoor: Main Pool (heated), Adult Pool (+16),\nActivity Pool, Shaded Children's Pool",
+        "desc_ru": "В нашем отеле есть открытый аквапарк площадью 7000 м²,\nа также 7 открытых бассейнов и 2 крытых бассейна, включая детский бассейн. Просим вас не пользоваться открытыми бассейнами после 20:00 в летний сезон\nи главным бассейном после 19:00 в зимний сезон,\nтак как в это время проводится химическая очистка.\nБассейны могут быть временно закрыты из-за неблагоприятных погодных условий, гигиены бассейнов и соображений безопасности.\nСистема подогрева открытых бассейнов работает с 1 октября по 1 июня, в зависимости от погодных условий."
+      },
+      "id": "d0b484c0-1f34-4960-835d-835828c5163c"
     },
     {
       "type": "Feature",
-      "id": "2235b6d1-3b45-49ef-98a5-3da63a8fdab1",
       "geometry": {
-        "type": "Polygon",
+        "type": "Point",
         "coordinates": [
-          [
-            [31.003818346863525, 36.864280885403886],
-            [31.00345152532727, 36.864094056963935],
-            [31.003626599181587, 36.86388721066376],
-            [31.003885041410754, 36.86403400488474],
-            [31.003759988657666, 36.864214160980765],
-            [31.003818346863525, 36.864280885403886]
-          ]
+          31.006402418714902,
+          36.86184127923649
         ]
       },
       "properties": {
-        "area_m2": 1265,
-        "name_tr": "Tiara Vilları",
-        "name_en": "Tiara Villas",
-        "name_ru": "Виллы Tiara",
-        "name": "Tiara vilları",
-        "category": "building",
-        "stroke": "#F6F1F7",
-        "fill": "#877E89",
-        "fill_op": 0.6
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "4fd853d7-e023-4a2a-a84e-d7233f656f29",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [31.003747483382373, 36.863733743780784],
-            [31.003576578080366, 36.86362698401827],
-            [31.003714136108755, 36.86346017157642],
-            [31.003897546686073, 36.86356025910051],
-            [31.003747483382373, 36.863733743780784]
-          ]
-        ]
+        "name": "Corner Bar",
+        "category": "bar",
+        "hours": "09:00 - 19:00",
+        "desc": "CORNER Bar :\nYaz\n09.00 - 19.00 \nKış\n09.00 - 16.00",
+        "image": "https://media.timeout.com/images/103225952/1920/1440/image.webp",
+        "icon_text": "muhakkak eklenmeli",
+        "width": 0.5,
+        "stroke": "#2e7d32",
+        "fill": "#66bb6a",
+        "stroke_op": 0.9,
+        "fill_op": 0.9
       },
-      "properties": {
-        "area_m2": 697,
-        "name_tr": "Tiata Vilları",
-        "name_en": "Tiata Villas",
-        "name_ru": "Виллы Tiata",
-        "name": "Tiata Vilları",
-        "category": "building",
-        "level": "0",
-        "stroke": "#F6F1F7",
-        "fill": "#837B84",
-        "fill_op": 0.6
-      }
+      "id": "7281c02e-f611-49b8-995e-94aebf57ff1e"
     }
   ]
 }
