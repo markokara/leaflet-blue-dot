@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Regnum – Dijital Broşür (Olive örnek)</title>
+<style>
+  :root{ --border:#cfe3da; --shadow:0 10px 28px rgba(0,0,0,.18); --brand:#0f5132; }
+  html,body{height:100%;margin:0;background:#0f3b2e;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0b3a2d}
+  /* Broşür görseli */
+  .plan{position:fixed; inset:0; background:#0f3b2e}
+  .plan img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 10px 28px rgba(0,0,0,.25))}
+  /* Pin */
+  .pin{position:absolute; transform:translate(-50%,-100%); background:#fff; color:#0b3a2d;
+       border:1px solid var(--border); border-radius:12px; padding:3px 8px; cursor:pointer;
+       box-shadow:var(--shadow); user-select:none; white-space:nowrap; font-weight:600}
+  .pin small{display:block; font-weight:500; opacity:.7}
+  .pin:active{transform:translate(-50%,-100%) scale(.98)}
+  /* Popup (modal) */
+  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50}
+  .modal.on{display:flex}
+  .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.45)}
+  .card{position:relative; z-index:1; width:min(520px,92vw); background:#fff; border:1px solid var(--border);
+        border-radius:16px; box-shadow:var(--shadow); overflow:hidden}
+  .card img{width:100%; height:190px; object-fit:cover; display:block}
+  .card .p{padding:12px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .row .grow{flex:1 1 auto}
+  .btn{padding:9px 12px; border:1px solid var(--border); background:#f4fbf7; border-radius:10px; cursor:pointer}
+  .btn.brand{background:#e6f4ef; border-color:#cfe3da; color:var(--brand); font-weight:600}
+  .meta{color:#5b6a6a; font-size:13px}
+  .coords{position:fixed; right:8px; bottom:8px; background:#fff; border:1px solid var(--border);
+          border-radius:10px; padding:6px 10px; box-shadow:var(--shadow); font-size:12px}
+  a{color:#0e6b4b; text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- =============== BROŞÜR =============== -->
+<div class="plan">
+  <!-- 1) Broşür görselini buraya koy -->
+  <img id="brochure" src="http://info.lbresorts.com/wp-content/uploads/2025/09/HARITA_INFO_EN_2025_RC_O6.pdf" alt="Regnum Broşür"/>
+
+  <!-- 2) ÖRNEK PIN: Olive Ana Restoran -->
+  <!-- Yüzde konumlar: style="left:%; top:%" (aşağıdaki 'ölçüm modu' ile bulursun) -->
+  <button id="pin-olive" class="pin" style="left:63.0%; top:76.0%"
+          data-fid="gfl-olive-main-restaurant">
+    🍽️ Olive
+    <small>GİT → Harita</small>
+  </button>
+</div>
+
+<!-- =============== POPUP =============== -->
+<div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="ttl">
+  <div class="backdrop" id="close"></div>
+  <div class="card" role="document">
+    <img id="mImg" src="" alt="">
+    <div class="p">
+      <div class="row" style="margin-bottom:6px">
+        <div id="ttl" class="grow" style="font-weight:700; color:#0f5132">–</div>
+        <button class="btn" id="close2">Kapat</button>
+      </div>
+      <div id="meta" class="meta" style="margin-bottom:8px">–</div>
+      <div id="desc" style="margin-bottom:10px">–</div>
+      <div class="row">
+        <select id="lang" class="btn">
+          <option value="tr">TR</option><option value="en">EN</option><option value="ru">RU</option>
+        </select>
+        <span class="grow"></span>
+        <button id="go" class="btn brand">Git → Haritada Aç</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Koordinat ölçüm kutusu (pin yerleştirmek için) -->
+<div class="coords">ALT tuşuyla görsele tıkla → % konum: <b id="xy">–</b></div>
+
+<script>
+/* ================== AYARLAR ================== */
+/* Misafir panelinin tam URL'si: */
+const GUEST_PANEL_URL = "https://markokara.github.io/leaflet-blue-dot/"; // ← değiştir
+/* Derin link flag'leri: */
+const AUTO_GO = true;   // rota otomatik başlasın
+const FOLLOW  = true;   // bluedot takibi açık
+/* Varsayılan dil: */
+const DEFAULT_LANG = "tr";
+
+/* ================== VERİ (Olive örneği) ================== */
+const POI_OLIVE = {
+  fid: "gfl-olive-main-restaurant",
+  name_tr: "🍽️ Olive Ana Restoran",
+  name_en: "🍽️ Olive Main Restaurant",
+  name_ru: "🍽️ Ресторан Olive",
+  hours_tr: "Kahvaltı 06:30–10:00; Öğle 12:30–15:00; Akşam 19:00–21:30",
+  hours_en: "Breakfast 06:30–10:00; Lunch 12:30–15:00; Dinner 19:00–21:30",
+  hours_ru: "",
+  level_tr: "Bahçe Katı", level_en: "Garden Floor", level: "-1",
+  desc_tr: "Alt lobi katında açık büfe. İç/dış oturma alanı. Menü: <a href='https://www.regnumhotels.com/en/' target='_blank' rel='noopener'>regnumhotels.com</a>",
+  desc_en: "Open-buffet on the lower lobby floor (indoor & outdoor seating). Menu: <a href='https://www.regnumhotels.com/en/' target='_blank' rel='noopener'>regnumhotels.com</a>",
+  desc_ru: "Шведский стол на нижнем этаже лобби. Меню: <a href='https://www.regnumhotels.com/en/' target='_blank' rel='noopener'>regnumhotels.com</a>",
+  image: "https://picsum.photos/seed/gfl-olive-main-restaurant/800/500"
+};
+
+/* ================== POPUP LOGİĞİ ================== */
+const modal = document.getElementById('modal');
+const mImg  = document.getElementById('mImg');
+const ttl   = document.getElementById('ttl');
+const meta  = document.getElementById('meta');
+const desc  = document.getElementById('desc');
+const btnGo = document.getElementById('go');
+const selLang = document.getElementById('lang');
+
+function openPopup(poi){
+  const lang = selLang.value || DEFAULT_LANG;
+  mImg.src = poi.image || '';
+  if(lang==='en'){ ttl.textContent = poi.name_en; meta.textContent = poi.hours_en || ''; desc.innerHTML = poi.desc_en || ''; }
+  else if(lang==='ru'){ ttl.textContent = poi.name_ru; meta.textContent = poi.hours_ru || ''; desc.innerHTML = poi.desc_ru || ''; }
+  else { ttl.textContent = poi.name_tr; meta.textContent = poi.hours_tr || ''; desc.innerHTML = poi.desc_tr || ''; }
+  btnGo.onclick = ()=> openGuestPanelWithFid(poi.fid, lang);
+  modal.classList.add('on');
+}
+function closePopup(){ modal.classList.remove('on'); }
+document.getElementById('close').onclick = closePopup;
+document.getElementById('close2').onclick = closePopup;
+selLang.onchange = ()=> openPopup(POI_OLIVE); // dili değiştirince içeriği tazele
+
+/* Pin tıklaması → popup aç */
+document.getElementById('pin-olive').addEventListener('click', ()=>{
+  openPopup(POI_OLIVE);
+});
+
+/* ================== DERİN LİNK ================== */
+function openGuestPanelWithFid(fid, lang){
+  const params = new URLSearchParams({
+    dest:  "fid:"+fid,
+    autoGo: AUTO_GO ? "1":"0",
+    follow: FOLLOW ? "1":"0",
+    lang:  lang || DEFAULT_LANG
+  }).toString();
+  const url = GUEST_PANEL_URL + "?" + params;
+  location.href = url; // aynı sekmede aç
+}
+
+/* ================== KOORDİNAT ÖLÇÜM MODU ==================
+   Broşür görseli üzerinde ALT + tık → pin için left/top yüzdelerini verir.
+*/
+const img = document.getElementById('brochure');
+const xyOut = document.getElementById('xy');
+img.addEventListener('click', (e)=>{
+  if(!e.altKey) return;
+  const r = img.getBoundingClientRect();
+  const xPct = ((e.clientX - r.left) / r.width) * 100;
+  const yPct = ((e.clientY - r.top)  / r.height) * 100;
+  const xs = xPct.toFixed(1), ys = yPct.toFixed(1);
+  xyOut.textContent = xs+"% , "+ys+"%";
+  console.log("Pin konumu → left:", xs+"%"," top:", ys+"%");
+});
+</script>
+</body>
+</html>
