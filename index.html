@@ -140,13 +140,19 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX = [31.004958004, 36.85433223, 31.0196581, 36.869973060];
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 /* OSM üst katman ayarları */
 const OSM_OPACITY = 0.45;   // 0–1
 const OSM_VISIBLE = true;   // true/false
+
+/* ===== SİMÜLASYON: sabit bluedot (oteldeymiş gibi) ===== */
+const SIMULATE_ME   = true;                 // ← şimdilik true bırak
+const SIM_ME_COORD  = [31.005858, 36.862770]; // otel içinden bir nokta [lon,lat]
+const SIM_ME_ACC_M  = 5;                    // gösterilecek ± isabet (metre)
+
 
 /* ================== i18n ================== */
 const I18N = {
@@ -508,21 +514,24 @@ results.addEventListener('click', (e)=>{
 });
 
 /* ================== KONUM (BLUEDOT) ================== */
-if('geolocation' in navigator){
+if (SIMULATE_ME){
+  // Harita hazır olunca sabit bluedot'u koy ve takibi aç
+  map.on('load', ()=>{
+    setMe(SIM_ME_COORD, SIM_ME_ACC_M);
+    followState = true;
+    followBtn.textContent = t().ui.followOn;
+    map.easeTo({center: SIM_ME_COORD});
+  });
+} else if ('geolocation' in navigator){
   try{ navigator.geolocation.getCurrentPosition(()=>{},()=>{}, {enableHighAccuracy:true, timeout:10000}); }catch{}
   navigator.geolocation.watchPosition(p=>{
-    const accM=Math.round(p.coords.accuracy||999);
-    lastKnown=[p.coords.longitude,p.coords.latitude];
-    const meSrc=map.getSource('me'); if(meSrc){
-      meSrc.setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
-      if (DEEP_LINK.follow && followState) map.easeTo({center:lastKnown});
-      if (DEEP_LINK.autoGo) maybeAutoGo();
-
-    }
-    acc.textContent="±"+accM+" m"; acc.style.display='block';
-    if(followState) map.easeTo({center:lastKnown});
-  }, (err)=>{ console.warn('geo error',err); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+    const accM = Math.round(p.coords.accuracy||999);
+    setMe([p.coords.longitude, p.coords.latitude], accM);
+  }, (err)=>{
+    console.warn('geo error',err);
+  }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
 }
+
 followBtn.onclick=()=>{ followState=!followState; followBtn.textContent = followState ? t().ui.followOn : t().ui.followOff; if(followState && lastKnown) map.easeTo({center:lastKnown}); };
 
 /* ================== HEDEF & BAŞLANGIÇ SEÇİMİ ================== */
@@ -719,6 +728,25 @@ function coordOfFeature(f){
   return [(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2];
 }
 function bboxFromCoords(coords){ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }); return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null; }
+
+function setMe(xy, accM=5){
+  lastKnown = xy;
+  const meSrc = map.getSource('me');
+  if (meSrc) {
+    meSrc.setData({
+      type:'FeatureCollection',
+      features:[{type:'Feature', properties:{acc:accM},
+        geometry:{type:'Point', coordinates:xy}}]
+    });
+  }
+  acc.textContent = "±"+accM+" m";
+  acc.style.display='block';
+  if (followState) map.easeTo({center:lastKnown});
+  // rota butonu için
+  goBtn.disabled = !(startCoord || lastKnown);
+}
+
+
 </script>
 </body>
 </html>
