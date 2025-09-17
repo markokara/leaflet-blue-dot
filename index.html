@@ -140,12 +140,12 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX = [31.004958004107, 36.85433223152, 31.0196581129, 36.869973060180];
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917];
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 /* OSM üst katman ayarları */
-const OSM_OPACITY = 0.25;   // 0–1
+const OSM_OPACITY = 0.45;   // 0–1
 const OSM_VISIBLE = true;   // true/false
 
 /* ================== i18n ================== */
@@ -237,6 +237,54 @@ function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 
+/* ===== DERİN LİNK PARAMETRELERİ ===== */
+const DEEP_LINK = (() => {
+  const p = new URL(location.href).searchParams;
+  return {
+    dest:   p.get('dest'),                // "fid:..." veya "name:..."
+    autoGo: p.get('autoGo') === '1',
+    follow: p.get('follow') === '1',
+    lang:   p.get('lang') || null
+  };
+})();
+
+/* Dil parametresi geldiyse uygula */
+if (DEEP_LINK.lang && SUP_LANGS.includes(DEEP_LINK.lang)) { LANG = DEEP_LINK.lang; applyLang(); }
+
+function getFeatByToken(token){
+  if(!token) return null;
+  const val = token.replace(/^fid:|^name:/i,'').trim();
+  if (token.startsWith('fid:')){
+    return allFeats.find(f => (f.properties?.fid||'') === val) || null;
+  } else {
+    const nv = norm(val);
+    return allFeats.find(f=>{
+      const p=f.properties||{};
+      const names=[p.name,p.name_tr,p.name_en,p.name_ru,p.name_de,p.name_pl].filter(Boolean).map(norm);
+      return names.some(n=>n.includes(nv));
+    }) || null;
+  }
+}
+
+function deepLinkSetDestinationByToken(token, openPopup=true){
+  const f = getFeatByToken(token); if(!f) return false;
+  const c = coordOfFeature(f); const xy = Array.isArray(c)?c:[c.lng,c.lat];
+  setDestination(xy);
+  if (openPopup) showPopup(f, xy, true);
+  document.getElementById('sheet').style.setProperty('--panel-ty','0px'); // panel yukarı
+  goBtn.disabled = !(startCoord || lastKnown);
+  return true;
+}
+
+let autoGoRan=false;
+function maybeAutoGo(){
+  if (autoGoRan) return;
+  if (!destCoord) return;
+  if (!(startCoord || lastKnown)) return;
+  autoGoRan = true;
+  goBtn.click(); // mevcut rota hesapla butonunu çalıştırır
+}
+
 /* LOAD */
 map.on('load', async ()=>{
   // Satellite (altta)
@@ -299,6 +347,11 @@ map.on('load', async ()=>{
   map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
   await loadJSONs();
+  // DEEP LINK ile geldiysek hedefi işaretle + popup göster
+if (DEEP_LINK.dest) deepLinkSetDestinationByToken(DEEP_LINK.dest, true);
+// takip istendiyse aç
+if (DEEP_LINK.follow) { followState=true; followBtn.textContent=t().ui.followOn; if(lastKnown) map.easeTo({center:lastKnown}); }
+
   applyLang();
   applyBasemap();
   map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:19,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
@@ -462,6 +515,9 @@ if('geolocation' in navigator){
     lastKnown=[p.coords.longitude,p.coords.latitude];
     const meSrc=map.getSource('me'); if(meSrc){
       meSrc.setData({type:'FeatureCollection',features:[{type:'Feature',properties:{acc:accM},geometry:{type:'Point',coordinates:lastKnown}}]});
+      if (DEEP_LINK.follow && followState) map.easeTo({center:lastKnown});
+      if (DEEP_LINK.autoGo) maybeAutoGo();
+
     }
     acc.textContent="±"+accM+" m"; acc.style.display='block';
     if(followState) map.easeTo({center:lastKnown});
