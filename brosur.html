@@ -1,116 +1,100 @@
-https://info.lbresorts.com/wp-content/uploads/2025/09/carya-brosur.png
-
 <!doctype html>
 <html lang="tr">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Regnum – Dijital Broşür</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dijital Broşür (SVG)</title>
 <style>
-  :root{ --border:#cfe3da; --shadow:0 10px 28px rgba(0,0,0,.18); --brand:#0f5132; }
-  html,body{height:100%;margin:0;background:#0f3b2e;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0b3a2d}
-
-  /* Broşür görseli */
-  .plan{position:fixed; inset:0; background:#0f3b2e}
-  .plan img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 10px 28px rgba(0,0,0,.25))}
-
-  /* (opsiyonel) küçük pin */
-  .pin{position:absolute; transform:translate(-50%,-100%); background:#fff; color:#0b3a2d;
-       border:1px solid var(--border); border-radius:12px; padding:3px 8px; cursor:pointer;
-       box-shadow:var(--shadow); user-select:none; white-space:nowrap; font-weight:600}
-  .pin small{display:block; font-weight:500; opacity:.7}
-  .pin:active{transform:translate(-50%,-100%) scale(.98)}
-
-  /* Sabit callout (mini popup) */
-  .callout{
-    position:absolute; transform:translate(-50%,-100%);
-    background:#fff; color:#0b3a2d; border:1px solid var(--border);
-    border-radius:14px; padding:10px 12px; width:min(280px,72vw);
-    box-shadow:var(--shadow); user-select:none
-  }
-  .callout h3{margin:0 0 6px; font-size:15px; color:var(--brand)}
-  .callout .meta{font-size:12px; color:#5b6a6a; margin-bottom:6px}
-  .callout .btn{padding:8px 10px; border:1px solid var(--border);
-    background:#e6f4ef; color:var(--brand); border-radius:10px; cursor:pointer; font-weight:600}
-  .callout::after{
-    content:""; position:absolute; left:24px; bottom:-10px; width:0; height:0;
-    border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid #fff;
-    filter:drop-shadow(0 -1px 0 var(--border));
-  }
-
-  /* ALT+tık konum ölçümü için küçük kutu */
-  .coords{position:fixed; right:8px; bottom:8px; background:#fff; border:1px solid var(--border);
-          border-radius:10px; padding:6px 10px; box-shadow:var(--shadow); font-size:12px}
-  a{color:#0e6b4b; text-decoration:none}
+  :root{--border:#cfe3da;--shadow:0 10px 28px rgba(0,0,0,.18);--brand:#0f5132}
+  html,body{height:100%;margin:0;background:#0f3b2e;font:14px system-ui;color:#0b3a2d}
+  #stage{position:fixed;inset:0}
+  #plan{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #hit{position:absolute;inset:0}
+  .hot{position:absolute;transform:translate(-50%,-100%);background:#fff;border:1px solid var(--border);
+       border-radius:12px;box-shadow:var(--shadow);padding:6px 10px;cursor:pointer;font-weight:600}
+  .hot small{display:block;opacity:.75}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.on{display:flex}
+  .back{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  .card{position:relative;background:#fff;border:1px solid var(--border);border-radius:16px;
+        box-shadow:var(--shadow);width:min(520px,92vw);padding:14px}
+  .btn{padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:#e6f4ef;color:var(--brand);font-weight:700;cursor:pointer}
+  .muted{color:#5b6a6a;font-size:13px}
+  a{color:#0e6b4b;text-decoration:none}
+  .coords{position:fixed;right:8px;bottom:8px;background:#fff;border:1px solid var(--border);
+          border-radius:10px;box-shadow:var(--shadow);padding:6px 10px;font-size:12px}
 </style>
 </head>
 <body>
 
-<div class="plan">
-  <!-- 📌 BROŞÜR GÖRSELİN -->
-  <img id="brochure" src="https://info.lbresorts.com/wp-content/uploads/2025/09/carya-brosur.png" alt="Regnum Broşür"/>
+<script>
+  /* ——— AYARLAR ——— */
+  const SVG_URL         = ""C:\Users\ASUS\Desktop\HARITA_INFO_EN_2025_RC_O6.svg""; // Illustrator’dan export ettiğin SVG
+  const GUEST_PANEL_URL = "https://markokara.github.io/leaflet-blue-dot/index.html"; // misafir panelin
+</script>
 
-  <!-- (opsiyonel) PIN: yerini ALT+tık ölçerek ayarla -->
-  <button class="pin" style="left:63.0%; top:76.0%" data-fid="gfl-olive-main-restaurant">
-    🍽️ Olive
-    <small>GİT → Harita</small>
+<div id="stage">
+  <!-- 1) SVG’yi göm -->
+  <object id="plan" type="image/svg+xml"></object>
+
+  <!-- 2) ALT+tık ile yüzde koordinat ölçmek için görünmez yüzey -->
+  <div id="hit" title="ALT + tık ile yüzde koordinat al"></div>
+
+  <!-- 3) ÖRNEK HOTSPOT (yeri % ile) -->
+  <button id="hot-olive" class="hot" style="left:66.5%; top:82%;">
+    🍽️ Olive <small>Git → Harita</small>
   </button>
+</div>
 
-  <!-- SABİT CALLOUT: konumu yine yüzdelerle ayarla -->
-  <div class="callout" style="left:66.5%; top:82%">
-    <h3>🍽️ Olive Ana Restoran</h3>
-    <div class="meta">Bahçe Katı (−1)</div>
-    <div class="meta">Kahvaltı 06:30–10:00 • Öğle 12:30–15:00 • Akşam 19:00–21:30</div>
-    <div class="meta">
-      Menü: <a href="https://www.regnumhotels.com/en/" target="_blank" rel="noopener">regnumhotels.com</a>
+<!-- Popup -->
+<div id="m" class="modal"><div class="back" id="close"></div>
+  <div class="card">
+    <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+      <div style="font-weight:700;color:#0f5132">🍽️ Olive Ana Restoran</div>
+      <button class="btn" id="close2">Kapat</button>
     </div>
-    <button class="btn" id="olive-go">Git → Haritada Aç</button>
+    <div class="muted" style="margin:8px 0">Bahçe Katı (−1) • Kahvaltı 06:30–10:00 • Öğle 12:30–15:00 • Akşam 19:00–21:30</div>
+    <div style="margin:6px 0">Menü:
+      <a target="_blank" rel="noopener" href="https://www.regnumhotels.com/en/">regnumhotels.com</a>
+    </div>
+    <div style="text-align:right;margin-top:10px">
+      <button class="btn" id="go">Git → Haritada Aç</button>
+    </div>
   </div>
 </div>
 
-<div class="coords">ALT + tık → % konum: <b id="xy">–</b></div>
+<div class="coords">ALT + tık → %: <b id="xy">–</b></div>
 
 <script>
-/* ========== AYARLAR ========== */
-/* Misafir panelinin tam URL'si (index.html yolu): */
-const GUEST_PANEL_URL = "https://markokara.github.io/leaflet-blue-dot/index.html";
-/* Derin link seçenekleri: */
-const AUTO_GO = true;   // rota otomatik başlasın
-const FOLLOW  = true;   // bluedot takibi açılsın
-const DEFAULT_LANG = "tr";
+/* SVG’yi yükle */
+document.getElementById('plan').data = SVG_URL;
 
-/* Derin link oluştur ve aç */
-function openGuestPanelWithFid(fid, lang){
-  const params = new URLSearchParams({
-    dest:  "fid:"+fid,
-    autoGo: AUTO_GO ? "1":"0",
-    follow: FOLLOW  ? "1":"0",
-    lang:   lang || DEFAULT_LANG
-  }).toString();
-  location.href = GUEST_PANEL_URL + "?" + params;  // yeni sekme isterse: window.open(...,'_blank')
+/* Misafir paneli derin link */
+function goToGuest(fid){
+  const u = new URL(GUEST_PANEL_URL);
+  u.searchParams.set('dest','fid:'+fid);
+  u.searchParams.set('autoGo','1');
+  u.searchParams.set('follow','1');
+  u.searchParams.set('lang','tr');
+  location.href = u.toString();
 }
 
-/* Callout butonu */
-document.getElementById('olive-go').onclick = () => openGuestPanelWithFid('gfl-olive-main-restaurant');
+/* Olive hotspot davranışları */
+document.getElementById('hot-olive').onclick = ()=> document.getElementById('m').classList.add('on');
+document.getElementById('go').onclick       = ()=> goToGuest('gfl-olive-main-restaurant');
+document.getElementById('close').onclick    = ()=> document.getElementById('m').classList.remove('on');
+document.getElementById('close2').onclick   = ()=> document.getElementById('m').classList.remove('on');
 
-/* Pin de aynı işi yapsın */
-document.querySelectorAll('.pin').forEach(b=>{
-  b.addEventListener('click', ()=> openGuestPanelWithFid(b.dataset.fid || 'gfl-olive-main-restaurant'));
-});
-
-/* ALT + tık ile yüzde konum ölçümü */
-const img = document.getElementById('brochure');
-const xyOut = document.getElementById('xy');
-img.addEventListener('click', (e)=>{
+/* ALT + tık → yüzde koordinat ölç (hotspot yerleştirmek için) */
+const hit = document.getElementById('hit'), xyOut = document.getElementById('xy');
+hit.addEventListener('click', (e)=>{
   if(!e.altKey) return;
-  const r = img.getBoundingClientRect();
+  const r = hit.getBoundingClientRect();
   const x = ((e.clientX - r.left)/r.width)*100;
-  const y = ((e.clientY - r.top)/r.height)*100;
+  const y = ((e.clientY - r.top )/r.height)*100;
   xyOut.textContent = x.toFixed(1)+'% , '+y.toFixed(1)+'%';
   console.log('left:',x.toFixed(1)+'%','top:',y.toFixed(1)+'%');
 });
 </script>
 </body>
 </html>
-
-
