@@ -1,3 +1,48 @@
-<!-- Start of HubSpot Embed Code -->
-<script type="text/javascript" id="hs-script-loader" async defer src="//js.hs-scripts.com/49536395.js"></script>
-<!-- End of HubSpot Embed Code -->
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HubSpot Form Test</title>
+</head>
+<body>
+  <h1>HubSpot Form Demo</h1>
+
+  <!-- HubSpot form burada görünecek -->
+  <div id="hubspot-form"></div>
+
+  <!-- HubSpot Embed Script -->
+  <script type="text/javascript" id="hs-script-loader" async defer src="//js.hs-scripts.com/49536395.js"></script>
+
+  <script>
+    // HubSpot form yükleme
+    hbspt.forms.create({
+      portalId: "49536395",   // kendi portal ID'n
+      formId: "9185196", // HubSpot'tan aldığın formId'yi buraya koy
+      target: "#hubspot-form"
+    });
+
+    // Form submit event dinleyici
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'hsFormCallback' && event.data.eventName === 'onFormSubmit') {
+        const formData = {};
+        event.data.data.forEach(field => {
+          formData[field.name] = field.value;
+        });
+
+        console.log('HubSpot form data:', formData);
+
+        // Kendi webhook'unuza gönderim
+        fetch('https://example.com/webhook/form-submission', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        })
+        .then(res => res.json())
+        .then(data => console.log('Webhook response:', data))
+        .catch(err => console.error('Webhook error:', err));
+      }
+    });
+  </script>
+</body>
+</html>
