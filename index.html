@@ -7,6 +7,11 @@
 
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+<!-- Turf v7.2.0 (docs: turfjs.org) -->
+<script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"></script>
+<!-- cheap-ruler v3.0.1 (hafif, metre hesabı) -->
+<script src="https://unpkg.com/cheap-ruler@3.0.1/cheap-ruler.umd.js"></script>
+<!-- polyline v1.1.1 (docs: github.com/mapbox/polyline) -->
 
 <style>
   :root{
@@ -145,7 +150,7 @@ const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 /* OSM üst katman ayarları */
-const OSM_OPACITY = 0.15;   // 0–1
+const OSM_OPACITY = 0.75;   // 0–1
 const OSM_VISIBLE = true;   // true/false
 
 /* ===== SİMÜLASYON: sabit bluedot (oteldeymiş gibi) ===== */
@@ -395,7 +400,7 @@ async function loadJSONs(){
   allFeats = indoorFs.concat(outdoorFs);
 
   // Rota grafı
-  buildRouteGraph(validRoutes);
+  buildRouteGraphMeters(validRoutes);
 
   // routes ekran dışındaysa otomatik zoom
   autoZoomToRoutes(validRoutes);
@@ -560,96 +565,193 @@ function setDestination(xy){
   map.getSource('dest').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:xy}}]});
 }
 
-/* ================== ROTA (yalnızca routes.json) ================== */
-let ROUTE_GRAPH=null; // {nodes:[{id,xy}], adj:{id:[{to, w}]}}
-function buildRouteGraph(fc){
-  const nodes=[]; const idOf={}; const adj={};
-  function key(xy){ return xy[0].toFixed(7)+','+xy[1].toFixed(7); }
+/* =========================
+   ROTA – METRE, SNAP & GEÇİCİ DÜĞÜM
+   ========================= */
+
+// Otelin ortalama enlemi: (Beldibi için yaklaşık; dilersen otelin orta enlemini yaz)
+const RULER = cheapRuler(36.862, 'meters');
+
+// Hız profilleri (m/sn)
+const SPEED = { walk: 1.35, shuttle: 6.0 };
+
+// Global veri yapıları
+let ROUTES_FC = null;
+let GRAPH = null; // {nodes:[{id,xy}], adj:{id:[{to,w}]}, key2id:Map, _temp:{nodes:[],edges:[]}}
+
+// ---- yardımcılar
+const key7 = (xy)=> `${xy[0].toFixed(7)},${xy[1].toFixed(7)}`;
+const metersAB = (a,b)=> RULER.distance([a[0],a[1]],[b[0],b[1]]);
+const lineMeters = (coords)=> { let s=0; for(let i=1;i<coords.length;i++) s+=metersAB(coords[i-1],coords[i]); return s; };
+const bearingAB = (a,b)=> turf.bearing(turf.point(a), turf.point(b)); // derece
+
+// ---- grafı METRE ile kur
+function buildRouteGraphMeters(routesFC){
+  ROUTES_FC = routesFC;
+  const nodes=[], adj={}, key2id=new Map();
+
   function getId(xy){
-    const k=key(xy); if(idOf[k]!=null) return idOf[k];
-    const id=nodes.length; idOf[k]=id; nodes.push({id,xy}); adj[id]=[]; return id;
+    const k=key7(xy);
+    if(key2id.has(k)) return key2id.get(k);
+    const id=nodes.length;
+    key2id.set(k,id); nodes.push({id, xy:[xy[0],xy[1]]}); adj[id]=[];
+    return id;
   }
-  (fc.features||[]).forEach(f=>{
-    if(!f.geometry||f.geometry.type!=='LineString') return;
+  function addEdge(aId,bId,w){ adj[aId].push({to:bId, w}); adj[bId].push({to:aId, w}); }
+
+  for(const f of (routesFC.features||[])){
+    if(!f.geometry || f.geometry.type!=='LineString') continue;
     const c=f.geometry.coordinates||[];
-    for(let i=0;i<c.length;i++){
-      const aId=getId(c[i]);
-      if(i>0){
-        const bId=getId(c[i-1]);
-        const w=dist(nodes[aId].xy, nodes[bId].xy);
-        adj[aId].push({to:bId, w}); adj[bId].push({to:aId, w});
-      }
+    for(let i=1;i<c.length;i++){
+      const A=c[i-1], B=c[i];
+      const aId=getId(A), bId=getId(B);
+      addEdge(aId,bId, metersAB(A,B)); // ağırlık METRE
     }
-  });
-  ROUTE_GRAPH={nodes,adj};
+  }
+  GRAPH = {nodes, adj, key2id, _temp:{nodes:[],edges:[]} };
 }
-function nearestNode(xy){
-  const nodes=ROUTE_GRAPH?.nodes||[]; let best=-1, bestD=Infinity;
-  for(let i=0;i<nodes.length;i++){
-    const d=dist(xy,nodes[i].xy); if(d<bestD){bestD=d; best=i;}
+
+// ---- geçici overlay (snap düğümleri)
+function beginOverlay(){ if(!GRAPH._temp) GRAPH._temp={nodes:[],edges:[]}; }
+function addTempNode(xy){
+  const id=GRAPH.nodes.length;
+  GRAPH.nodes.push({id, xy:[xy[0],xy[1]]});
+  GRAPH.adj[id]=[]; GRAPH._temp.nodes.push(id);
+  return id;
+}
+function addTempEdge(aId,bId,w){
+  GRAPH.adj[aId].push({to:bId,w}); GRAPH.adj[bId].push({to:aId,w});
+  GRAPH._temp.edges.push([aId,bId,w]);
+}
+function endOverlay(){ /* küçük ölçekte temizlik zorunlu değil */ }
+
+// ---- tüm çizgiler içinde SNAP (en yakın çizgi + nokta)
+function snapToNetworkAllRoutes(pointLngLat){
+  let best={dist:Infinity, snap:null, segA:null, segB:null, feature:null, index:-1};
+  for(const f of (ROUTES_FC?.features||[])){
+    if(!f.geometry || f.geometry.type!=='LineString') continue;
+    const snap = turf.nearestPointOnLine(f, turf.point(pointLngLat), {units:'meters'});
+    const d = snap.properties?.dist ?? Infinity;
+    if(d < best.dist){
+      best.dist=d; best.snap=snap.geometry.coordinates; best.feature=f;
+      const coords=f.geometry.coordinates, i=Math.max(0,Math.min(coords.length-2, snap.properties?.index ?? 0));
+      best.index=i; best.segA=coords[i]; best.segB=coords[i+1];
+    }
   }
   return best;
 }
-function dijkstra(startId, endId){
-  const N=ROUTE_GRAPH.nodes.length, adj=ROUTE_GRAPH.adj;
-  const distArr=new Array(N).fill(Infinity), prev=new Array(N).fill(-1), used=new Array(N).fill(false);
-  distArr[startId]=0;
-  for(let k=0;k<N;k++){
-    let u=-1, best=Infinity;
-    for(let i=0;i<N;i++){ if(!used[i] && distArr[i]<best){best=distArr[i]; u=i;} }
-    if(u===-1) break; used[u]=true; if(u===endId) break;
-    for(const e of adj[u]||[]){
-      const alt=distArr[u]+e.w; if(alt<distArr[e.to]){ distArr[e.to]=alt; prev[e.to]=u; }
-    }
-  }
-  if(prev[endId]===-1 && endId!==startId) return null;
-  const path=[]; let cur=endId; while(cur!==-1){ path.push(cur); if(cur===startId) break; cur=prev[cur]; }
-  return path.reverse();
+
+// ---- snap noktasını graf’a geçici düğüm olarak ekle (segmenti A–S ve S–B diye böl)
+function insertTempNodeIntoGraph(snapObj){
+  const {snap, segA, segB} = snapObj;
+  if(!snap || !segA || !segB) return null;
+
+  const aId = GRAPH.key2id.get(key7(segA));
+  const bId = GRAPH.key2id.get(key7(segB));
+  if(aId==null || bId==null) return null;
+
+  const sId = addTempNode(snap);
+  addTempEdge(aId, sId, metersAB(segA, snap));
+  addTempEdge(sId, bId, metersAB(snap, segB));
+  return sId;
 }
-function dist(a,b){ const dx=a[0]-b[0], dy=a[1]-b[1]; return Math.hypot(dx,dy); }
+
+// ---- Dijkstra (mesafe tabanlı)
+function dijkstra(startId,endId){
+  const N=GRAPH.nodes.length, dist=new Array(N).fill(Infinity), prev=new Array(N).fill(-1), used=new Array(N).fill(false);
+  dist[startId]=0;
+  for(let k=0;k<N;k++){
+    let u=-1,b=Infinity; for(let i=0;i<N;i++) if(!used[i] && dist[i]<b){b=dist[i];u=i;}
+    if(u===-1) break; used[u]=true; if(u===endId) break;
+    for(const e of (GRAPH.adj[u]||[])){ if(used[e.to]) continue; const alt=dist[u]+e.w; if(alt<dist[e.to]){dist[e.to]=alt; prev[e.to]=u;} }
+  }
+  if(prev[endId]===-1 && startId!==endId) return null;
+  const path=[]; let cur=endId; while(cur!==-1){ path.push(cur); if(cur===startId) break; cur=prev[cur]; } return path.reverse();
+}
+
+// ---- turn-by-turn (sağ/sol/düz)
+function makeTurnByTurn(coords){
+  const steps=[];
+  for(let i=1;i<coords.length;i++){
+    const segM=metersAB(coords[i-1],coords[i]);
+    let instr='straight';
+    if(i<coords.length-1){
+      let d = bearingAB(coords[i-1],coords[i+0]); d = ( (bearingAB(coords[i],coords[i+1]) - d + 540) % 360 ) - 180;
+      if(d>35) instr='turn_right'; else if(d<-35) instr='turn_left';
+    }
+    steps.push({i, meters:segM, instr});
+  }
+  return steps;
+}
+
+// ---- tümünü birleştir: SNAP + TEMP NODE + DIJKSTRA + ÇİZ
+function computeRouteSnapAndDraw(startLngLat, destLngLat, mode='walk'){
+  if(!ROUTES_FC || !GRAPH) throw new Error('Graph not ready');
+
+  beginOverlay();
+  const sSnap=snapToNetworkAllRoutes(startLngLat);
+  const tSnap=snapToNetworkAllRoutes(destLngLat);
+  if(!sSnap.snap || !tSnap.snap) throw new Error('Snap failed');
+
+  const sId=insertTempNodeIntoGraph(sSnap);
+  const tId=insertTempNodeIntoGraph(tSnap);
+  if(sId==null || tId==null) throw new Error('Temp node failed');
+
+  const nodePath=dijkstra(sId,tId); if(!nodePath) throw new Error('No route');
+  const pathCoords=nodePath.map(id=>GRAPH.nodes[id].xy);
+
+  const routeFC={ type:'FeatureCollection', features:[{type:'Feature', properties:{mode}, geometry:{type:'LineString', coordinates:pathCoords}}] };
+  if(map.getSource('route')) map.getSource('route').setData(routeFC);
+
+  const totalMeters=lineMeters(pathCoords);
+  const totalSec = totalMeters / (SPEED[mode]||SPEED.walk);
+  const steps=makeTurnByTurn(pathCoords);
+
+  endOverlay();
+  return { routeGeojson:routeFC, steps, totalMeters, totalSec };
+}
+
+// ---- format yardımcıları
+const fmtMeters=(m)=> m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m';
+const fmtMinutes=(s)=> Math.max(1, Math.round(s/60))+' dk';
 
 /* Rota hesapla */
 goBtn.onclick = ()=>{
   const srcStart = startCoord || lastKnown;
   const srcDest  = destCoord;
   if(!srcDest){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
-  if(!srcStart){ alert(LANG==='tr'?'Başlangıç seçin ya da konum izni verin.':'Pick a start or allow location.'); return; }
-  if(!ROUTE_GRAPH || ROUTE_GRAPH.nodes.length===0){ alert('routes.json yüklenemedi ya da boş.'); return; }
+  if(!srcStart){ alert(LANG==='tr'?'Başlangıç yok (konum ya da seçim).':'No start.'); return; }
 
-  const sId = nearestNode(srcStart);
-  const eId = nearestNode(srcDest);
-  const nodePath = dijkstra(sId, eId);
-  if(!nodePath){ alert('Uygun rota bulunamadı. (Ağ kopuk olabilir)'); return; }
+  try{
+    const mode = 'walk'; // ileride UI’dan shuttle/walk seçebilirsin
+    const { routeGeojson, steps, totalMeters, totalSec } =
+      computeRouteSnapAndDraw(srcStart, srcDest, mode);
 
-  const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
+    const ex = bboxFromCoords(routeGeojson.features[0].geometry.coordinates);
+    if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]], {padding:PADDING, maxZoom:18});
 
-  // baş ve son bağlantıları ekle → tek LineString
-  const fullCoords = [];
-  if(srcStart) fullCoords.push(srcStart);
-  fullCoords.push(...nodeCoords);
-  if(srcDest)  fullCoords.push(srcDest);
-
-  const fc = {type:'FeatureCollection', features:[
-    {type:'Feature', geometry:{type:'LineString', coordinates: fullCoords}}
-  ]};
-
-  map.getSource('route').setData(fc);
-
-  const ex=bboxFromCoords(fullCoords);
-  if(ex) map.fitBounds([[ex[0],ex[1]],[ex[2],ex[3]]],{padding:PADDING,maxZoom:18});
-
-  // adım listesi (basit)
-  dirList.innerHTML='';
-  for(let i=1;i<fullCoords.length;i++){
-    const m = hav(fullCoords[i-1], fullCoords[i]);
-    const el=document.createElement('div'); el.className='step';
-    el.innerHTML = `<div>${i}.</div><div><div>${t().nav.straight}</div><div class="muted" style="font-size:12px">${fmtDist(m)}</div></div>`;
-    dirList.appendChild(el);
+    // Panel
+    dirList.innerHTML='';
+    steps.forEach(st=>{
+      const L=t().nav;
+      const label = st.instr==='turn_right' ? L.turn_right
+                   : st.instr==='turn_left' ? L.turn_left
+                   : L.straight;
+      const el=document.createElement('div'); el.className='step';
+      el.innerHTML = `<div>${st.i}.</div>
+        <div><div>${label}</div>
+        <div class="muted" style="font-size:12px">${fmtMeters(st.meters)}</div></div>`;
+      dirList.appendChild(el);
+    });
+    dirSum.textContent = `${fmtMeters(totalMeters)} · ${fmtMinutes(totalSec)} (${mode})`;
+    dirSub.textContent = '· routes.json · snap+temp';
+    dirBox.style.display='block';
+  }catch(e){
+    console.warn(e);
+    alert(LANG==='tr'?'Rota hesaplanamadı.':'Route failed.');
   }
-  dirSum.textContent=(lengthOf(fullCoords)/1000).toFixed(2)+' km';
-  dirSub.textContent='· routes.json';
-  dirBox.style.display='block';
 };
+
 
 /* ================== POPUP (küçük) ================== */
 let popup;
