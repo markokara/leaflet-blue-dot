@@ -738,9 +738,46 @@
         "category": "path",
         "level": "0",
         "way": "foot",
-        "width": 2
+        "width": 2,
+        "stroke": "#0E6E37",
+        "fill": "#0E6E37"
       },
       "id": "84ee9307-0b4e-42b5-9bba-940266fbd175"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            31.00618583039639,
+            36.857459051557356
+          ],
+          [
+            31.00758575902194,
+            36.857386956628076
+          ],
+          [
+            31.008751676277285,
+            36.857240609690066
+          ],
+          [
+            31.008959698309315,
+            36.857935785678904
+          ]
+        ]
+      },
+      "properties": {
+        "len_m": 309,
+        "name": "yol15",
+        "category": "path",
+        "level": "0",
+        "way": "foot",
+        "width": 2,
+        "stroke": "#0E6E37",
+        "fill": "#0E6E37"
+      },
+      "id": "81ac2d4c-a482-4f9d-bb96-d6d480b818ad"
     }
   ]
 }
