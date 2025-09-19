@@ -183,6 +183,7 @@ const SIM_ME_ACC_M  = 5;
 const MAX_CONNECTOR_M     = 50; // >50 m ise rota yapma ve uyar
 const HIDE_CONNECTOR_LT_M = 5;  // <5 m ise connector’ı çizme (gizle)
 
+
 /* ================== i18n ================== */
 const I18N = {
   tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
@@ -388,24 +389,17 @@ async function loadJSONs(){
   map.getSource('indoor').setData(indoor||emptyFC());
   map.getSource('outdoor').setData(outdoor||emptyFC());
 
- const validRoutes = validateRoutes(routes) ? routes : emptyFC();
+  const validRoutes = validateRoutes(routes) ? routes : emptyFC();
+  map.getSource('routes').setData(validRoutes);
 
-// 1) Topoloji düzelt: kesişim noktalarına ortak vertex ekle (segmentleri böl)
-const topoRoutes = ensureTopology(validRoutes, 0.8); // 0.8–1.0 m iyi bir tolerans
+  const indoorFs = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}));
+  const outdoorFs = (outdoor?.features||[]).map(f=>({...f,__src:'outdoor'}));
+  allFeats = indoorFs.concat(outdoorFs);
 
-// 2) Haritaya artık topo düzeltmeli ağı bas
-map.getSource('routes').setData(topoRoutes);
+  // Rota grafı (METRE + mod kısıtlı)
+  buildRouteGraph(validRoutes);
 
-// 3) Arama grafını da aynı veriyle kur (metre, mod kısıtı vs.)
-buildRouteGraph(topoRoutes);
-
-// 4) Otomatik yakınlaştırmayı da aynı veriyle yap
-autoZoomToRoutes(topoRoutes);
-
-// Indoor/Outdoor birleşimi (değişmeden kalır)
-const indoorFs  = (indoor?.features || []).map(f => ({ ...f, __src:'indoor'  }));
-const outdoorFs = (outdoor?.features|| []).map(f => ({ ...f, __src:'outdoor' }));
-allFeats = indoorFs.concat(outdoorFs);
+  autoZoomToRoutes(validRoutes);
 }
 
 function ensureFid(fc, prefix){
@@ -708,6 +702,7 @@ function dijkstra(startId, endId, profileKey='walk'){
 }
 
 /* Rota hesapla (SNAP + geçici düğüm + turn-by-turn + süre/mesafe) */
+
 goBtn.onclick = ()=>{
   const srcStart = startCoord || lastKnown;
   const srcDest  = destCoord;
@@ -720,18 +715,20 @@ goBtn.onclick = ()=>{
   const Tsnap = snapToNetworkAllRoutes(srcDest);
   if(!Ssnap || !Tsnap){ alert('Ağa snap edilemedi.'); return; }
 
+  // --- connector mesafeleri
   const usedStart  = startCoord || lastKnown;
   const usedDest   = destCoord;
   const startConnM = usedStart ? meters(usedStart, Ssnap.xy) : 0;
   const destConnM  = usedDest  ? meters(Tsnap.xy,  usedDest)  : 0;
 
-  // çok uzaksa iptal
+  // --- çok uzaksa iptal
   if (startConnM > MAX_CONNECTOR_M || destConnM > MAX_CONNECTOR_M) {
     alert('Başlangıç veya hedef yol ağından çok uzakta. Lütfen yola yakın bir nokta seçin.');
     updateDebugOverlay({showComps:true, showSnaps:true, showDead:true, snaps:[Ssnap, Tsnap]});
     return;
   }
 
+  // --- graf içine geçici düğümler
   const Sid = insertTempNodeIntoGraph(Ssnap);
   const Tid = insertTempNodeIntoGraph(Tsnap);
 
@@ -755,8 +752,8 @@ goBtn.onclick = ()=>{
     snaps:[Ssnap, Tsnap]
   });
 
+  // --- geojson features
   const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
-
   const features = [
     {type:'Feature', properties:{role:'main'}, geometry:{type:'LineString', coordinates: nodeCoords}}
   ];
@@ -771,49 +768,16 @@ goBtn.onclick = ()=>{
   map.getSource('route').setData({type:'FeatureCollection', features});
 
   const mainLenM = totalLength(nodeCoords);
-  const totalLenM= mainLenM
-                 + (usedStart?meters(usedStart,Ssnap.xy):0)
-                 + (usedDest?meters(Tsnap.xy,usedDest):0);
+  const totalLenM= mainLenM + (usedStart?meters(usedStart,Ssnap.xy):0) + (usedDest?meters(Tsnap.xy,usedDest):0);
   const durSec   = mainLenM / (SPEEDS[CURRENT_PROFILE] || 1.3);
-
   dirSum.textContent = fmtDist(totalLenM)+' · '+fmtDur(durSec);
   dirSub.textContent = '· '+CURRENT_PROFILE;
 
   renderTurnByTurn(nodeCoords);
-
   const bb = bboxFromCoords(nodeCoords.concat(usedStart?[usedStart]:[], usedDest?[usedDest]:[]));
   if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:18});
   dirBox.style.display = 'block';
 };
-
-
-  const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
-
-  const features = [
-    {type:'Feature', properties:{role:'main'}, geometry:{type:'LineString', coordinates: nodeCoords}}
-  ];
-  if(startCoord) features.push({type:'Feature', properties:{role:'connector'}, geometry:{type:'LineString', coordinates:[startCoord, Ssnap.xy]}});
-  if(destCoord)  features.push({type:'Feature', properties:{role:'connector'}, geometry:{type:'LineString', coordinates:[Tsnap.xy, destCoord]}});
-
-  map.getSource('route').setData({type:'FeatureCollection', features});
-
-  const mainLenM = totalLength(nodeCoords);
-  const totalLenM= mainLenM 
-                 + (startCoord?meters(startCoord,Ssnap.xy):0)
-                 + (destCoord?meters(Tsnap.xy,destCoord):0);
-  const durSec   = mainLenM / (SPEEDS[CURRENT_PROFILE] || 1.3);
-
-  dirSum.textContent = fmtDist(totalLenM)+' · '+fmtDur(durSec);
-  dirSub.textContent = '· '+CURRENT_PROFILE;
-
-  renderTurnByTurn(nodeCoords);
-
-  const bb = bboxFromCoords(
-      nodeCoords.concat(startCoord ? [startCoord] : [], destCoord ? [destCoord] : [])
-  );
-  if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:18});
-  dirBox.style.display = 'block';
-}
 
 /* ================== TURN-BY-TURN ================== */
 function renderTurnByTurn(coords){
@@ -914,59 +878,6 @@ function bboxFromCoords(coords){
   coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
   return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
 }
-/* ================== TOPOLOJİ: Kesişimlerde ortak vertex ekle ================== */
-function ensureTopology(fc, EPS_M = 0.8){
-  if(!fc || !Array.isArray(fc.features)) return fc;
-
-  // Sadece LineString’leri kopyalayıp çalış
-  const feats = fc.features
-    .filter(f => f.geometry?.type === 'LineString')
-    .map(f => ({...f, geometry:{...f.geometry, coordinates:[...f.geometry.coordinates]}}));
-
-  // Tüm çiftleri karşılaştır
-  for(let i=0;i<feats.length;i++){
-    for(let j=i+1;j<feats.length;j++){
-      const A = feats[i], B = feats[j];
-      const inter = turf.lineIntersect(A, B);
-      if(!inter.features.length) continue;
-
-      inter.features.forEach(pt=>{
-        const P = pt.geometry.coordinates; // kesişim noktası
-        insertPointOnLine(A.geometry.coordinates, P, EPS_M);
-        insertPointOnLine(B.geometry.coordinates, P, EPS_M);
-      });
-    }
-  }
-
-  // Orijinal FC içindeki LineString’leri güncellenmiş olanlarla değiştir
-  const out = {type:'FeatureCollection', features: fc.features.map(f=>{
-    if(f.geometry?.type !== 'LineString') return f;
-    const same = feats.find(g => g.id===f.id) || feats.find(g => g.properties?.fid === f.properties?.fid);
-    return same || f;
-  })};
-
-  return out;
-}
-
-function insertPointOnLine(coords, P, EPS_M){
-  // P bu çizginin hangi segmentine düşüyor?
-  const ls = {type:'Feature', geometry:{type:'LineString', coordinates: coords}};
-  const snap = turf.nearestPointOnLine(ls, turf.point(P), {units:'meters'});
-  const aIdx = Math.max(0, Math.min(coords.length - 2, snap.properties.index));
-  const bIdx = aIdx + 1;
-
-  const A = coords[aIdx];
-  const B = coords[bIdx];
-
-  // Uçlara çok yakınsa gereksiz düğüm üretme
-  const dA = turf.distance(turf.point(A), turf.point(P), {units:'meters'});
-  const dB = turf.distance(turf.point(B), turf.point(P), {units:'meters'});
-  if(dA <= EPS_M || dB <= EPS_M) return;
-
-  // Segmenti A–P–B olarak böl (araya nokta ekle)
-  coords.splice(bIdx, 0, P);
-}
-
 // Graf özetini consola yaz
 function printGraphStats(){
   if(!ROUTE_GRAPH){ console.warn('Graph yok'); return; }
