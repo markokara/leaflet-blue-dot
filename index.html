@@ -384,18 +384,24 @@ async function loadJSONs(){
   map.getSource('indoor').setData(indoor||emptyFC());
   map.getSource('outdoor').setData(outdoor||emptyFC());
 
-  const validRoutes = validateRoutes(routes) ? routes : emptyFC();
-  map.getSource('routes').setData(validRoutes);
+ const validRoutes = validateRoutes(routes) ? routes : emptyFC();
 
-  const indoorFs = (indoor?.features||[]).map(f=>({...f,__src:'indoor'}));
-  const outdoorFs = (outdoor?.features||[]).map(f=>({...f,__src:'outdoor'}));
-  allFeats = indoorFs.concat(outdoorFs);
+// 1) Topoloji düzelt: kesişim noktalarına ortak vertex ekle (segmentleri böl)
+const topoRoutes = ensureTopology(validRoutes, 0.8); // 0.8–1.0 m iyi bir tolerans
 
-  // Rota grafı (METRE + mod kısıtlı)
-  buildRouteGraph(validRoutes);
+// 2) Haritaya artık topo düzeltmeli ağı bas
+map.getSource('routes').setData(topoRoutes);
 
-  autoZoomToRoutes(validRoutes);
-}
+// 3) Arama grafını da aynı veriyle kur (metre, mod kısıtı vs.)
+buildRouteGraph(topoRoutes);
+
+// 4) Otomatik yakınlaştırmayı da aynı veriyle yap
+autoZoomToRoutes(topoRoutes);
+
+// Indoor/Outdoor birleşimi (değişmeden kalır)
+const indoorFs  = (indoor?.features || []).map(f => ({ ...f, __src:'indoor'  }));
+const outdoorFs = (outdoor?.features|| []).map(f => ({ ...f, __src:'outdoor' }));
+allFeats = indoorFs.concat(outdoorFs);
 
 function ensureFid(fc, prefix){
   if(!fc || !Array.isArray(fc.features)) return fc;
@@ -872,6 +878,59 @@ function bboxFromCoords(coords){
   coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
   return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
 }
+/* ================== TOPOLOJİ: Kesişimlerde ortak vertex ekle ================== */
+function ensureTopology(fc, EPS_M = 0.8){
+  if(!fc || !Array.isArray(fc.features)) return fc;
+
+  // Sadece LineString’leri kopyalayıp çalış
+  const feats = fc.features
+    .filter(f => f.geometry?.type === 'LineString')
+    .map(f => ({...f, geometry:{...f.geometry, coordinates:[...f.geometry.coordinates]}}));
+
+  // Tüm çiftleri karşılaştır
+  for(let i=0;i<feats.length;i++){
+    for(let j=i+1;j<feats.length;j++){
+      const A = feats[i], B = feats[j];
+      const inter = turf.lineIntersect(A, B);
+      if(!inter.features.length) continue;
+
+      inter.features.forEach(pt=>{
+        const P = pt.geometry.coordinates; // kesişim noktası
+        insertPointOnLine(A.geometry.coordinates, P, EPS_M);
+        insertPointOnLine(B.geometry.coordinates, P, EPS_M);
+      });
+    }
+  }
+
+  // Orijinal FC içindeki LineString’leri güncellenmiş olanlarla değiştir
+  const out = {type:'FeatureCollection', features: fc.features.map(f=>{
+    if(f.geometry?.type !== 'LineString') return f;
+    const same = feats.find(g => g.id===f.id) || feats.find(g => g.properties?.fid === f.properties?.fid);
+    return same || f;
+  })};
+
+  return out;
+}
+
+function insertPointOnLine(coords, P, EPS_M){
+  // P bu çizginin hangi segmentine düşüyor?
+  const ls = {type:'Feature', geometry:{type:'LineString', coordinates: coords}};
+  const snap = turf.nearestPointOnLine(ls, turf.point(P), {units:'meters'});
+  const aIdx = Math.max(0, Math.min(coords.length - 2, snap.properties.index));
+  const bIdx = aIdx + 1;
+
+  const A = coords[aIdx];
+  const B = coords[bIdx];
+
+  // Uçlara çok yakınsa gereksiz düğüm üretme
+  const dA = turf.distance(turf.point(A), turf.point(P), {units:'meters'});
+  const dB = turf.distance(turf.point(B), turf.point(P), {units:'meters'});
+  if(dA <= EPS_M || dB <= EPS_M) return;
+
+  // Segmenti A–P–B olarak böl (araya nokta ekle)
+  coords.splice(bIdx, 0, P);
+}
+
 // Graf özetini consola yaz
 function printGraphStats(){
   if(!ROUTE_GRAPH){ console.warn('Graph yok'); return; }
