@@ -175,7 +175,7 @@ const OSM_OPACITY = 0.75;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
-const SIMULATE_ME   = false;
+const SIMULATE_ME   = false; // true: simule et, false: gerçek GPS  
 const SIM_ME_COORD  = [31.005858, 36.862770];
 const SIM_ME_ACC_M  = 5;
 
@@ -704,6 +704,7 @@ function dijkstra(startId, endId, profileKey='walk'){
 /* Rota hesapla (SNAP + geçici düğüm + turn-by-turn + süre/mesafe) */
 
 goBtn.onclick = ()=>{
+  closePopup(); // ➜ ekle
   const srcStart = startCoord || lastKnown;
   const srcDest  = destCoord;
 
@@ -774,6 +775,11 @@ goBtn.onclick = ()=>{
   dirSub.textContent = '· '+CURRENT_PROFILE;
 
   renderTurnByTurn(nodeCoords);
+
+  // >>> BURAYA EKLE
+dirList.style.display = 'none';      // listeyi kapat
+collapseDir.textContent = '▼';       // buton oku aşağı olsun
+// <<< BURAYA EKLE
   const bb = bboxFromCoords(nodeCoords.concat(usedStart?[usedStart]:[], usedDest?[usedDest]:[]));
   if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:18});
   dirBox.style.display = 'block';
@@ -789,21 +795,40 @@ function renderTurnByTurn(coords){
   // Kalkış
   appendStep(L.depart, 0);
 
-  for(let i=1;i<coords.length-1;i++){
+  // İlk segment düz toplamına eklensin
+  let accStraightM = meters(coords[0], coords[1]);
+
+  for(let i=1; i<coords.length-1; i++){
     const b1 = turf.bearing(turf.point(coords[i-1]), turf.point(coords[i]));
     const b2 = turf.bearing(turf.point(coords[i]),   turf.point(coords[i+1]));
-    const d  = angDiff(b1, b2);  // [-180,180]
-    const segM = meters(coords[i], coords[i+1]);
+    const turn = angDiff(b1, b2); // [-180,180]
+    const nextSegM = meters(coords[i], coords[i+1]);
 
-    let txt = L.straight;
-    if(d > 35)       txt = L.turn_right;
-    else if(d < -35) txt = L.turn_left;
+    // |turn| < 35° ise düz kabul et, biriktir
+    if (Math.abs(turn) < 35){
+      accStraightM += nextSegM;
+      continue;
+    }
 
-    appendStep(txt, segM);
+    // Dönüş var: önce “toplu düz”ü yaz
+    if (accStraightM > 0) {
+      appendStep(L.straight, accStraightM);
+      accStraightM = 0;
+    }
+
+    // Dönüşü yaz (mesafesiz)
+    if (turn > 0)      appendStep(L.turn_right, 0);
+    else               appendStep(L.turn_left,  0);
+
+    // Dönüşten sonraki segment düz toplamını başlat
+    accStraightM = nextSegM;
   }
 
+  // Sonda kalan düz varsa yaz
+  if (accStraightM > 0) appendStep(L.straight, accStraightM);
+
   // Varış
-  appendStep(t().nav.arrive, 0);
+  appendStep(L.arrive, 0);
 
   function appendStep(text, m){
     const el=document.createElement('div');
@@ -841,6 +866,7 @@ document.addEventListener('click', (e)=>{
   const btn=e.target.closest('.goto-btn'); if(!btn) return;
   const x=parseFloat(btn.dataset.x), y=parseFloat(btn.dataset.y);
   setDestination([x,y]);
+  closePopup();
   goBtn.disabled = !(startCoord || lastKnown);
   if(!goBtn.disabled) goBtn.click();
 });
