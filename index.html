@@ -107,6 +107,28 @@
         <label class="chip" title="MapLibre 3D (terrain + binalar)">
           <input type="radio" name="basemap" id="base3d"><span>MapLibre 3D</span><span class="tick">✓</span>
         </label>
+
+        <!-- DEBUG SEÇENEKLERİ -->
+        <label class="chip" title="Debug: Bileşenleri renklendir">
+         <input type="checkbox" id="dbgComps"><span>Debug: Bileşenler</span><span class="tick">✓</span>
+          </label>
+          <label class="chip" title="Debug: Snap noktalarını ve segmanlarını göster">
+          <input type="checkbox" id="dbgSnaps"><span>Snap</span><span class="tick">✓</span>
+          </label>
+        <label class="chip" title="Debug: Dead-end düğümler">
+  <input type="checkbox" id="dbgDead"><span>Dead-ends</span><span class="tick">✓</span>
+        </label>
+
+
+
+
+
+
+
+
+
+
+
         <!-- PROFİL SEÇİMİ -->
         <label class="chip" title="Yaya">
           <input type="radio" name="profile" value="walk" checked><span>Yaya</span><span class="tick">✓</span>
@@ -149,7 +171,7 @@ const HOTEL_BBOX = [31.004958004, 36.854332231, 31.01965811, 36.869973060]; // [
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.35;
+const OSM_OPACITY = 0.75;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -247,6 +269,35 @@ map.on('load', async ()=>{
   });
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
     paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
+    // DEBUG kaynak
+map.addSource('debug', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+// Bileşenleri renklendirilmiş edge’ler
+map.addLayer({id:'dbg-comps', type:'line', source:'debug',
+  filter:['==',['get','kind'],'edge'],
+  paint:{
+    // comp id'ye göre pastel renk
+    'line-color': ['interpolate',['linear'],['coalesce',['to-number',['get','comp']],0],
+      0,'#7dd3fc', 5,'#a78bfa', 10,'#f472b6', 15,'#34d399', 20,'#f59e0b', 25,'#60a5fa'],
+    'line-width': 3,
+    'line-opacity': 0.7
+  }
+});
+ // Snap noktaları
+map.addLayer({id:'dbg-snap', type:'circle', source:'debug',
+  filter:['==',['get','kind'],'snap'],
+  paint:{'circle-radius':6,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':1.5}
+});
+ // Snap edilen A–B segmentleri (kesik kırmızı)
+map.addLayer({id:'dbg-seg', type:'line', source:'debug',
+  filter:['==',['get','kind'],'seg'],
+  paint:{'line-color':'#ef4444','line-width':3,'line-dasharray':[1,1]}
+});
+ // Dead-end düğümler
+map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
+  filter:['==',['get','kind'],'dead'],
+  paint:{'circle-radius':4,'circle-color':'#000','circle-stroke-color':'#fff','circle-stroke-width':1}
+});
+
 
   // 3D
   map.addSource('omt',{ type:'vector', url:`https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}` });
@@ -523,13 +574,32 @@ function buildRouteGraph(fc){
 
   function key(xy){ return xy[0].toFixed(7)+','+xy[1].toFixed(7); }
   function getId(xy, forceNew=false){
-    const k = key(xy);
-    if(!forceNew && idOf.has(k)) return idOf.get(k);
-    const id = nodes.length;
-    idOf.set(k,id); nodes.push({id, xy});
-    if(!adj[id]) adj[id] = [];
-    return id;
+  const k = key(xy);
+  if(!forceNew && idOf.has(k)) return idOf.get(k);
+
+  // 👇 BURAYA tolerans ekle
+  if(!forceNew){
+    const TOL_M = 2.0;  // istersen 2.0 yapabilirsin
+    for(let i=0; i<nodes.length; i++){
+      const dist = turf.distance(
+        turf.point(nodes[i].xy),
+        turf.point(xy),
+        {units:'meters'}
+      );
+      if(dist <= TOL_M){
+        idOf.set(k, nodes[i].id);
+        return nodes[i].id;
+      }
+    }
   }
+
+  const id = nodes.length;
+  idOf.set(k,id);
+  nodes.push({id, xy});
+  if(!adj[id]) adj[id] = [];
+  return id;
+}
+
   function addEdge(aId,bId,w,meta){
     const modes = (meta?.modes || new Set(['walk','bike','shuttle']));
     adj[aId].push({to:bId, w, modes});
@@ -580,6 +650,7 @@ function snapToNetworkAllRoutes(xy){
 
   return best; // {xy, a, b, modes, ...}
 }
+
 
 /* Geçici düğüm: A–B yi, A–S ve S–B olarak böl */
 function insertTempNodeIntoGraph(snap){
@@ -641,7 +712,39 @@ goBtn.onclick = ()=>{
   const Tid = insertTempNodeIntoGraph(Tsnap);
 
   const nodePath = dijkstra(Sid, Tid, CURRENT_PROFILE);
-  if(!nodePath){ alert('Uygun rota bulunamadı (mod kısıtı ya da ağ kopuk).'); return; }
+if(!nodePath){
+
+  // Konsola detay yaz
+  printGraphStats();
+  logSnap('START', Ssnap);
+  logSnap('DEST',  Tsnap);
+
+  const comp = components();
+  const cS = comp[Sid], cT = comp[Tid];
+  const msg = (cS===cT)
+    ? 'Uygun rota bulunamadı. (Mod kısıtı olabilir veya snap edilen segmentte hata/uç nokta var.)'
+    : `Ağ kopuk: başlangıç bileşeni=${cS}, hedef bileşeni=${cT}. Bu iki yol parçası arasında bağlantı yok.`;
+  alert(msg);
+
+  // Overlay'i kullanıcıya aç: bileşen + snap + dead-ends
+  const showComps = true, showSnaps = true, showDead = true;
+  document.getElementById('dbgComps').checked = showComps;
+  document.getElementById('dbgSnaps').checked = showSnaps;
+  document.getElementById('dbgDead').checked  = showDead;
+  updateDebugOverlay({showComps, showSnaps, showDead, snaps:[Ssnap, Tsnap]});
+  return;
+}
+// nodePath bulunduysa, isteğe bağlı olarak sadece snapleri tut
+updateDebugOverlay({
+  showComps: document.getElementById('dbgComps').checked,
+  showSnaps: document.getElementById('dbgSnaps').checked,
+  showDead : document.getElementById('dbgDead').checked,
+  snaps:[Ssnap, Tsnap]
+});
+
+
+
+
   const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
 
   const features = [
@@ -769,6 +872,125 @@ function bboxFromCoords(coords){
   coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
   return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
 }
+// Graf özetini consola yaz
+function printGraphStats(){
+  if(!ROUTE_GRAPH){ console.warn('Graph yok'); return; }
+  const N = ROUTE_GRAPH.nodes.length;
+  let E = 0, deg1 = 0;
+  const deg = new Array(N).fill(0);
+  for(let i=0;i<N;i++){
+    const d=(ROUTE_GRAPH.adj[i]||[]).length; deg[i]=d; E+=d;
+    if(d===1) deg1++;
+  }
+  E = E/2; // çift yönlü
+  const comp = components();
+  const compCount = Math.max(...comp)+1;
+  console.log('[GRAPH]', {nodes:N, edges:E, deg1, components:compCount});
+}
+
+// u->v kenarının metadata'sı
+function getEdgeMeta(u,v){
+  const list = ROUTE_GRAPH.adj[u]||[];
+  return list.find(e=>e.to===v) || null;
+}
+
+// Bileşen hesapla
+function components(){
+  const N = ROUTE_GRAPH.nodes.length;
+  const comp = new Array(N).fill(-1);
+  let cid=0;
+  for(let i=0;i<N;i++){
+    if(comp[i]!==-1) continue;
+    const q=[i]; comp[i]=cid;
+    for(let qi=0; qi<q.length; qi++){
+      const u = q[qi];
+      for(const e of (ROUTE_GRAPH.adj[u]||[])){
+        if(comp[e.to]===-1){ comp[e.to]=cid; q.push(e.to); }
+      }
+    }
+    cid++;
+  }
+  return comp;
+}
+
+// Adj'dan edge feature'ları (bileşen id'li) üret
+function makeDebugEdges(comp){
+  const seen = new Set();
+  const feats=[];
+  for(let u=0; u<ROUTE_GRAPH.nodes.length; u++){
+    for(const e of (ROUTE_GRAPH.adj[u]||[])){
+      const v = e.to; if(u>v) continue; // her kenarı 1 kez
+      const key = u+'-'+v; if(seen.has(key)) continue; seen.add(key);
+      feats.push({
+        type:'Feature',
+        properties:{kind:'edge', comp: comp[u]},
+        geometry:{type:'LineString', coordinates:[ROUTE_GRAPH.nodes[u].xy, ROUTE_GRAPH.nodes[v].xy]}
+      });
+    }
+  }
+  return feats;
+}
+
+// Dead-end düğüm noktaları
+function makeDeadEnds(){
+  const feats=[];
+  for(let i=0;i<ROUTE_GRAPH.nodes.length;i++){
+    if((ROUTE_GRAPH.adj[i]||[]).length===1){
+      feats.push({type:'Feature', properties:{kind:'dead'}, geometry:{type:'Point', coordinates:ROUTE_GRAPH.nodes[i].xy}});
+    }
+  }
+  return feats;
+}
+
+// Snap debug (S/T noktaları ve A–B segmentleri)
+function makeSnapDebug(snap, label){
+  if(!snap) return [];
+  const feats=[];
+  feats.push({type:'Feature', properties:{kind:'snap', label}, geometry:{type:'Point', coordinates:snap.xy}});
+  feats.push({type:'Feature', properties:{kind:'seg', label}, geometry:{type:'LineString', coordinates:[snap.a, snap.b]}});
+  return feats;
+}
+
+// Toggle'lardan çiz (her çağrıda komple yeniler)
+function updateDebugOverlay(opts={}){
+  const {showComps, showSnaps, showDead, snaps=[]} = opts;
+  const fc = {type:'FeatureCollection', features:[]};
+  if(showComps && ROUTE_GRAPH){
+    const comp = components();
+    fc.features.push(...makeDebugEdges(comp));
+  }
+  if(showDead && ROUTE_GRAPH){
+    fc.features.push(...makeDeadEnds());
+  }
+  if(showSnaps && snaps.length){
+    snaps.forEach((s,i)=> fc.features.push(...makeSnapDebug(s, i===0?'S':'T')));
+  }
+  map.getSource('debug').setData(fc);
+}
+
+// Checkbox değişimleri
+['dbgComps','dbgSnaps','dbgDead'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('change', ()=>{
+    updateDebugOverlay({
+      showComps: document.getElementById('dbgComps').checked,
+      showSnaps: document.getElementById('dbgSnaps').checked,
+      showDead : document.getElementById('dbgDead').checked,
+    });
+  });
+});
+
+// Snap ayrıntılarını consola yaz (teşhis için)
+function logSnap(tag, snap){
+  if(!snap){ console.warn(tag, 'snap yok'); return; }
+  console.log(`[SNAP:${tag}]`, {
+    xy: snap.xy,
+    distM: snap.distM,
+    a: snap.a, b: snap.b,
+    featureId: snap.featureId, featureName: snap.featureName
+  });
+}
+
 
 /* ================== ROTA PANELİ BUTONLARI ================== */
 function clearRoute(){
