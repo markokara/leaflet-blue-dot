@@ -402,6 +402,7 @@ autoZoomToRoutes(topoRoutes);
 const indoorFs  = (indoor?.features || []).map(f => ({ ...f, __src:'indoor'  }));
 const outdoorFs = (outdoor?.features|| []).map(f => ({ ...f, __src:'outdoor' }));
 allFeats = indoorFs.concat(outdoorFs);
+}
 
 function ensureFid(fc, prefix){
   if(!fc || !Array.isArray(fc.features)) return fc;
