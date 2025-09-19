@@ -171,13 +171,17 @@ const HOTEL_BBOX = [31.004958004, 36.854332231, 31.01965811, 36.869973060]; // [
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.25;
+const OSM_OPACITY = 0.75;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
 const SIMULATE_ME   = true;
 const SIM_ME_COORD  = [31.005858, 36.862770];
 const SIM_ME_ACC_M  = 5;
+
+/* ===== ROTA BAĞLANTI (connector) EŞİKLERİ ===== */
+const MAX_CONNECTOR_M     = 50; // >50 m ise rota yapma ve uyar
+const HIDE_CONNECTOR_LT_M = 5;  // <5 m ise connector’ı çizme (gizle)
 
 /* ================== i18n ================== */
 const I18N = {
@@ -707,6 +711,7 @@ function dijkstra(startId, endId, profileKey='walk'){
 goBtn.onclick = ()=>{
   const srcStart = startCoord || lastKnown;
   const srcDest  = destCoord;
+
   if(!srcDest){ alert(LANG==='tr'?'Hedef seçilmedi.':'No destination.'); return; }
   if(!srcStart){ alert(LANG==='tr'?'Başlangıç seçin ya da konum izni verin.':'Pick a start or allow location.'); return; }
   if(!ROUTE_GRAPH || ROUTE_GRAPH.nodes.length===0){ alert('routes.json yüklenemedi ya da boş.'); return; }
@@ -715,41 +720,71 @@ goBtn.onclick = ()=>{
   const Tsnap = snapToNetworkAllRoutes(srcDest);
   if(!Ssnap || !Tsnap){ alert('Ağa snap edilemedi.'); return; }
 
+  const usedStart  = startCoord || lastKnown;
+  const usedDest   = destCoord;
+  const startConnM = usedStart ? meters(usedStart, Ssnap.xy) : 0;
+  const destConnM  = usedDest  ? meters(Tsnap.xy,  usedDest)  : 0;
+
+  // çok uzaksa iptal
+  if (startConnM > MAX_CONNECTOR_M || destConnM > MAX_CONNECTOR_M) {
+    alert('Başlangıç veya hedef yol ağından çok uzakta. Lütfen yola yakın bir nokta seçin.');
+    updateDebugOverlay({showComps:true, showSnaps:true, showDead:true, snaps:[Ssnap, Tsnap]});
+    return;
+  }
+
   const Sid = insertTempNodeIntoGraph(Ssnap);
   const Tid = insertTempNodeIntoGraph(Tsnap);
 
   const nodePath = dijkstra(Sid, Tid, CURRENT_PROFILE);
-if(!nodePath){
+  if(!nodePath){
+    printGraphStats();
+    logSnap('START', Ssnap); logSnap('DEST', Tsnap);
+    const comp = components(); const cS = comp[Sid], cT = comp[Tid];
+    const msg = (cS===cT)
+      ? 'Uygun rota bulunamadı. (Mod kısıtı olabilir veya snap edilen segmentte hata/uç nokta var.)'
+      : `Ağ kopuk: başlangıç bileşeni=${cS}, hedef bileşeni=${cT}. Bağlantı yok.`;
+    alert(msg);
+    updateDebugOverlay({showComps:true, showSnaps:true, showDead:true, snaps:[Ssnap, Tsnap]});
+    return;
+  }
 
-  // Konsola detay yaz
-  printGraphStats();
-  logSnap('START', Ssnap);
-  logSnap('DEST',  Tsnap);
+  updateDebugOverlay({
+    showComps: document.getElementById('dbgComps').checked,
+    showSnaps: document.getElementById('dbgSnaps').checked,
+    showDead : document.getElementById('dbgDead').checked,
+    snaps:[Ssnap, Tsnap]
+  });
 
-  const comp = components();
-  const cS = comp[Sid], cT = comp[Tid];
-  const msg = (cS===cT)
-    ? 'Uygun rota bulunamadı. (Mod kısıtı olabilir veya snap edilen segmentte hata/uç nokta var.)'
-    : `Ağ kopuk: başlangıç bileşeni=${cS}, hedef bileşeni=${cT}. Bu iki yol parçası arasında bağlantı yok.`;
-  alert(msg);
+  const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
 
-  // Overlay'i kullanıcıya aç: bileşen + snap + dead-ends
-  const showComps = true, showSnaps = true, showDead = true;
-  document.getElementById('dbgComps').checked = showComps;
-  document.getElementById('dbgSnaps').checked = showSnaps;
-  document.getElementById('dbgDead').checked  = showDead;
-  updateDebugOverlay({showComps, showSnaps, showDead, snaps:[Ssnap, Tsnap]});
-  return;
-}
-// nodePath bulunduysa, isteğe bağlı olarak sadece snapleri tut
-updateDebugOverlay({
-  showComps: document.getElementById('dbgComps').checked,
-  showSnaps: document.getElementById('dbgSnaps').checked,
-  showDead : document.getElementById('dbgDead').checked,
-  snaps:[Ssnap, Tsnap]
-});
+  const features = [
+    {type:'Feature', properties:{role:'main'}, geometry:{type:'LineString', coordinates: nodeCoords}}
+  ];
+  if (usedStart && startConnM >= HIDE_CONNECTOR_LT_M) {
+    features.push({type:'Feature', properties:{role:'connector'},
+      geometry:{type:'LineString', coordinates:[usedStart, Ssnap.xy]}});
+  }
+  if (usedDest && destConnM >= HIDE_CONNECTOR_LT_M) {
+    features.push({type:'Feature', properties:{role:'connector'},
+      geometry:{type:'LineString', coordinates:[Tsnap.xy, usedDest]}});
+  }
+  map.getSource('route').setData({type:'FeatureCollection', features});
 
+  const mainLenM = totalLength(nodeCoords);
+  const totalLenM= mainLenM
+                 + (usedStart?meters(usedStart,Ssnap.xy):0)
+                 + (usedDest?meters(Tsnap.xy,usedDest):0);
+  const durSec   = mainLenM / (SPEEDS[CURRENT_PROFILE] || 1.3);
 
+  dirSum.textContent = fmtDist(totalLenM)+' · '+fmtDur(durSec);
+  dirSub.textContent = '· '+CURRENT_PROFILE;
+
+  renderTurnByTurn(nodeCoords);
+
+  const bb = bboxFromCoords(nodeCoords.concat(usedStart?[usedStart]:[], usedDest?[usedDest]:[]));
+  if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:18});
+  dirBox.style.display = 'block';
+};
 
 
   const nodeCoords = nodePath.map(id=>ROUTE_GRAPH.nodes[id].xy);
