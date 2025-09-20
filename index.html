@@ -242,6 +242,9 @@ const $=id=>document.getElementById(id);
 const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickStartBtn=$('pickStart'), pickDestBtn=$('pickDest'), followBtn=$('follow'), resetBtn=$('reset'), results=$('results'), acc=$('acc');
 const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
 const baseSat=$('baseSat'), base3d=$('base3d');
+const searchRow = document.querySelector('.row.searchrow');
+const ctlsRow   = document.querySelector('.row.ctlsB');
+
 
 /* State */
 let allFeats=[], followState=false, lastKnown=null;
@@ -782,7 +785,7 @@ collapseDir.textContent = '▼';       // buton oku aşağı olsun
 // <<< BURAYA EKLE
   const bb = bboxFromCoords(nodeCoords.concat(usedStart?[usedStart]:[], usedDest?[usedDest]:[]));
   if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:18});
-  dirBox.style.display = 'block';
+  showRouteUI();
 };
 
 /* ================== TURN-BY-TURN ================== */
@@ -904,6 +907,24 @@ function bboxFromCoords(coords){
   coords.forEach(([x,y])=>{ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; });
   return (isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY))?[minX,minY,maxX,maxY]:null;
 }
+function showRouteUI(){
+  if (results) results.style.display = 'none';
+  if (searchRow) searchRow.style.display = 'none';
+  if (ctlsRow)   ctlsRow.style.display   = 'none';
+
+  // Rota paneli özet modda açılsın
+   showSearchUI();   // ← rota paneli kapansın, arama alanı geri gelsin
+  collapseDir.textContent = '▼';
+
+  dirBox.style.display = 'block';
+}
+
+function showSearchUI(){
+  dirBox.style.display = 'none';   // rota panelini kapat
+  if (searchRow) searchRow.style.display = 'grid'; // arama satırı grid
+  if (ctlsRow)   ctlsRow.style.display   = 'flex'; // butonlar flex
+}
+
 // Graf özetini consola yaz
 function printGraphStats(){
   if(!ROUTE_GRAPH){ console.warn('Graph yok'); return; }
@@ -1027,7 +1048,10 @@ function logSnap(tag, snap){
 /* ================== ROTA PANELİ BUTONLARI ================== */
 function clearRoute(){
   map.getSource('route').setData(emptyFC());
-  dirBox.style.display='none'; dirList.innerHTML=''; dirSum.textContent='–'; dirSub.textContent='';
+
+  dirList.innerHTML='';
+  dirSum.textContent='–';
+  dirSub.textContent='';
 }
 clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
