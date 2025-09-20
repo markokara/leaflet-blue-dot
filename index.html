@@ -243,7 +243,17 @@ const langSel=$('lang'), q=$('q'), goBtn=$('go'), pickStartBtn=$('pickStart'), p
 const dirBox=$('dir'), dirSum=$('dirSum'), dirSub=$('dirSub'), dirList=$('dirList'), collapseDir=$('collapseDir'), clearRouteBtn=$('clearRoute');
 const baseSat=$('baseSat'), base3d=$('base3d');
 const searchRow = document.querySelector('.row.searchrow');
-const ctlsRow   = document.querySelector('.row.ctlsB');
+const ctlsRow   = document.querySelector('.row.ctlsB'); 
+
+function setMode(mode){            // 'search' | 'route'
+  const isRoute = mode === 'route';
+  // Search alanı + kontrol çipleri
+  searchRow.style.display = isRoute ? 'none'  : 'grid';
+  ctlsRow.style.display   = isRoute ? 'none'  : 'flex';
+  // Rota alanı
+  dirBox.style.display    = isRoute ? 'block' : 'none';
+}
+
 
 
 /* State */
@@ -916,7 +926,7 @@ function showRouteUI(){
    showSearchUI();   // ← rota paneli kapansın, arama alanı geri gelsin
   collapseDir.textContent = '▼';
 
-  dirBox.style.display = 'block';
+  setMode('route'); 
 }
 
 function showSearchUI(){
@@ -1052,6 +1062,7 @@ function clearRoute(){
   dirList.innerHTML='';
   dirSum.textContent='–';
   dirSub.textContent='';
+  setMode('search');               // ➜ rota alanını kapat, search’i aç
 }
 clearRouteBtn.onclick=()=>clearRoute();
 collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.style.display= s==='none' ? 'block':'none'; collapseDir.textContent = s==='none' ? '▲':'▼'; };
@@ -1059,7 +1070,7 @@ collapseDir.onclick=()=>{ const s=getComputedStyle(dirList).display; dirList.sty
 /* ================== RESET + POPUP KAPAT ================== */
 function closePopup(){ if(popup) popup.remove(); }
 resetBtn.onclick=()=>{ 
-  closePopup(); clearRoute(); 
+  closePopup(); clearRoute(); setMode('search');
   map.getSource('dest').setData(emptyFC()); destCoord=null;
   map.getSource('start').setData(emptyFC()); startCoord=null;
   q.value=''; results.style.display='none'; pickMode='none';
