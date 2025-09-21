@@ -271,60 +271,42 @@ function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 
-/* LOAD */
 map.on('load', async () => {
-  // 1) Satellite (altta)
+  // 1) Uydu (opsiyonel)
   map.addSource('sat', {
     type: 'raster',
     tiles: [
       `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
     ],
     tileSize: 256,
-    attribution: "© Mapbox © OSM"
+    attribution: '© Mapbox © OSM'
   });
-  map.addLayer({
-    id: 'sat-lyr',
-    type: 'raster',
-    source: 'sat'
-  });
+  map.addLayer({ id: 'sat-lyr', type: 'raster', source: 'sat' });
 
-  // 2) Özel ortho / drone tiles (senin klasörden gelen tiles)
+  // 2) Sizin tiles (altta baz katman olarak)
   map.addSource('hotelOrtho', {
     type: 'raster',
-    tiles: [
-      'https://markokara.github.io/leaflet-blue-dot/tiles/{z}/{x}/{y}.webp'
-    ],
+    tiles: ['https://markokara.github.io/leaflet-blue-dot/tiles/{z}/{x}/{y}.webp'],
     tileSize: 256,
     minzoom: 16,
     maxzoom: 21,
     scheme: 'xyz',
     attribution: '© Regnum Hotels ortho imagery'
   });
-  map.addLayer({
-    id: 'hotelOrthoLayer',
-    type: 'raster',
-    source: 'hotelOrtho',
-    paint: {
-      'raster-opacity': 1.0
-    }
-  });
+  map.addLayer({ id: 'hotel-ortho', type: 'raster', source: 'hotelOrtho' });
 
-  // 3) İstersen OSM Streets katmanını da koy (overlay ya da üst taraf için)
+  // 3) OSM raster (üstte yarı saydam)
   map.addSource('osmRaster', {
     type: 'raster',
-    tiles: [
-      `https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
-    ],
+    tiles: [`https://api.maptiler.com/maps/streets/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`],
     tileSize: 256,
-    attribution: "© OpenMapTiles © OpenStreetMap contributors"
+    attribution: '© OpenMapTiles © OpenStreetMap contributors'
   });
   map.addLayer({
     id: 'osm-raster',
     type: 'raster',
     source: 'osmRaster',
-    paint: {
-      'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0  // OSM görünürlüğünü kontrol et
-    }
+    paint: { 'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0 } // örn. 0.75
   });
 
   // 4) Diğer kaynaklar / katmanlar
