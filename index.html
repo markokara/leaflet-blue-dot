@@ -274,28 +274,11 @@ function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.na
 /* LOAD */
 map.on('load', async ()=>{
   // Satellite (altta)
-  // >>> SENİN ORTHO TILE KATMANIN
-const TILE_BASE = 'https://lively-choux-d241be.netlify.app';  // kök dizin
-
-map.addSource('ortho', {
-  type: 'raster',
-  tiles: ['https://silver-faun-2730f9.netlify.app/tiles/{z}/{x}/{y}.png'],
-  tileSize: 256,
-  minzoom: 16,
-  maxzoom: 21,
-  scheme: 'xyz',
-  attribution: '© Ortho'
-});
-
-map.addLayer({
-  id: 'ortho-lyr',
-  type: 'raster',
-  source: 'ortho'
-});
-
-
-map.addLayer({ id:'hotel-ortho', type:'raster', source:'hotelOrtho' });
-// <<< SENİN ORTHO TILE KATMANIN
+  map.addSource('sat',{ type:'raster',
+    tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
+    tileSize:256, attribution:"© Mapbox © OSM"
+  });
+  map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
   // OSM raster ÜSTTE
   map.addSource('osmRaster',{ type:'raster',
