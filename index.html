@@ -167,11 +167,11 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
+const HOTEL_BBOX = [31.004958004, 36.854332231, 31.01965811, 36.869973060]; // [minLon,minLat,maxLon,maxLat]
 const PADDING = {top:120,right:16,bottom:160,left:16};
-const DEFAULT_PITCH = 75, DEFAULT_BEARING = 0;
+const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.15;
+const OSM_OPACITY = 0.75;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -273,12 +273,18 @@ function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.na
 
 /* LOAD */
 map.on('load', async ()=>{
-  // Satellite (altta)
-  map.addSource('sat',{ type:'raster',
-    tiles:[`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`],
-    tileSize:256, attribution:"© Mapbox © OSM"
-  });
-  map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
+  // Hotel ortho (senin tiles)
+map.addSource('hotelOrtho', {
+  type: 'raster',
+  tiles: [
+    'https://lively-choux-d241be.netlify.app/20/{z}/{x}/{y}.png'
+  ],
+  tileSize: 256,
+  attribution: "© Senin Ortofoto"
+});
+map.addLayer({id:'hotel-ortho', type:'raster', source:'hotelOrtho'});
+
+  
 
   // OSM raster ÜSTTE
   map.addSource('osmRaster',{ type:'raster',
