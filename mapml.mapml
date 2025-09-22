@@ -1,6 +1,6 @@
 <mapml>
     <head>
-        <title>hotel_ortho_3857.tif</title>
+        <title>ortho_3857.tif</title>
         <base href="./" />
         <meta charset="utf-8" />
         <meta content="text/mapml;projection=OSMTILE" http-equiv="Content-Type" />
@@ -14,9 +14,9 @@
     <body>
         <extent units="OSMTILE">
             <input name="z" type="zoom" value="21" min="16" max="21" />
-            <input name="x" type="location" axis="column" units="tilematrix" min="1048574" max="1048577" />
-            <input name="y" type="location" axis="row" units="tilematrix" min="1048575" max="1048576" />
-            <link tref="./{z}/{x}/{y}.webp" rel="tile" />
+            <input name="x" type="location" axis="column" units="tilematrix" min="1276566" max="1276588" />
+            <input name="y" type="location" axis="row" units="tilematrix" min="907168" max="907195" />
+            <link tref="./{z}/{x}/{y}.png" rel="tile" />
             <!--<link tref="http://localhost:8080/myservice/wmts?layer=MYLAYER&amp;style=&amp;tilematrixset=OSMTILE&amp;service=WMTS&amp;request=GetTile&amp;version=1.0.0&amp;tilematrix={z}&amp;TileCol={x}&amp;TileRow={y}&amp;format=image/png" rel="tile" />-->
             <!--
             <input name="i" type="location" axis="i" units="tile" />
