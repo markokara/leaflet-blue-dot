@@ -277,15 +277,22 @@ map.on('load', async ()=>{
   // >>> SENİN ORTHO TILE KATMANIN
 const TILE_BASE = 'https://lively-choux-d241be.netlify.app';  // kök dizin
 
-map.addSource('hotelOrtho', {
+map.addSource('ortho', {
   type: 'raster',
-  tiles: [ `${TILE_BASE}/{z}/{x}/{y}.png` ],  // Netlify kökünde Z/X/Y.png
+  tiles: ['https://silver-faun-2730f9.netlify.app/tiles/{z}/{x}/{y}.png'],
   tileSize: 256,
+  minzoom: 16,
+  maxzoom: 21,
   scheme: 'xyz',
-  minzoom: 16,   // gdal2tiles üretim aralığın
-  maxzoom: 21,   // gdal2tiles üretim aralığın
-  attribution: '© ortho tiles'
+  attribution: '© Ortho'
 });
+
+map.addLayer({
+  id: 'ortho-lyr',
+  type: 'raster',
+  source: 'ortho'
+});
+
 
 map.addLayer({ id:'hotel-ortho', type:'raster', source:'hotelOrtho' });
 // <<< SENİN ORTHO TILE KATMANIN
