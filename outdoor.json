@@ -26,7 +26,7 @@
         "fill":"",
         "fill_op":0.35
       },
-      "geometry":{"type":"Point","coordinates":31.80391182600343,36.6008488108224]}
+      "geometry":{"type":"Point","coordinates":[31.80391182600343,36.6008488108224]}
     },
     {
       "type":"Feature",
