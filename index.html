@@ -167,11 +167,11 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX = [31.004958004, 36.854332231, 31.01965811, 36.869973060]; // [minLon,minLat,maxLon,maxLat]
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.75;
+const OSM_OPACITY = 0.25;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -273,20 +273,22 @@ function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.na
 
 /* LOAD */
 map.on('load', async ()=>{
- map.addSource('hotelOrtho', {
+  // Satellite (altta)
+  // >>> SENİN ORTHO TILE KATMANIN
+const TILE_BASE = 'https://lively-choux-d241be.netlify.app';  // kök dizin
+
+map.addSource('hotelOrtho', {
   type: 'raster',
-  tiles: [ 'https://lively-choux-d241be.netlify.app/{z}/{x}/{y}.png' ], // baştaki /20/ YOK!
+  tiles: [ `${TILE_BASE}/{z}/{x}/{y}.png` ],  // Netlify kökünde Z/X/Y.png
   tileSize: 256,
   scheme: 'xyz',
-  minzoom: 16,
-  maxzoom: 21,
-  attribution: '© Ortofoto'
+  minzoom: 16,   // gdal2tiles üretim aralığın
+  maxzoom: 21,   // gdal2tiles üretim aralığın
+  attribution: '© ortho tiles'
 });
+
 map.addLayer({ id:'hotel-ortho', type:'raster', source:'hotelOrtho' });
-map.setMinZoom(16);
-
-
-  
+// <<< SENİN ORTHO TILE KATMANIN
 
   // OSM raster ÜSTTE
   map.addSource('osmRaster',{ type:'raster',
