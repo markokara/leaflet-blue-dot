@@ -273,16 +273,18 @@ function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.na
 
 /* LOAD */
 map.on('load', async ()=>{
-  // Hotel ortho (senin tiles)
-map.addSource('hotelOrtho', {
+ map.addSource('hotelOrtho', {
   type: 'raster',
-  tiles: [
-    'https://lively-choux-d241be.netlify.app/20/{z}/{x}/{y}.png'
-  ],
+  tiles: [ 'https://lively-choux-d241be.netlify.app/{z}/{x}/{y}.png' ], // baştaki /20/ YOK!
   tileSize: 256,
-  attribution: "© Senin Ortofoto"
+  scheme: 'xyz',
+  minzoom: 16,
+  maxzoom: 21,
+  attribution: '© Ortofoto'
 });
-map.addLayer({id:'hotel-ortho', type:'raster', source:'hotelOrtho'});
+map.addLayer({ id:'hotel-ortho', type:'raster', source:'hotelOrtho' });
+map.setMinZoom(16);
+
 
   
 
