@@ -171,7 +171,7 @@ const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.15;
+const OSM_OPACITY = 0.25;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -382,9 +382,25 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
 /* Katman yardımcıları */
 function addFeatureLayers(src){
   map.addLayer({id:`${src}-fill`,type:'fill',source:src,paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}});
+
   map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}});
+
   map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
+
   map.addLayer({id:`${src}-pts`,type:'circle',source:src,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
+map.addLayer({
+  id:`${src}-pts`,
+  type:'circle',
+  source:src,
+  filter:['==',['geometry-type'],'Point'],
+  paint:{
+    'circle-radius':['coalesce',['get','icon_sz'],6],
+    'circle-color':['coalesce',['get','stroke'],'#e53935'],
+    'circle-stroke-color':'#fff',
+    'circle-stroke-width':1.6
+  }
+});
+
 }
 
 /* JSON yükleme */
