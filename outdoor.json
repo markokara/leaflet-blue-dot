@@ -28,8 +28,40 @@
       },
       "geometry": {
         "type": "Point",
-        "coordinates": [31.80434508971544,36.60103640525219]
+        "coordinates": [31.80434508971544, 36.60103640525219]
       },
-      "id": "99950875-5149-419c-8437-6595b29e071d"
+      "id": "d3a431e5-2a46-4e63-9cf0-727c62622a8d"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": "02-main-building-entrance",
+        "category": "gate",
+        "name_tr": "🚪 Ana Bina Girişi",
+        "name_en": "🚪 Main Building Entrance",
+        "name_ru": "🚪 Вход в главный корпус",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/02-main-building-entrance/800/500",
+        "icon_text": "🚪",
+        "stroke": "#00796B",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#B2DFDB",
+        "fill_op": 0.35
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.8051123412334, 36.60023455981234]
+      },
+      "id": "6c1df748-31d9-43f4-a4f8-2fbe0c0f19c4"
     }
-    
+  ]
+}
