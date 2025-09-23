@@ -233,7 +233,9 @@ let CURRENT_PROFILE = 'walk';
 
 /* ================== MAP ================== */
 const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:21, attributionControl:false });
+
+const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:19, attributionControl:false });
+
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
 
@@ -279,6 +281,22 @@ map.on('load', async ()=>{
     tileSize:256, attribution:"© Mapbox © OSM"
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
+
+  // Drone ortofoto kutucukları (16–19 seviyeleri)
+map.addSource('drone', {
+  type: 'raster',
+  tiles: ['./{z}/{x}/{y}.png'], // Proje kökündeki 16,17,18,19 klasörlerini kullanır
+  tileSize: 256,
+  minzoom: 16,
+  maxzoom: 19
+});
+map.addLayer({
+  id: 'drone-layer',
+  type: 'raster',
+  source: 'drone',
+  paint: { 'raster-opacity': 1.0 }
+});
+
 
   // OSM raster ÜSTTE
   map.addSource('osmRaster',{ type:'raster',
