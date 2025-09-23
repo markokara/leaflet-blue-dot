@@ -34,39 +34,4 @@
         ]
       },
       "id": "99950875-5149-419c-8437-6595b29e071d"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "fid": "02-annex-reception-lobby-bar-vanilla",
-        "category": "reception",
-        "name_tr": "🛎️ Annex Resepsiyon, Lobi, Lobi Bar, Vanilla Pastane",
-        "name_en": "🛎️ Annex Reception, Lobby, Lobby Bar, Vanilla Patisserie",
-        "name_ru": "🛎️ Аннекс: ресепшен, лобби, лобби-бар, кондитерская Vanilla",
-        "hours_tr": "",
-        "hours_en": "",
-        "hours_ru": "",
-        "level": "0",
-        "level_tr": "Zemin",
-        "level_en": "Ground",
-        "desc_tr": "",
-        "desc_en": "",
-        "desc_ru": "",
-        "image": "https://picsum.photos/seed/02-annex-reception-lobby-bar-vanilla/800/500",
-        "icon_text": "🛎️",
-        "stroke": "#1E88E5",
-        "stroke_w": 1.6,
-        "stroke_op": 0.9,
-        "fill": "#F5F5F5",
-        "fill_op": 0.35
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.8047004641397,
-          36.60100513982535
-        ]
-      },
-      "id": "0709012f-286a-437c-a938-03005b7f1ef7"
     }
-    
