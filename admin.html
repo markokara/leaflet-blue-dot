@@ -7,7 +7,709 @@
 
 <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
-<!-- Turf.js: mesafe, bearing, nearestPointOnLine -->
+<!-- Turf.js: mesafe, bearing, nearestPointOnLine --><!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<title>Admin – Indoor/Outdoor/3D + Routes (Mapbox altta • OSM/3D üstte)</title>
+
+<!-- OpenLayers -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+
+<!-- MapLibre (3D overlay) -->
+<link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial}
+
+  /* Sıralama: Mapbox (OL) altta → OSM overlay (OL) → 3D overlay (MapLibre) → vektörler (OL) → UI */
+  #map{position:fixed; inset:0; z-index:1; touch-action:none}
+  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:none} /* üstte şeffaf 3D katman */
+  .ol-attribution{font-size:10px; opacity:.85}
+  .ol-attribution button{display:none}
+
+  .panel{position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:10;
+    background:#fff; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.25);
+    padding:10px; width:calc(100% - 20px); max-width:1180px;}
+  .row{display:flex; flex-wrap:wrap; gap:8px}
+  .row>*{flex:1 1 auto; min-width:120px}
+  button,select,input[type="file"],input[type="text"],input[type="number"],input[type="range"]{
+    padding:10px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer}
+  input[type="text"], input[type="number"], textarea{cursor:text}
+  .primary{border-color:#b3d7ff; background:#f0f7ff}
+  .active{outline:2px solid #3b82f6; background:#eaf2ff}
+  .danger{border:1px solid #ffb3b3; background:#fff0f0}
+  .pill{padding:4px 8px; font-size:12px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe}
+  .small{font-size:12px; color:#555}
+
+  #status{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:11;
+    background:#111; color:#fff; padding:6px 10px; border-radius:8px; display:none; font-size:13px}
+  .acc-badge{position:fixed; right:10px; top:10px; z-index:11; background:#fff; border:1px solid #ddd; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); display:none}
+
+  /* yüzen toolbox */
+  .toolbox {position:fixed; left:10px; top:70px; z-index:15; background:#fff; border:1px solid #ddd;
+    border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.18); display:none; flex-direction:column; gap:6px; padding:8px}
+  .toolbox button{width:36px; height:36px; display:grid; place-items:center; border:1px solid #e5e7eb; border-radius:10px; background:#fff; cursor:pointer}
+  .toolbox button:active{transform:translateY(1px)}
+
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:12}
+  .panel2{background:#fff; width:min(780px,92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .grid label{font-size:12px; color:#555}
+  .grid input,.grid textarea,.grid select{width:100%; padding:10px; border:1px solid #ddd; border-radius:8px}
+  textarea{min-height:72px}
+  .actions{display:flex; gap:8px; justify-content:space-between; margin-top:10px}
+  .actions .left{display:flex; gap:8px}
+
+  @media (max-width: 640px){
+    .panel{padding:8px}
+    button,select,input[type="file"],input[type="text"],input[type="number"]{padding:9px; font-size:14px}
+    .row>*{min-width:100px}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="ml3d"></div>
+<div id="status"></div>
+<div id="acc" class="acc-badge"></div>
+
+<!-- TOOLBOX -->
+<div class="toolbox" id="toolbox" title="Seçili öğe için araçlar">
+  <button id="tbTranslate" title="Taşı (T)">↔️</button>
+  <button id="tbCopy"      title="Kopyala (C)">📄</button>
+  <button id="tbCircle"    title="Daireleştir (0)">⭕</button>
+  <button id="tbSquare"    title="Kareleştir">◼️</button>
+  <button id="tbFlipLong"  title="Uzun eksende çevir">⟂</button>
+  <button id="tbFlipShort" title="Kısa eksende çevir">↕️</button>
+  <button id="tbDelete"    title="Sil">🗑️</button>
+</div>
+
+<!-- KONTROLLER -->
+<div class="panel">
+  <div class="row" style="align-items:center">
+    <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
+      <input id="mbBaseToggle" type="checkbox" checked> Mapbox uydu (altta)
+    </label>
+    <div style="display:flex;align-items:center;gap:8px; min-width:220px">
+      <span class="small">Uydu opaklık</span>
+      <input id="mbBaseOpacity" type="range" min="0" max="1" step="0.05" value="1.00" style="flex:1">
+      <span id="mbBaseOpacityVal" class="small">1.00</span>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
+      <input id="osmOverlayToggle" type="checkbox" checked> OSM (üstte)
+    </label>
+    <div style="display:flex;align-items:center;gap:8px; min-width:220px">
+      <span class="small">OSM opaklık</span>
+      <input id="osmOverlayOpacity" type="range" min="0" max="1" step="0.05" value="0.40" style="flex:1">
+      <span id="osmOverlayOpacityVal" class="small">0.40</span>
+    </div>
+
+    <label id="lbl3d" style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
+      <input id="ml3dToggle" type="checkbox"> 3D (MapLibre üstte)
+    </label>
+  </div>
+
+  <div class="row" style="align-items:center">
+    <select id="layerSel">
+      <option value="outdoor">Hedef: OUTDOOR</option>
+      <option value="indoor">Hedef: INDOOR</option>
+      <option value="buildings">Hedef: 3D BİNA</option>
+      <option value="routes">Hedef: YOLLAR</option>
+    </select>
+    <input id="levelFilter" placeholder="Kat filtresi (ör: 1) – boş=hepsi" />
+    <button id="follow" class="primary" title="Konumumu izle">🎯 Takip: Kapalı</button>
+    <span class="pill small">Aktif katman vurgulu</span>
+  </div>
+
+  <div class="row">
+    <button id="addPoint"  class="primary">➕ Nokta</button>
+    <button id="addLine"   class="primary">〰️ Çizgi</button>
+    <button id="addPoly"   class="primary">⬛ Poligon</button>
+    <button id="finishDraw" style="display:none">✔ Bitir</button>
+    <button id="selectBtn">☑ Seç / Özellik</button>
+    <button id="duplicateBtn" title="Seçili öğeyi kopyala (Ctrl+D)">📄 Kopyala</button>
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="showArrows" checked> Yol yön okları
+    </label>
+  </div>
+
+  <div class="row">
+    <button id="expIndoor">⤓ indoor.json</button>
+    <button id="expOutdoor">⤓ outdoor.json</button>
+    <button id="expBuildings">⤓ buildings.json</button>
+    <button id="expRoutes">⤓ routes.json</button>
+    <label style="display:flex;align-items:center;gap:6px">⤒ JSON Yükle
+      <input id="imp" type="file" accept=".json,application/json">
+    </label>
+    <button id="clearLocal" class="danger">🧹 Yerel Veriyi Temizle</button>
+  </div>
+</div>
+
+<!-- ÖZELLİK FORMU -->
+<div id="propModal" class="modal" aria-hidden="true">
+  <div class="panel2">
+    <h3>Özellikler</h3>
+    <div class="grid">
+      <div><label>İsim (varsayılan)</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
+      <div>
+        <label>Kategori</label>
+        <select id="f_category">
+          <option value="">Seçiniz…</option>
+          <option>restaurant</option><option>bar</option><option>spa</option><option>pool</option>
+          <option>wc</option><option>elevator</option><option>stair</option><option>kidsclub</option>
+          <option>reception</option><option>shop</option><option>gym</option><option>beach</option>
+          <option>shuttle</option><option>parking</option><option>gate</option><option>info</option>
+          <option>building</option>
+          <option>green</option><option>forest</option><option>garden</option><option>trees</option>
+          <option>aquapark</option><option>waterslide</option><option>playground</option>
+          <option>tennis</option><option>football</option><option>basketball</option><option>volleyball</option>
+          <option>pier</option><option>beachbar</option><option>amphitheatre</option>
+          <option>path</option><option>bike</option><option>service</option><option>noentry</option><option>oneway</option>
+          <option value="_other">Diğer…</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1; display:none" id="catOtherWrap"><label>Diğer Kategori</label><input id="f_category_other" placeholder="ör. lounge"></div>
+
+      <div><label>Dolgu Rengi (fill)</label><input id="f_fill" type="text" placeholder="#09DCE4 veya 09DCE4"></div>
+      <div><label>Çizgi Rengi (stroke)</label><input id="f_stroke" type="text" placeholder="#1f2937 veya 1f2937"></div>
+      <div><label>Dolgu Opaklığı (0–1)</label><input id="f_fill_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.25"></div>
+      <div><label>Çizgi Opaklığı (0–1)</label><input id="f_stroke_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.8"></div>
+
+      <div><label>Çizgi Kalınlığı (px)</label><input id="f_width" type="number" step="0.5" min="0" placeholder="2"></div>
+      <div><label>Yol Tipi</label>
+        <select id="f_way">
+          <option value="">(yok)</option>
+          <option value="foot">Yaya</option>
+          <option value="run">Koşu</option>
+          <option value="indoor">Indoor koridor</option>
+          <option value="bike">Bisiklet</option>
+          <option value="shuttle">Shuttle</option>
+          <option value="service">Servis/araç</option>
+          <option value="no_entry">Girilmez</option>
+          <option value="oneway_fwd">Tek yön (→)</option>
+          <option value="oneway_rev">Tek yön (←)</option>
+        </select>
+      </div>
+
+      <div style="grid-column:1/-1"><label>Emoji/İkon Metni</label><input id="f_icon_text" placeholder="ör. 🏊‍♂️"></div>
+
+      <div><label>Seviye/Kat (varsayılan)</label><input id="f_level" placeholder="1"></div>
+      <div><label>Saatler (varsayılan)</label><input id="f_hours" placeholder="09:00-22:00"></div>
+      <div style="grid-column:1/-1"><label>Açıklama (varsayılan)</label><textarea id="f_desc" placeholder="Kısa açıklama veya https://... linkleri yaz; tıklanabilir."></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf/İkon URL</label><input id="f_image" placeholder="https://.../foto.png"></div>
+
+      <div><label>Yükseklik (metre)</label><input id="f_height" type="number" min="0" step="0.5" placeholder="örn: 18"></div>
+      <div><label>Kat Sayısı</label><input id="f_levels" type="number" min="0" step="1" placeholder="örn: 6"></div>
+
+      <div><label>Öğe ID (otomatik)</label><input id="f_id" disabled></div>
+      <div><label>Özet</label><input id="f_metric" disabled></div>
+    </div>
+
+    <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+
+    <!-- Çok dilli -->
+    <div class="grid">
+      <div>
+        <label>Dil</label>
+        <select id="f_lang">
+          <option value="tr">Türkçe</option><option value="en">English</option>
+          <option value="ru">Русский</option><option value="de">Deutsch</option><option value="pl">Polski</option>
+        </select>
+      </div>
+      <div class="pill small" style="align-self:end">Bu bölüm <b>name_XX / hours_XX / level_XX / desc_XX / image_XX</b> alanlarını yazar.</div>
+    </div>
+    <div class="grid">
+      <div><label>İsim (seçili dil)</label><input id="l_name"></div>
+      <div><label>Saatler (seçili dil)</label><input id="l_hours"></div>
+      <div><label>Seviye/Kat (seçili dil)</label><input id="l_level"></div>
+      <div style="grid-column:1/-1"><label>Açıklama (seçili dil)</label><textarea id="l_desc"></textarea></div>
+      <div style="grid-column:1/-1"><label>Fotoğraf URL (seçili dil)</label><input id="l_image" placeholder="https://.../foto.jpg"></div>
+    </div>
+
+    <div class="actions">
+      <div class="left">
+        <button id="propGeom" class="pill">Geometriyi Düzenle</button>
+        <button id="geomReset" class="pill">Düzenlemeyi Kapat</button>
+        <button id="moveLayer" class="pill" style="display:none">Aktif katmana taşı</button>
+        <button id="propDelete" class="danger">Sil</button>
+      </div>
+      <div>
+        <button class="primary" id="propSave">Kaydet</button>
+        <button class="primary" id="propClose">Kapat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== TOKEN ====== */
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
+
+/* ====== yardımcılar ====== */
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+const setStatus = (msg, ms=2200)=>{ if(!msg){statusEl.style.display="none";return;} statusEl.textContent=msg; statusEl.style.display="block"; if(ms>0) setTimeout(()=>statusEl.style.display="none", ms); };
+
+const fmt = new ol.format.GeoJSON();
+function isFC(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
+
+/* GEÇMİŞ: writeFeatures → JSON.parse ile çalışıyordu ve bazı ortamlarda geometri kaybı olabiliyordu.
+   YENİ: writeFeaturesObject doğrudan JS nesnesi üretir; güvenli. */
+const writeGJ = layer =>
+  fmt.writeFeaturesObject(layer.getSource().getFeatures(), {
+    featureProjection:"EPSG:3857",
+    dataProjection:"EPSG:4326"
+  });
+
+const readGJToLayer = (layer, gj) => { if(!isFC(gj)) throw new Error("FeatureCollection bekleniyor"); const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
+
+function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }catch(e){ alert("Yerel depolama dolu olabilir."); } };
+const saveLocal = debounce((k,layer)=>{ saveLocalRaw(k, writeGJ(layer)); update3DBuildings(); }, 200);
+const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
+
+function to4326(g){ return g.clone().transform('EPSG:3857','EPSG:4326'); }
+function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2]; }
+function validateImg(u){ if(!u) return true; try{ const x=new URL(u); if(!(x.protocol==="http:"||x.protocol==="https:")) return false; return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(x.pathname); }catch{ return false; } }
+const clamp01 = v => Math.min(1, Math.max(0, v));
+
+/* ====== renk yardımcıları ====== */
+function hexToRGB(hex){
+  const h=hex.replace('#','').trim(); if(!(h.length===3||h.length===6)) return null;
+  const n = h.length===3 ? h.split('').map(c=>parseInt(c+c,16)) : [h.slice(0,2),h.slice(2,4),h.slice(4,6)].map(x=>parseInt(x,16));
+  if(n.some(v=>isNaN(v))) return null; return {r:n[0],g:n[1],b:n[2]};
+}
+function withOpacity(color, alpha){
+  if(!Number.isFinite(alpha)) return color;
+  const a = clamp01(alpha);
+  if(typeof color!=='string'||!color) return color;
+  if(color.startsWith('#')){
+    const rgb=hexToRGB(color); return rgb?`rgba(${rgb.r},${rgb.g},${rgb.b},${a})`:color;
+  }
+  const m = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)$/i);
+  if(m){ return `rgba(${m[1]},${m[2]},${m[3]},${a})`; }
+  return color;
+}
+
+/* ====== stiller ====== */
+function arrowStylesFor(line, color="#111", count=4, size=10){
+  const styles=[]; for(let i=1;i<=count;i++){ const t=i/(count+1); const p=line.getCoordinateAt(t);
+    const prev=line.getCoordinateAt(Math.max(0,t-0.01)); const dx=p[0]-prev[0], dy=p[1]-prev[1];
+    const rot=Math.atan2(dy,dx);
+    styles.push(new ol.style.Style({ geometry:new ol.geom.Point(p),
+      image:new ol.style.RegularShape({points:3, radius:size, rotation:rot, fill:new ol.style.Fill({color})}) }));
+  } return styles;
+}
+function defaultFillStrokeForCategory(cat){
+  switch(cat){
+    case 'green': case 'garden': return {fill:'rgba(34,197,94,0.22)', stroke:'rgba(16,94,47,0.7)'};
+    case 'forest': case 'trees': return {fill:'rgba(13,148,136,0.22)', stroke:'rgba(4,120,87,0.7)'};
+    case 'aquapark': return {fill:'rgba(14,165,233,0.22)', stroke:'rgba(14,165,233,0.8)'};
+    case 'waterslide': return {fill:'rgba(56,189,248,0.18)', stroke:'rgba(2,132,199,0.9)'};
+    case 'playground': return {fill:'rgba(234,179,8,0.18)', stroke:'rgba(180,83,9,0.9)'};
+    case 'tennis': return {fill:'rgba(74,222,128,0.18)', stroke:'rgba(22,163,74,0.9)'};
+    case 'football': return {fill:'rgba(34,197,94,0.18)', stroke:'rgba(21,128,61,0.9)'};
+    case 'basketball': return {fill:'rgba(250,204,21,0.18)', stroke:'rgba(202,138,4,0.9)'};
+    case 'volleyball': return {fill:'rgba(253,186,116,0.18)', stroke:'rgba(234,88,12,0.9)'};
+    case 'pool': return {fill:'rgba(59,130,246,0.2)', stroke:'rgba(37,99,235,0.9)'};
+    default: return {fill:'rgba(0,150,0,0.18)', stroke:'rgba(0,0,0,0.6)'};
+  }
+}
+function baseStyleFor(f, dim=1){
+  const t=f.getGeometry().getType(); const p=f.getProperties()||{}; const cat=(p.category||'').toString();
+
+  if(t==="Point"){
+    const url=(p.image||'').trim(), txt=(p.icon_text||'').trim();
+    if(url) return new ol.style.Style({ image:new ol.style.Icon({src:url, crossOrigin:'anonymous'}) });
+    if(txt) return new ol.style.Style({ text:new ol.style.Text({ text:txt, font:"24px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',system-ui", fill:new ol.style.Fill({color:`rgba(0,0,0,${0.95*dim})`}) }) });
+    return new ol.style.Style({ image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:`rgba(200,0,0,${1*dim})`}),stroke:new ol.style.Stroke({color:"#fff",width:1.5})}) });
+  }
+
+  if(t==="LineString"){
+    const way=(p.way||'').toString();
+    const fallback =
+      (way==='bike' ? '#22c55e' : way==='run' ? '#a855f7' : way==='shuttle' ? '#f59e0b' :
+       way==='service' ? '#6b7280' : way==='indoor' ? '#0ea5e9' : way==='foot' ? '#1f2937' :
+       way==='no_entry' ? '#ef4444' : '#1f2937');
+    const baseCol = (p.stroke && p.stroke.trim()) ? p.stroke : fallback;
+    const strokeCol = withOpacity(baseCol, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
+    const w = Math.max(1, Number.isFinite(p.width)? p.width : (way==='shuttle'?4:(way==='bike'||way==='run'?3:2)));
+    const dash = (way==='no_entry'? [6,6]: undefined);
+    const styles=[ new ol.style.Style({ stroke:new ol.style.Stroke({color:strokeCol, width:w, lineDash:dash}) }) ];
+    const showAr=$('showArrows').checked;
+    const needsArrows = showAr && (['oneway_fwd','oneway_rev','shuttle','bike','indoor','foot','run'].includes(way));
+    if(needsArrows){
+      const ls=f.getGeometry(); const dir=(way==='oneway_rev')? ls.clone().reverse() : ls;
+      styles.push(...arrowStylesFor(dir, strokeCol, 4, Math.max(8,w*2.2)));
+    }
+    return styles;
+  }
+
+  // Polygon
+  const catDef=defaultFillStrokeForCategory(cat);
+  const fillBase = p.fill || catDef.fill;
+  const strokeBase = (p.stroke && p.stroke.trim()) ? p.stroke : catDef.stroke;
+  const fillC = withOpacity(fillBase, Number.isFinite(p.fill_op)? p.fill_op : undefined);
+  const strokeC = withOpacity(strokeBase, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
+  const w=Math.max(1, Number.isFinite(p.width)?p.width:2);
+  return new ol.style.Style({ fill:new ol.style.Fill({color:fillC}), stroke:new ol.style.Stroke({color:strokeC,width:w}) });
+}
+
+function buildingStyleFor(f, dim=1){
+  const p=f.getProperties()||{};
+  const baseStroke = (p.stroke && p.stroke.trim()) ? p.stroke : `rgba(120,84,48,${0.8*dim})`;
+  const baseFill   = (p.fill && p.fill.trim())   ? p.fill   : `rgba(201,180,155,${0.25*dim})`;
+  const strokeCol = withOpacity(baseStroke, Number.isFinite(p.stroke_op)? p.stroke_op : undefined);
+  const fillCol   = withOpacity(baseFill,   Number.isFinite(p.fill_op)? p.fill_op   : undefined);
+  if(f.getGeometry().getType()==="Point"){
+    return new ol.style.Style({ image:new ol.style.Circle({radius:6,fill:new ol.style.Fill({color:fillCol}),stroke:new ol.style.Stroke({color:"#fff",width:1})}) });
+  }
+  return new ol.style.Style({stroke:new ol.style.Stroke({color:strokeCol,width:Math.max(1,p.width||2)}),fill:new ol.style.Fill({color:fillCol})});
+}
+
+function styleWrapper(name){
+  return f=>{ const active=$("layerSel").value, filter=$("levelFilter").value.trim();
+    const lvl=(f.get("level")??"").toString().trim(); const isActive=active===name;
+    if(filter && lvl!==filter) return null;
+    if(name==="buildings") return buildingStyleFor(f, isActive?1:0.35);
+    return baseStyleFor(f, isActive?1:0.35);
+  };
+}
+
+/* ====== katmanlar ====== */
+const indoorLayer    = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("indoor")});
+const outdoorLayer   = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("outdoor")});
+const buildingsLayer = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("buildings")});
+const routesLayer    = new ol.layer.VectorImage({source:new ol.source.Vector(), style:styleWrapper("routes")});
+[indoorLayer,outdoorLayer,buildingsLayer,routesLayer].forEach((l,i)=>l.setZIndex(20+i));
+const tgtLayer = ()=>{ const v=$("layerSel").value; return v==="indoor"?indoorLayer : v==="outdoor"?outdoorLayer : v==="buildings"?buildingsLayer : routesLayer; };
+
+/* Aktif/gerçek katman adını döndür */
+function layerName(layer){
+  if(layer===indoorLayer) return 'indoor';
+  if(layer===outdoorLayer) return 'outdoor';
+  if(layer===buildingsLayer) return 'buildings';
+  if(layer===routesLayer) return 'routes';
+  return null;
+}
+/* Bir feature şu anda hangi katmanda? */
+function featureLayer(f){
+  for(const L of [indoorLayer,outdoorLayer,buildingsLayer,routesLayer]){
+    if(L.getSource().hasFeature(f)) return L;
+  }
+  return null;
+}
+
+/* ====== BASE: Mapbox (altta) + OSM overlay (üstte) ====== */
+const lyrBaseMB = new ol.layer.Tile({
+  source: new ol.source.XYZ({
+    url:`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+    crossOrigin:'anonymous',
+    attributions:'© Mapbox © OpenStreetMap'
+  }),
+  opacity:1, zIndex:0, visible:true
+});
+const lyrOSMOverlay = new ol.layer.Tile({
+  source:new ol.source.OSM({attributions:'© OpenStreetMap'}), opacity:0.40, zIndex:2, visible:true
+});
+
+/* ====== HARİTA ====== */
+const map = new ol.Map({
+  target:"map",
+  layers:[lyrBaseMB, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
+  view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
+});
+map.addControl(new ol.control.Attribution({collapsible:false}));
+
+/* ====== OSM/Mapbox UI ====== */
+$("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
+$("mbBaseOpacity").oninput=()=>{ const v=parseFloat($("mbBaseOpacity").value); lyrBaseMB.setOpacity(v); $("mbBaseOpacityVal").textContent=v.toFixed(2); };
+$("osmOverlayToggle").onchange=()=> lyrOSMOverlay.setVisible($("osmOverlayToggle").checked);
+$("osmOverlayOpacity").oninput=()=>{ const v=parseFloat($("osmOverlayOpacity").value); lyrOSMOverlay.setOpacity(v); $("osmOverlayOpacityVal").textContent=v.toFixed(2); };
+
+/* ====== 3D MapLibre OVERLAY (şeffaf) ====== */
+let mlMap=null, mlPitch=55, mlBearing=20;
+function ensureML(){
+  if(mlMap) return;
+  const style={
+    "version":8,
+    "sources":{
+      "bld":{"type":"geojson","data": loadLocal("buildings") || {"type":"FeatureCollection","features":[]}}
+    },
+    "layers":[
+      {"id":"bld-ex","type":"fill-extrusion","source":"bld",
+       "paint":{
+         "fill-extrusion-color":["coalesce",["get","fill"],"#c9b49b"],
+         "fill-extrusion-height":["coalesce",["to-number",["get","height"]],["*",["to-number",["coalesce",["get","levels"],["get","building:levels"],1]],3]],
+         "fill-extrusion-opacity":0.95
+       },
+       "filter":["==",["geometry-type"],"Polygon"]
+      }
+    ],
+    "glyphs":"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    "sprite":""
+  };
+  mlMap = new maplibregl.Map({
+    container:"ml3d",
+    style,
+    interactive:false,
+    center:[31.005,36.861],
+    zoom:17,
+    pitch:mlPitch,
+    bearing:mlBearing,
+    antialias:true,
+    attributionControl:false
+  });
+}
+function syncMLView(){
+  if(!mlMap) return;
+  const c=ol.proj.transform(map.getView().getCenter(),'EPSG:3857','EPSG:4326');
+  const z=map.getView().getZoom();
+  mlMap.jumpTo({center:[c[0],c[1]], zoom:Math.max(z-0.5, 3), pitch:mlPitch, bearing:mlBearing});
+}
+function update3DBuildings(){
+  if(!mlMap) return;
+  const src=mlMap.getSource('bld'); if(src && src.setData) src.setData(loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
+}
+$("ml3dToggle").onchange=()=>{ const on=$("ml3dToggle").checked; if(on){ ensureML(); $("ml3d").style.display="block"; syncMLView(); } else { $("ml3d").style.display="none"; } };
+map.getView().on(['change:center','change:resolution'], syncMLView);
+
+/* ====== veri yükleme ====== */
+(function initLoad(){
+  readGJToLayer(indoorLayer,    loadLocal("indoor")    || {"type":"FeatureCollection","features":[]});
+  readGJToLayer(outdoorLayer,   loadLocal("outdoor")   || {"type":"FeatureCollection","features":[]});
+  readGJToLayer(buildingsLayer, loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
+  readGJToLayer(routesLayer,    loadLocal("routes")    || {"type":"FeatureCollection","features":[]});
+})();
+
+/* ====== konum + takip ====== */
+const accEl=$("acc"); let userMarker=null, accCircle=null, userLayer=null, follow=false, watchId=null;
+(function startWatch(){
+  if(!("geolocation" in navigator)) return;
+  try{ if(watchId!==null) navigator.geolocation.clearWatch(watchId);}catch{}
+  watchId = navigator.geolocation.watchPosition(pos=>{
+    const coords = ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+    if(!userMarker){
+      userMarker = new ol.Feature(new ol.geom.Point(coords));
+      userMarker.setStyle(new ol.style.Style({ image:new ol.style.Circle({radius:6, fill:new ol.style.Fill({color:"#007bff"}), stroke:new ol.style.Stroke({color:"#fff",width:2})}) }));
+      accCircle  = new ol.Feature(new ol.geom.Circle(coords, pos.coords.accuracy||0));
+      accCircle.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:"#007bff",width:1}), fill:new ol.style.Fill({color:"rgba(0,123,255,0.08)"}) }));
+      userLayer  = new ol.layer.Vector({ source:new ol.source.Vector({features:[accCircle,userMarker]}) });
+      userLayer.setZIndex(40); map.addLayer(userLayer);
+    }else{
+      userMarker.getGeometry().setCoordinates(coords); accCircle.getGeometry().setCenter(coords); accCircle.getGeometry().setRadius(pos.coords.accuracy||0);
+    }
+    accEl.textContent = "±" + Math.round(pos.coords.accuracy||0) + " m"; accEl.style.display="block";
+    if(follow) map.getView().animate({center: coords, duration: 200});
+  },()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+})();
+$("follow").onclick=()=>{ follow=!follow; $("follow").textContent = follow ? "🎯 Takip: Açık" : "🎯 Takip: Kapalı"; if(follow && userMarker) map.getView().setCenter(userMarker.getGeometry().getCoordinates()); };
+
+/* ====== etkileşimler & toolbox ====== */
+let mode=null, draw=null, select=null, selected=null, modify=null, snap=null, translate=null;
+function resetInteractions(){
+  if(draw){map.removeInteraction(draw);draw=null;}
+  if(select){map.removeInteraction(select);select=null;}
+  if(modify){map.removeInteraction(modify);modify=null;}
+  if(snap){map.removeInteraction(snap);snap=null;}
+  if(translate){map.removeInteraction(translate);translate=null; $("tbTranslate").classList.remove("active");}
+  selected=null; mode=null;
+  ["addPoint","addLine","addPoly","selectBtn"].forEach(id=>$(id).classList.remove("active"));
+  $("finishDraw").style.display="none"; map.getTargetElement().style.cursor=""; $("toolbox").style.display="none";
+}
+function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
+
+function enrich(f){
+  try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{ }
+  const g=f.getGeometry(), p=f.getProperties();
+  if(g.getType()==="Polygon"){
+    f.set("area_m2", Math.round(g.getArea()));
+    if(p.category==="building" || $("layerSel").value==="buildings"){
+      if(p.height==null){ const lv=parseInt(p.levels ?? p['building:levels'],10); if(Number.isFinite(lv)) f.set("height", lv*3); }
+    }
+  }else if(g.getType()==="LineString"){
+    const ll = to4326(g).getCoordinates(); let len=0; for(let i=1;i<ll.length;i++) len += ol.sphere.getDistance(ll[i-1], ll[i]); f.set("len_m", Math.round(len));
+  }
+}
+function toCircle(feature){ const g=feature.getGeometry(); if(!(g instanceof ol.geom.Polygon) && !(g instanceof ol.geom.LineString)) return;
+  const c=centerOf(g); const coords=(g instanceof ol.geom.Polygon)? g.getCoordinates()[0] : g.getCoordinates();
+  let r=0; coords.forEach(([x,y])=>{ r+=Math.hypot(x-c[0], y-c[1]); }); r/=Math.max(1,coords.length);
+  feature.setGeometry(ol.geom.Polygon.fromCircle(new ol.geom.Circle(c, r||5), 64));
+}
+function toSquare(feature){ const g=feature.getGeometry(); if(!(g instanceof ol.geom.Polygon)) return;
+  const e=g.getExtent(); feature.setGeometry(new ol.geom.Polygon([[[e[0],e[1]],[e[2],e[1]],[e[2],e[3]],[e[0],e[3]],[e[0],e[1]]]]));
+}
+function flipFeature(feature,longAxis=true){
+  const g=feature.getGeometry(); const e=g.getExtent(); const cx=(e[0]+e[2])/2, cy=(e[1]+e[3])/2; const w=e[2]-e[0], h=e[3]-e[1];
+  const fx = longAxis ? (w>=h) : !(w>=h); const fy = !fx; const mapPt=([x,y])=>[ fx?2*cx-x:x, fy?2*cy-y:y ];
+  if(g instanceof ol.geom.Point){ g.setCoordinates(mapPt(g.getCoordinates())); }
+  else if(g instanceof ol.geom.LineString){ g.setCoordinates(g.getCoordinates().map(mapPt)); }
+  else if(g instanceof ol.geom.Polygon){ g.setCoordinates(g.getCoordinates().map(r=>r.map(mapPt))); }
+}
+function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.setId(crypto.randomUUID()); }catch{} const g=clone.getGeometry(); if(g && g.translate) g.translate(5,-5); layer.getSource().addFeature(clone); return clone; }
+
+/* kaldır / çiz / seç */
+map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
+$("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
+
+$("addLine").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="line"; $("addLine").classList.add("active"); setStatus("ÇİZGİ: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
+  const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
+  draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
+};
+$("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
+  const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
+  draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
+};
+
+$("selectBtn").onclick=(e)=>{
+  e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active");
+  setStatus("SEÇİM: öğeye tıkla → form & araçlar");
+  const allLayers=[indoorLayer,outdoorLayer,buildingsLayer,routesLayer];
+  select=new ol.interaction.Select({layers:allLayers}); if(select.setHitTolerance) select.setHitTolerance(6); map.addInteraction(select);
+  select.on("select",ev=>{
+    selected=ev.selected[0]||null; $("toolbox").style.display = selected ? "flex" : "none"; if(!selected) return;
+    openForm(selected);
+  });
+
+  $("tbTranslate").onclick=()=>{ if(!selected) return;
+    if(translate){ map.removeInteraction(translate); translate=null; $("tbTranslate").classList.remove("active"); }
+    else{ translate = new ol.interaction.Translate({features: new ol.Collection([selected])}); map.addInteraction(translate); $("tbTranslate").classList.add("active");
+      translate.on("translateend",()=>{ enrich(selected); saveLocal($("layerSel").value, tgtLayer()); }); }
+  };
+  $("tbCopy").onclick=()=>{ if(!selected) return; const c=copyFeature(selected, tgtLayer()); enrich(c); saveLocal($("layerSel").value, tgtLayer()); if(select){ select.getFeatures().clear(); select.getFeatures().push(c); selected=c; } };
+  $("tbCircle").onclick=()=>{ if(!selected) return; toCircle(selected); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
+  $("tbSquare").onclick=()=>{ if(!selected) return; toSquare(selected); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
+  $("tbFlipLong").onclick=()=>{ if(!selected) return; flipFeature(selected,true); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
+  $("tbFlipShort").onclick=()=>{ if(!selected) return; flipFeature(selected,false); enrich(selected); saveLocal($("layerSel").value, tgtLayer()); };
+  $("tbDelete").onclick=()=>{ if(!selected) return; if(confirm("Seçili öğe silinsin mi?")){ const L=featureLayer(selected) || tgtLayer(); L.getSource().removeFeature(selected); saveLocal(layerName(L), L); selected=null; $("toolbox").style.display="none"; } };
+};
+$("layerSel").addEventListener("change",()=>{ resetInteractions(); indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); routesLayer.changed(); });
+$("levelFilter").addEventListener("input",()=>{ indoorLayer.changed(); outdoorLayer.changed(); routesLayer.changed(); buildingsLayer.changed(); });
+$("showArrows").addEventListener("change",()=>{ routesLayer.changed(); });
+
+/* ====== FORM + i18n ====== */
+const modal=$("propModal");
+let editFeature=null, i18nLang='tr';
+function loadLangFields(p){ $('l_name').value=p['name_'+i18nLang]||''; $('l_hours').value=p['hours_'+i18nLang]||''; $('l_level').value=p['level_'+i18nLang]||''; $('l_desc').value=p['desc_'+i18nLang]||''; $('l_image').value=p['image_'+i18nLang]||''; }
+function saveLangFields(p){
+  const ln=i18nLang; const img=$('l_image').value.trim(); if(img && !validateImg(img)){ alert("Dil-özgü fotoğraf URL geçersiz."); return false; }
+  p['name_'+ln]=$('l_name').value.trim()||undefined; p['hours_'+ln]=$('l_hours').value.trim()||undefined; p['level_'+ln]=$('l_level').value.trim()||undefined; p['desc_'+ln]=$('l_desc').value.trim()||undefined; p['image_'+ln]=img||undefined; return true;
+}
+function summarizeGeom(f){
+  const g=f.getGeometry(), t=g.getType();
+  if(t==="Point"){ const c=ol.proj.transform(g.getCoordinates(),'EPSG:3857','EPSG:4326'); return `Point · lon/lat: ${c[0].toFixed(6)}, ${c[1].toFixed(6)}`; }
+  if(t==="LineString") return `LineString · uzunluk: ${f.get("len_m")||0} m`;
+  if(t==="Polygon") return `Polygon · merkez: ${ol.proj.transform(centerOf(g),'EPSG:3857','EPSG:4326').map(n=>n.toFixed(6)).join(", ")} · alan ≈ ${(f.get("area_m2")||0)} m²`;
+  return t;
+}
+function openForm(f){
+  editFeature=f; const p=f.getProperties(); const catSel=$('f_category'), otherWrap=$('catOtherWrap'), other=$('f_category_other');
+  $('f_name').value=p.name||""; $('f_hours').value=p.hours||""; $('f_level').value=p.level||""; $('f_desc').value=p.desc||""; $('f_image').value=p.image||""; $('f_id').value=f.getId()||""; $('f_metric').value=summarizeGeom(f);
+  $('f_height').value=p.height??""; $('f_levels').value=p.levels??p['building:levels']??"";
+  $('f_fill').value=p.fill||""; $('f_stroke').value=p.stroke||""; $('f_fill_op').value=(Number.isFinite(p.fill_op)?p.fill_op:""); $('f_stroke_op').value=(Number.isFinite(p.stroke_op)?p.stroke_op:"");
+  $('f_width').value=(Number.isFinite(p.width)?p.width:"")||""; $('f_way').value=p.way||""; $('f_icon_text').value=p.icon_text||"";
+  if(p.category && [...catSel.options].some(o=>o.value===p.category)){ catSel.value=p.category; otherWrap.style.display="none"; other.value=""; }
+  else if(p.category){ catSel.value="_other"; otherWrap.style.display="block"; other.value=p.category; }
+  else { catSel.value=""; otherWrap.style.display="none"; other.value=""; }
+  catSel.onchange=()=>{ if(catSel.value==="_other") otherWrap.style.display="block"; else {otherWrap.style.display="none"; other.value="";} };
+  $('f_lang').value=i18nLang; loadLangFields(p); $('f_lang').onchange=()=>{ i18nLang=$('f_lang').value; loadLangFields(editFeature.getProperties()); };
+
+  modal.style.display="flex"; modal.setAttribute("aria-hidden","false");
+
+  $('propSave').onclick=()=>{
+    const img=$('f_image').value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; }
+    const h=parseFloat($('f_height').value), lv=parseInt($('f_levels').value,10), width=parseFloat($('f_width').value);
+    const fill_op = parseFloat($('f_fill_op').value), stroke_op = parseFloat($('f_stroke_op').value);
+    const props={
+      name:$('f_name').value.trim()||undefined,
+      category:(catSel.value==="_other"? other.value.trim(): catSel.value.trim())||undefined,
+      hours:$('f_hours').value.trim()||undefined,
+      level:$('f_level').value.trim()||undefined,
+      desc:$('f_desc').value.trim()||undefined,
+      image:img||undefined,
+      icon_text:($('f_icon_text').value||"").trim()||undefined,
+      way:($('f_way').value||"").trim()||undefined,
+      width:Number.isFinite(width)?width:undefined,
+      stroke:(s=>{s=s.trim();return s?s.replace(/^#?/,'#'):undefined;})($('f_stroke').value),
+      fill:(s=>{s=s.trim();return s?s.replace(/^#?/,'#'):undefined;})($('f_fill').value),
+      stroke_op:Number.isFinite(stroke_op)? clamp01(stroke_op) : undefined,
+      fill_op:Number.isFinite(fill_op)? clamp01(fill_op) : undefined,
+      height:Number.isFinite(h)?h:undefined,
+      levels:Number.isFinite(lv)?lv:undefined,
+      'building:levels':Number.isFinite(lv)?lv:undefined
+    };
+    if((props.way==='foot'||props.way==='run'||props.way==='bike'||props.way==='shuttle'||props.way==='service'||props.way==='indoor') && !props.category){ props.category='path'; }
+    if(!saveLangFields(props)) return;
+    f.setProperties(props); enrich(f); // stil güncelle
+    const L = featureLayer(f) || tgtLayer(); // hangi katmanda ise onu kaydet
+    saveLocal(layerName(L), L);
+    setStatus("Kaydedildi."); $('propClose').click();
+  };
+  $('propClose').onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); };
+  $('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify);
+    modify=new ol.interaction.Modify({ features:new ol.Collection([f]) });
+    map.addInteraction(modify); enableSnap(tgtLayer()); setStatus("DÜZENLEME: vertex taşı. 'Düzenlemeyi Kapat' ile çık.");
+    modify.on("modifyend",()=>{ enrich(f); const L=featureLayer(f) || tgtLayer(); saveLocal(layerName(L), L); $('f_metric').value=summarizeGeom(f); });
+  };
+  $('geomReset').onclick=()=>{ if(modify){ map.removeInteraction(modify); modify=null; } if(snap){ map.removeInteraction(snap); snap=null; } setStatus("Geometri düzenleme kapatıldı."); };
+  $('propDelete').onclick=()=>{ if(confirm("Bu öğe silinsin mi?")){ const L=featureLayer(f) || tgtLayer(); L.getSource().removeFeature(f); saveLocal(layerName(L), L); modal.style.display="none"; resetInteractions(); } };
+
+  /* ==== YENİ: Aktif katmana taşı ==== */
+  const moveBtn = $('moveLayer');
+  const currLayer = featureLayer(f);
+  const currName = layerName(currLayer);
+  const actName  = $('layerSel').value;
+  const actLayer = tgtLayer();
+
+  if (currLayer && currLayer !== actLayer) {
+    moveBtn.style.display = 'inline-block';
+    moveBtn.textContent = `Taşı: ${actName.toUpperCase()}`;
+    moveBtn.onclick = () => {
+      currLayer.getSource().removeFeature(f);
+      actLayer.getSource().addFeature(f);
+      enrich(f);
+      saveLocal(actName, actLayer);
+      setStatus(`Öğe ${currName} → ${actName} taşındı.`);
+      modal.style.display = 'none';
+      resetInteractions();
+    };
+  } else {
+    moveBtn.style.display = 'none';
+    moveBtn.onclick = null;
+  }
+}
+
+/* ====== indir / yükle / temizle ====== */
+function dl(obj,name){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+$("expIndoor").onclick=()=> dl(writeGJ(indoorLayer),"indoor.json");
+$("expOutdoor").onclick=()=> dl(writeGJ(outdoorLayer),"outdoor.json");
+$("expBuildings").onclick=()=> dl(writeGJ(buildingsLayer),"buildings.json");
+$("expRoutes").onclick=()=> dl(writeGJ(routesLayer),"routes.json");
+
+$("imp").addEventListener("change", async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  if(file.size>10*1024*1024){ alert("Dosya > 10MB."); e.target.value=""; return; }
+  try{ const json=JSON.parse(await file.text()); const layer=tgtLayer(); readGJToLayer(layer,json); saveLocal($("layerSel").value, layer); alert("GeoJSON yüklendi (aktif katmana)."); }
+  catch(err){ console.error(err); alert("Geçersiz GeoJSON."); }
+  e.target.value="";
+});
+$("clearLocal").onclick=()=>{
+  if(!confirm("Yerel veriyi sil ve katmanları boşalt?")) return;
+  ["indoor","outdoor","buildings","routes"].forEach(k=> localStorage.removeItem(k));
+  indoorLayer.getSource().clear(); outdoorLayer.getSource().clear(); buildingsLayer.getSource().clear(); routesLayer.getSource().clear();
+  indoorLayer.changed(); outdoorLayer.changed(); buildingsLayer.changed(); routesLayer.changed();
+  update3DBuildings();
+  setStatus("Yerel veri temizlendi.");
+};
+</script>
+</body>
+</html>
+
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js" charset="utf-8"></script>
 
 <style>
@@ -1122,3 +1824,4 @@ function setMe(xy, accM=5){
 </script>
 </body>
 </html>
+
