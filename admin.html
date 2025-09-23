@@ -409,12 +409,41 @@ const lyrOSMOverlay = new ol.layer.Tile({
   source:new ol.source.OSM({attributions:'© OpenStreetMap'}), opacity:0.40, zIndex:2, visible:true
 });
 
-/* ====== HARİTA ====== */
-const map = new ol.Map({
-  target:"map",
-  layers:[lyrBaseMB, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
+/* ====== BASE: Kendi drone kutucuklarınız ====== */
+const lyrDrone = new ol.layer.Tile({
+  source: new ol.source.XYZ({
+    url: './{z}/{x}/{y}.png',    // Klasör yapınız farklıysa değiştirin; örn. 'tiles/{z}/{x}/{y}.png'
+    minZoom: 16,
+    maxZoom: 19,
+    crossOrigin: 'anonymous'
+    // extent tanımlayarak gereksiz 404 isteklerini engelleyebilirsiniz:
+    // extent: ol.proj.transformExtent(
+    //   [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902],
+    //   'EPSG:4326','EPSG:3857')
+  }),
+  opacity: 1,
+  zIndex: 0,
+  visible: true
 });
+
+
+/* ====== HARİTA ====== */
+const ORTHO_BBOX = [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902]; // [minLon,minLat,maxLon,maxLat]
+
+const map = new ol.Map({
+  target: "map",
+  layers: [lyrDrone, /* diğer katmanlar */],
+  view: new ol.View({
+    center: ol.proj.fromLonLat([
+      (ORTHO_BBOX[0] + ORTHO_BBOX[2]) / 2,
+      (ORTHO_BBOX[1] + ORTHO_BBOX[3]) / 2
+    ]),
+    zoom: 18,
+    maxZoom: 19
+  })
+});
+
+
 map.addControl(new ol.control.Attribution({collapsible:false}));
 
 /* ====== OSM/Mapbox UI ====== */
@@ -700,4 +729,3 @@ $("clearLocal").onclick=()=>{
 </script>
 </body>
 </html>
-
