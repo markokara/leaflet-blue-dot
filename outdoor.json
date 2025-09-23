@@ -20,10 +20,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/01-annex-building-entrance/800/500",
         "icon_text":"🚪",
-        "stroke":"",
+        "stroke":"#6D6875",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.80434508971544,36.60103640525219]}
@@ -47,10 +47,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/02-annex-reception-lobby-bar-vanilla/800/500",
         "icon_text":"🛎️",
-        "stroke":"",
+        "stroke":"#1E88E5",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.8047004641397,36.60100513982535]}
@@ -74,10 +74,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/03-terrazza-bar/800/500",
         "icon_text":"🍸",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.80443618412798,36.60063441873798]}
@@ -101,10 +101,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/04-asian-cuisine-restaurant/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803973697052868,36.60053816699937]}
@@ -128,15 +128,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/05-waterfall-pool/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803923702251637,36.60031665380659]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -156,10 +155,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/06-annex-building-tunnel/800/500",
         "icon_text":"🛣️",
-        "stroke":"",
+        "stroke":"#5D4037",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803269206271153,36.60021024354673]}
@@ -183,10 +182,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/07-harmony-restaurant/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.8041498364679,36.60048958223091]}
@@ -210,10 +209,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/08-sunset-snack-bar/800/500",
         "icon_text":"🍹",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.80374627554275,36.60012862561884]}
@@ -237,10 +236,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/09-relax-pool/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803830281000955,36.60012803917594]}
@@ -264,10 +263,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/10-longie-ship-aquapark/800/500",
         "icon_text":"🛝",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803521658046805,36.60013395578885]}
@@ -291,15 +290,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/11-savie-beauty-salon-annex/800/500",
         "icon_text":"💆",
-        "stroke":"",
+        "stroke":"#8E24AA",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.803658001631135,36.60043586947137]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -319,10 +317,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/12-main-building-entrance/800/500",
         "icon_text":"🚪",
-        "stroke":"",
+        "stroke":"#6D6875",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.805369881616855,36.59986667995088]}
@@ -346,10 +344,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/13-reception-lobby-lobby-bar/800/500",
         "icon_text":"🛎️",
-        "stroke":"",
+        "stroke":"#1E88E5",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.805303224337848,36.59977424710432]}
@@ -373,10 +371,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/14-parking/800/500",
         "icon_text":"🅿️",
-        "stroke":"",
+        "stroke":"#455A64",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.805321403595144,36.600046680437856]}
@@ -400,10 +398,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/15-hayat-restaurant/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.80469724907428,36.60010992375332]}
@@ -427,10 +425,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/16-main-pool-fantasia-pool-bar/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[31.80473034327113,36.59947636127205]}
@@ -454,10 +452,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/17-lapiano/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -481,10 +479,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/18-pirate-island/800/500",
         "icon_text":"🛝",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -508,10 +506,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/19-info-madeleine/800/500",
         "icon_text":"ℹ️",
-        "stroke":"",
+        "stroke":"#F9A825",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -535,10 +533,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/20-peacock-spa/800/500",
         "icon_text":"💆",
-        "stroke":"",
+        "stroke":"#8E24AA",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -562,10 +560,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/21-indoor-pool/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -589,10 +587,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/22-longie-kids-main/800/500",
         "icon_text":"🐼",
-        "stroke":"",
+        "stroke":"#D81B60",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -614,12 +612,12 @@
         "desc_tr":"",
         "desc_en":"",
         "desc_ru":"",
-        "image":"https://picsum.photos/seed/23-indoor-amphi/800/500",
+        "image":"https://picsum.photos/seed/23-indoor-amphitheatre-shopping-savie-game/800/500",
         "icon_text":"🎭",
-        "stroke":"",
+        "stroke":"#1976D2",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -643,10 +641,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/24-bosphorous/800/500",
         "icon_text":"🏛️",
-        "stroke":"",
+        "stroke":"#6A1B9A",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -670,10 +668,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/25-doctor-gym/800/500",
         "icon_text":"🩺",
-        "stroke":"",
+        "stroke":"#1976D2",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -697,15 +695,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/26-main-tunnel/800/500",
         "icon_text":"🛣️",
-        "stroke":"",
+        "stroke":"#5D4037",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -725,10 +722,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/27-chalet/800/500",
         "icon_text":"🏡",
-        "stroke":"",
+        "stroke":"#1976D2",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -752,10 +749,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/28-villa-lake-pool/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -779,10 +776,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/29-villa-river-pool/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -806,10 +803,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/30-villa-chalet-restaurant/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -833,10 +830,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/31-beach-volley/800/500",
         "icon_text":"🏐",
-        "stroke":"",
+        "stroke":"#E53935",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -860,10 +857,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/32-beer-garden/800/500",
         "icon_text":"🍺",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -887,15 +884,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/33-tennis-courts/800/500",
         "icon_text":"🎾",
-        "stroke":"",
+        "stroke":"#E53935",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -915,10 +911,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/34-longie-kids-beach/800/500",
         "icon_text":"🧒",
-        "stroke":"",
+        "stroke":"#D81B60",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -942,10 +938,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/35-turkish-cuisine/800/500",
         "icon_text":"🍽️",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -969,10 +965,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/36-stage-snack/800/500",
         "icon_text":"🥤",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -996,10 +992,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/37-infinity-sea/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1023,10 +1019,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/38-tropical-aquatower/800/500",
         "icon_text":"🛝",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1050,10 +1046,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/39-step-yoga/800/500",
         "icon_text":"🧘",
-        "stroke":"",
+        "stroke":"#E53935",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1077,10 +1073,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/40-mini-football/800/500",
         "icon_text":"⚽",
-        "stroke":"",
+        "stroke":"#E53935",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1104,10 +1100,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/41-activity-sea/800/500",
         "icon_text":"🏊",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1123,18 +1119,18 @@
         "hours_tr":"",
         "hours_en":"",
         "hours_ru":"",
-        "level":"-",
-        "level_tr":"-",
-        "level_en":"-",
         "desc_tr":"",
         "desc_en":"",
         "desc_ru":"",
+        "level":"-",
+        "level_tr":"-",
+        "level_en":"-",
         "image":"https://picsum.photos/seed/42-mare-snack/800/500",
         "icon_text":"🍹",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1158,10 +1154,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/43-el-sombrero/800/500",
         "icon_text":"🌮",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1185,10 +1181,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/44-gozleme/800/500",
         "icon_text":"🥞",
-        "stroke":"",
+        "stroke":"#8D6E63",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1212,15 +1208,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/45-arena-amphi/800/500",
         "icon_text":"🎪",
-        "stroke":"",
+        "stroke":"#1976D2",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -1240,10 +1235,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/46-delphin/800/500",
         "icon_text":"🐟",
-        "stroke":"",
+        "stroke":"#2E7D32",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1267,10 +1262,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/47-beach-bar/800/500",
         "icon_text":"🍹",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1294,10 +1289,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/48-surf-pool/800/500",
         "icon_text":"🏄",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1321,10 +1316,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/49-adventure-park/800/500",
         "icon_text":"🎯",
-        "stroke":"",
+        "stroke":"#43A047",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1348,10 +1343,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/50-funfairs/800/500",
         "icon_text":"🎡",
-        "stroke":"",
+        "stroke":"#43A047",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1375,10 +1370,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/51-amphi-bar/800/500",
         "icon_text":"🍸",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1402,10 +1397,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/52-main-aquapark/800/500",
         "icon_text":"🛝",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1429,10 +1424,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/53-zipline/800/500",
         "icon_text":"🧗",
-        "stroke":"",
+        "stroke":"#43A047",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1456,10 +1451,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/54-tropicana-disco/800/500",
         "icon_text":"🎶",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1483,10 +1478,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/55-pirate-ship/800/500",
         "icon_text":"🛳️",
-        "stroke":"",
+        "stroke":"#0077B6",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1510,10 +1505,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/56-gazebos/800/500",
         "icon_text":"⛱️",
-        "stroke":"",
+        "stroke":"#FB8C00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1537,10 +1532,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/57-minizoo-pony/800/500",
         "icon_text":"🐴",
-        "stroke":"",
+        "stroke":"#43A047",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1564,15 +1559,14 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/58-beach/800/500",
         "icon_text":"🏖️",
-        "stroke":"",
+        "stroke":"#FB8C00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
     },
-
     {
       "type":"Feature",
       "properties":{
@@ -1592,10 +1586,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/59-water-sports/800/500",
         "icon_text":"🚤",
-        "stroke":"",
+        "stroke":"#FB8C00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1619,10 +1613,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/60-pier/800/500",
         "icon_text":"🛳️",
-        "stroke":"",
+        "stroke":"#FB8C00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1646,10 +1640,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/61-annex-pier/800/500",
         "icon_text":"🛳️",
-        "stroke":"",
+        "stroke":"#FB8C00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1673,10 +1667,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/62-beach-volley-2/800/500",
         "icon_text":"🏐",
-        "stroke":"",
+        "stroke":"#E53935",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1700,10 +1694,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/63-tropicana-snack/800/500",
         "icon_text":"🍹",
-        "stroke":"",
+        "stroke":"#C95F00",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
@@ -1727,10 +1721,10 @@
         "desc_ru":"",
         "image":"https://picsum.photos/seed/64-ev-charging/800/500",
         "icon_text":"🔌",
-        "stroke":"",
+        "stroke":"#455A64",
         "stroke_w":1.6,
         "stroke_op":0.9,
-        "fill":"",
+        "fill":"#F5F5F5",
         "fill_op":0.35
       },
       "geometry":{"type":"Point","coordinates":[0,0]}
