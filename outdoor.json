@@ -2132,40 +2132,6 @@
     {
       "type": "Feature",
       "properties": {
-        "fid": "63-tropicana-snack-bar-terrace",
-        "category": "bar",
-        "name_tr": "🍹 Tropicana Snack Bar & Teras",
-        "name_en": "🍹 Tropicana Snack Bar & Terrace",
-        "name_ru": "🍹 Tropicana снек-бар и терраса",
-        "hours_tr": "",
-        "hours_en": "",
-        "hours_ru": "",
-        "level": "-",
-        "level_tr": "-",
-        "level_en": "-",
-        "desc_tr": "",
-        "desc_en": "",
-        "desc_ru": "",
-        "image": "https://picsum.photos/seed/63-tropicana-snack/800/500",
-        "icon_text": "🍹",
-        "stroke": "#C95F00",
-        "stroke_w": 1.6,
-        "stroke_op": 0.9,
-        "fill": "#F5F5F5",
-        "fill_op": 0.35
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          31.80675,
-          36.5978
-        ]
-      },
-      "id": "94158dd1-85e9-4b80-afdc-59aad6493d80"
-    },
-    {
-      "type": "Feature",
-      "properties": {
         "fid": "64-electric-charging-unit",
         "category": "parking",
         "name_tr": "🔌 Elektrikli Araç Şarj Ünitesi",
