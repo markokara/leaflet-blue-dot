@@ -2,29 +2,36 @@
   "type": "FeatureCollection",
   "features": [
     {
-      "type":"Feature",
-      "properties":{
-        "fid":"01-annex-building-entrance",
-        "category":"gate",
-        "name_tr":"🚪 Annex Binası Girişi",
-        "name_en":"🚪 Annex Building Entrance",
-        "name_ru":"🚪 Вход корпуса Annex",
-        "hours_tr":"",
-        "hours_en":"",
-        "hours_ru":"",
-        "level":"-",
-        "level_tr":"-",
-        "level_en":"-",
-        "desc_tr":"",
-        "desc_en":"",
-        "desc_ru":"",
-        "image":"https://picsum.photos/seed/01-annex-building-entrance/800/500",
-        "icon_text":"🚪",
-        "stroke":"#6D6875",
-        "stroke_w":1.6,
-        "stroke_op":0.9,
-        "fill":"#F5F5F5",
-        "fill_op":0.35
+      "type": "Feature",
+      "properties": {
+        "fid": "01-annex-building-entrance",
+        "category": "gate",
+        "name_tr": "🚪 Annex Binası Girişi",
+        "name_en": "🚪 Annex Building Entrance",
+        "name_ru": "🚪 Вход корпуса Annex",
+        "hours_tr": "",
+        "hours_en": "",
+        "hours_ru": "",
+        "level": "-",
+        "level_tr": "-",
+        "level_en": "-",
+        "desc_tr": "",
+        "desc_en": "",
+        "desc_ru": "",
+        "image": "https://picsum.photos/seed/01-annex-building-entrance/800/500",
+        "icon_text": "🚪",
+        "stroke": "#6D6875",
+        "stroke_w": 1.6,
+        "stroke_op": 0.9,
+        "fill": "#F5F5F5",
+        "fill_op": 0.35
       },
-      "geometry":{"type":"Point","coordinates":[31.80434508971544,36.60103640525219]}
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.80434508971544,
+          36.60103640525219
+        ]
+      },
+      "id": "99950875-5149-419c-8437-6595b29e071d"
     },
