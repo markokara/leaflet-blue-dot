@@ -295,15 +295,18 @@ map.on('load', async ()=>{
   }
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
-    restaurant: 'poi-red.png',
-    bar:        'poi-red.png',
-    spa:        'poi-red.png',
-    // ... diğer kategoriler
-  };
-  for (const [key, path] of Object.entries(icons)) {
-    const buf = await fetch(path).then(r => r.arrayBuffer());
-    const bmp = await createImageBitmap(new Blob([buf]));
+  restaurant: 'poi-red.png', //bu icon yolunu değiştirdiğinde değişecek
+  bar:        'poi-red.png',//bu icon yolunu değiştirdiğinde değişecek
+  spa:        'poi-red.png'//bu icon yolunu değiştirdiğinde değişecek
+  // ... eklediğiniz diğer kategoriler
+};
+for (const [key, path] of Object.entries(icons)) {
+  const buf = await fetch(path).then(r => r.arrayBuffer());
+  const bmp = await createImageBitmap(new Blob([buf]));
+  if (!map.hasImage(`poi-${key}`)) {
     map.addImage(`poi-${key}`, bmp);
+  }
+}
 
 
     // DEBUG kaynak
