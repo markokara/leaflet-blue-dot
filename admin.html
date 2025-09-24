@@ -416,6 +416,7 @@ const map = new ol.Map({
   view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
+map.addInteraction(new ol.interaction.DragRotateAndZoom());
 
 /* ====== OSM/Mapbox UI ====== */
 $("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
@@ -448,14 +449,17 @@ function ensureML(){
   mlMap = new maplibregl.Map({
     container:"ml3d",
     style,
-    interactive:false,
-    center:[31.005,36.861],
+    interactive:true,
+    center:[31.801445, 36.597411],
     zoom:17,
     pitch:mlPitch,
     bearing:mlBearing,
     antialias:true,
     attributionControl:false
   });
+  mlMap.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
+
+  
 }
 function syncMLView(){
   if(!mlMap) return;
