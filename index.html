@@ -294,16 +294,16 @@ map.on('load', async ()=>{
     map.addImage('poi-marker', bitmap);
   }
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
-  //const icons = {
-    //restaurant: 'img/poi-restaurant.png',
-    //bar:        'img/poi-bar.png',
-    //spa:        'img/poi-spa.png',
+  const icons = {
+    restaurant: 'poi-red.png',
+    bar:        'poi-red.png',
+    spa:        'poi-red.png',
     // ... diğer kategoriler
-  //};
-  //for (const [key, path] of Object.entries(icons)) {
-    //const buf = await fetch(path).then(r => r.arrayBuffer());
-    //const bmp = await createImageBitmap(new Blob([buf]));
-    //map.addImage(`poi-${key}`, bmp);
+  };
+  for (const [key, path] of Object.entries(icons)) {
+    const buf = await fetch(path).then(r => r.arrayBuffer());
+    const bmp = await createImageBitmap(new Blob([buf]));
+    map.addImage(`poi-${key}`, bmp);
 
 
     // DEBUG kaynak
