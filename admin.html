@@ -18,7 +18,7 @@
 
   /* Sıralama: Mapbox (OL) altta → OSM overlay (OL) → 3D overlay (MapLibre) → vektörler (OL) → UI */
   #map{position:fixed; inset:0; z-index:1; touch-action:none}
-  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:none} /* üstte şeffaf 3D katman */
+  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:auto} /* üstte şeffaf 3D katman */
   .ol-attribution{font-size:10px; opacity:.85}
   .ol-attribution button{display:none}
 
