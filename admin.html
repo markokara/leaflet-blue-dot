@@ -119,17 +119,6 @@
 </div>
 
 
-
-
-
-
-
-
-
-
-
-    
-
     <label id="lbl3d" style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
       <input id="ml3dToggle" type="checkbox"> 3D (MapLibre üstte)
     </label>
@@ -137,6 +126,8 @@
 
   <div class="row" style="align-items:center">
     <select id="layerSel">
+      <button id="undoBtn" title="Geri al (Ctrl+Z)">↶ Geri Al</button>
+    <button id="redoBtn" title="İleri (Ctrl+Y)">↷ İleri</button>
       <option value="outdoor">Hedef: OUTDOOR</option>
       <option value="indoor">Hedef: INDOOR</option>
       <option value="buildings">Hedef: 3D BİNA</option>
@@ -295,9 +286,107 @@ const writeGJ = layer =>
 const readGJToLayer = (layer, gj) => { if(!isFC(gj)) throw new Error("FeatureCollection bekleniyor"); const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
 
 function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+
 const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }catch(e){ alert("Yerel depolama dolu olabilir."); } };
 const saveLocal = debounce((k,layer)=>{ saveLocalRaw(k, writeGJ(layer)); update3DBuildings(); }, 200);
 const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
+/* ====== UNDO/REDO (aktif katman üzerinden) ====== */
+const historyByLayer = {
+  indoor: {undo:[], redo:[]},
+  outdoor:{undo:[], redo:[]},
+  buildings:{undo:[], redo:[]},
+  routes:{undo:[], redo:[]}
+};
+
+function activeLayerName(){ return $("layerSel").value; }
+function layerByName(name){
+  return name==="indoor" ? indoorLayer :
+         name==="outdoor"? outdoorLayer :
+         name==="buildings"? buildingsLayer : routesLayer;
+}
+
+/* Katmanın tam GeoJSON'ını stack'e at */
+function pushSnapshot(name){
+  const layer = layerByName(name);
+  const snap = writeGJ(layer); // {type:"FeatureCollection", features:[...]}
+  historyByLayer[name].undo.push(JSON.stringify(snap));
+  // yeni adım geldiğinde ileri yığını temizlenir
+  historyByLayer[name].redo.length = 0;
+  // çok büyümesin
+  if(historyByLayer[name].undo.length > 50) historyByLayer[name].undo.shift();
+}
+function restoreFromJSON(name, jsonStr){
+  try{
+    const gj = JSON.parse(jsonStr);
+    const layer = layerByName(name);
+    readGJToLayer(layer, gj);
+    // 3D binalar güncellensin
+    if(name==="buildings") update3DBuildings();
+  }catch(e){ console.warn("restoreFromJSON hata:", e); }
+}
+function undo(){
+  const name = activeLayerName();
+  const stacks = historyByLayer[name];
+  if(!stacks.undo.length) return;
+  // mevcut durumu redo'ya it
+  const layer = layerByName(name);
+  const current = JSON.stringify(writeGJ(layer));
+  stacks.redo.push(current);
+  // undo'dan son state'i çek ve uygula
+  const prev = stacks.undo.pop();
+  restoreFromJSON(name, prev);
+  setStatus("Geri alındı.");
+}
+function redo(){
+  const name = activeLayerName();
+  const stacks = historyByLayer[name];
+  if(!stacks.redo.length) return;
+  // mevcut durumu undo'ya it
+  const layer = layerByName(name);
+  const current = JSON.stringify(writeGJ(layer));
+  stacks.undo.push(current);
+  // redo'dan al ve uygula
+  const nxt = stacks.redo.pop();
+  restoreFromJSON(name, nxt);
+  setStatus("İleri alındı.");
+}
+
+/* İlk snapshot: sayfa açılışında her katman için */
+["indoor","outdoor","buildings","routes"].forEach(n=> pushSnapshot(n));
+
+/* Olaylardan sonra snapshot al: çizim/modify/translate/sil/kopya/yükleme */
+function snapshotActive(){ pushSnapshot(activeLayerName()); }
+
+/* Mevcut handler'ların sonuna ek: */
+document.getElementById("undoBtn").onclick = ()=> undo();
+document.getElementById("redoBtn").onclick = ()=> redo();
+
+/* Kısayollar: Ctrl+Z / Ctrl+Y */
+document.addEventListener("keydown",(e)=>{
+  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  const meta = isMac ? e.metaKey : e.ctrlKey;
+  if(meta && !e.shiftKey && e.key.toLowerCase()==="z"){ e.preventDefault(); undo(); }
+  if(meta && (e.key.toLowerCase()==="y" || (e.shiftKey && e.key.toLowerCase()==="z"))){ e.preventDefault(); redo(); }
+});
+
+/* Çeşitli aksiyonlardan sonra snapshot tetikle */
+function hookSnapshotting(){
+  // Çizim bittiğinde
+  ["addLine","addPoly"].forEach(id=>{
+    const btn = $(id);
+    if(!btn._snapHooked){
+      btn._snapHooked = true;
+      map.once("pointerup", ()=> setTimeout(snapshotActive, 0));
+    }
+  });
+
+  // select/modify/translate/copy/sil işlemlerinden sonra
+  // ZATEN mevcut kodunda bu aksiyonlar sonrası saveLocal çağırıyorsun.
+  // Aşağıdaki çağrıları ilgili yerlere ekle:
+}
+
+
+
 
 function to4326(g){ return g.clone().transform('EPSG:3857','EPSG:4326'); }
 function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2]; }
@@ -725,6 +814,8 @@ function openForm(f){
   $('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify);
     modify=new ol.interaction.Modify({ features:new ol.Collection([f]) });
     map.addInteraction(modify); enableSnap(tgtLayer()); setStatus("DÜZENLEME: vertex taşı. 'Düzenlemeyi Kapat' ile çık.");
+    snapshotActive();
+
     modify.on("modifyend",()=>{ enrich(f); const L=featureLayer(f) || tgtLayer(); saveLocal(layerName(L), L); $('f_metric').value=summarizeGeom(f); });
   };
   $('geomReset').onclick=()=>{ if(modify){ map.removeInteraction(modify); modify=null; } if(snap){ map.removeInteraction(snap); snap=null; } setStatus("Geometri düzenleme kapatıldı."); };
