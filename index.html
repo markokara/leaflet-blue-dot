@@ -234,7 +234,7 @@ let CURRENT_PROFILE = 'walk';
 /* ================== MAP ================== */
 const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
 
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:22, attributionControl:false });
+const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:22, renderWorldCopies: false,attributionControl:false });
 
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
