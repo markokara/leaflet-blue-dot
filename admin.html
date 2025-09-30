@@ -134,7 +134,7 @@
     <!-- UNDO/REDO burada, select dışında -->
   <button id="undoBtn" title="Geri al (Ctrl+Z)">↶ Geri Al</button>
   <button id="redoBtn" title="İleri (Ctrl+Y)">↷ İleri</button>
-  
+
     <input id="levelFilter" placeholder="Kat filtresi (ör: 1) – boş=hepsi" />
     <button id="follow" class="primary" title="Konumumu izle">🎯 Takip: Kapalı</button>
     <span class="pill small">Aktif katman vurgulu</span>
@@ -144,7 +144,12 @@
     <button id="addPoint"  class="primary">➕ Nokta</button>
     <button id="addLine"   class="primary">〰️ Çizgi</button>
     <button id="addPoly"   class="primary">⬛ Poligon</button>
-    <button id="finishDraw" style="display:none">✔ Bitir</button>
+    
+  <!-- YENİ: çizim esnası ileri/geri kontrol butonları -->
+  <button id="drawUndo"   style="display:none">↶ Noktayı Geri Al</button>
+  <button id="drawFinish" style="display:none">✔ Bitir</button>
+  <button id="drawCancel" style="display:none">✖ İptal</button>
+
     <button id="selectBtn">☑ Seç / Özellik</button>
     <button id="duplicateBtn" title="Seçili öğeyi kopyala (Ctrl+D)">📄 Kopyala</button>
     <label style="display:flex;align-items:center;gap:6px">
@@ -273,6 +278,14 @@ const HOTEL_BOUNDS_3857 = ol.proj.transformExtent(HOTEL_BBOX, 'EPSG:4326', 'EPSG
 const $ = id => document.getElementById(id);
 const statusEl = $("status");
 const setStatus = (msg, ms=2200)=>{ if(!msg){statusEl.style.display="none";return;} statusEl.textContent=msg; statusEl.style.display="block"; if(ms>0) setTimeout(()=>statusEl.style.display="none", ms); };
+
+// Çizim-step UI göster/gizle
+function showDrawControls(on){
+  $("drawUndo").style.display   = on ? "inline-block" : "none";
+  $("drawFinish").style.display = on ? "inline-block" : "none";
+  $("drawCancel").style.display = on ? "inline-block" : "none";
+}
+
 
 const fmt = new ol.format.GeoJSON();
 function isFC(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
@@ -676,6 +689,10 @@ $("follow").onclick=()=>{ follow=!follow; $("follow").textContent = follow ? "�
 
 /* ====== etkileşimler & toolbox ====== */
 let mode=null, draw=null, select=null, selected=null, modify=null, snap=null, translate=null;
+// ÇİZİM-ANLIK kontrol değişkenleri
+let activeDraw = null;
+let drawKeyHandler = null;
+
 function resetInteractions(){
   if(draw){map.removeInteraction(draw);draw=null;}
   if(select){map.removeInteraction(select);select=null;}
@@ -687,6 +704,68 @@ function resetInteractions(){
   $("finishDraw").style.display="none"; map.getTargetElement().style.cursor=""; $("toolbox").style.display="none";
 }
 function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
+
+// Çizim-step UI göster/gizle
+function showDrawControls(on){
+  $("drawUndo").style.display   = on ? "inline-block" : "none";
+  $("drawFinish").style.display = on ? "inline-block" : "none";
+  $("drawCancel").style.display = on ? "inline-block" : "none";
+}
+
+function startDraw(type){ // "LineString" | "Polygon"
+  resetInteractions();               // mevcut modları kapat
+  map.getTargetElement().style.cursor = "crosshair";
+
+  const layer = tgtLayer();
+  activeDraw = new ol.interaction.Draw({ source: layer.getSource(), type });
+  map.addInteraction(activeDraw);
+  enableSnap(layer);
+
+  showDrawControls(true);
+  setStatus(`${type==="LineString" ? "ÇİZGİ" : "POLİGON"}: tıkla → nokta ekle. (↶ Geri: Ctrl+Z/Backspace, ✔ Bitir: Enter/Çift tık, ✖ İptal: Esc)`);
+
+  // Butonlar
+  $("drawUndo").onclick   = ()=> activeDraw && activeDraw.removeLastPoint();
+  $("drawFinish").onclick = ()=> activeDraw && activeDraw.finishDrawing();
+  $("drawCancel").onclick = ()=> abortDraw();
+
+  // Kısayollar (çizim sürerken)
+  drawKeyHandler = (e)=>{
+    const k = e.key.toLowerCase();
+    if(k==="escape"){ e.preventDefault(); abortDraw(); return; }            // iptal
+    if(k==="enter"){ e.preventDefault(); $("drawFinish").click(); return; } // bitir
+    if(k==="backspace" || k==="delete" || ((e.ctrlKey||e.metaKey) && k==="z")){
+      e.preventDefault(); if(activeDraw) activeDraw.removeLastPoint();      // geri al (son vertex)
+    }
+  };
+  document.addEventListener("keydown", drawKeyHandler);
+
+  // Bitiş → feature eklendi
+  activeDraw.once("drawend",(ev)=>{
+    cleanupDrawMode();
+    enrich(ev.feature);
+    openForm(ev.feature);
+    saveLocal($("layerSel").value, layer);
+    snapshotActive(); // global undo/redo
+  });
+
+  // OL nadiren drawabort atar
+  activeDraw.once("drawabort", cleanupDrawMode);
+}
+
+function abortDraw(){
+  if(activeDraw){ map.removeInteraction(activeDraw); activeDraw = null; }
+  cleanupDrawMode();
+  setStatus("Çizim iptal edildi.");
+}
+
+function cleanupDrawMode(){
+  document.removeEventListener("keydown", drawKeyHandler);
+  drawKeyHandler = null;
+  showDrawControls(false);
+  map.getTargetElement().style.cursor = "";
+}
+
 
 function enrich(f){
   try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{ }
@@ -721,11 +800,21 @@ function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.se
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
 
-$("addLine").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="line"; $("addLine").classList.add("active"); setStatus("ÇİZGİ: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
+$("addLine").onclick = (e)=>{
+  e.preventDefault();
+  $("addLine").classList.add("active");
+  startDraw("LineString");
+};
+
+map.getTargetElement().style.cursor="crosshair";
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
 };
-$("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
+$("addPoly").onclick = (e)=>{
+  e.preventDefault();
+  $("addPoly").classList.add("active");
+  startDraw("Polygon");
+};
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
 };
