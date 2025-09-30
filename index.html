@@ -174,6 +174,9 @@ const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
 const OSM_OPACITY = 0.05;
 const OSM_VISIBLE = true;
+// Ne kadar ekstra zoom-out? (kademeler)
+const EXTRA_ZOOMOUT = 0.7;   // 0.3–1.2 arası genelde ideal
+
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
 const SIMULATE_ME   = false; // true: simule et, false: gerçek GPS  
@@ -285,7 +288,8 @@ function lockToHotel(){
   });
   // Bir sonraki frame'de mevcut zoom'u minZoom yap → daha fazla zoom-out olmasın
   requestAnimationFrame(() => {
-    map.setMinZoom(map.getZoom());  //getzoom("0") yaparsan fnksiyon etkisiz olur
+    const fitZ = map.getZoom();                 // fit sonrası zoom
+    map.setMinZoom(Math.max(0, fitZ - EXTRA_ZOOMOUT));
   });
 }
 
