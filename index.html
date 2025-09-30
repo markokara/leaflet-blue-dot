@@ -171,7 +171,7 @@ const HOTEL_BBOX = [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.5
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
-const OSM_OPACITY = 0.05;
+const OSM_OPACITY = 0.25;
 const OSM_VISIBLE = true;
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -282,13 +282,19 @@ map.on('load', async ()=>{
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
+  // Ortofoto’nun gerçek BBOX’u (senin daha önce yazdığın alan)
+const DRONE_BOUNDS = [31.004958004, 36.854332231, 31.01965811, 36.869973060];
+
   // Drone ortofoto kutucukları (16–19 seviyeleri)
 map.addSource('drone', {
   type: 'raster',
   tiles: ['./{z}/{x}/{y}.png'], // Proje kökündeki 16,17,18,19 klasörlerini kullanır
   tileSize: 256,
   minzoom: 16,
-  maxzoom: 21
+  maxzoom: 21,
+  bounds: DRONE_BOUNDS, 
+  scheme: 'xyz'
+  
 });
 map.addLayer({
   id: 'drone-layer',
