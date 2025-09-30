@@ -167,7 +167,7 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX =  [31.806184, 36.598498, 31.807716, 36.599750]; 
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
@@ -233,9 +233,7 @@ let CURRENT_PROFILE = 'walk';
 
 /* ================== MAP ================== */
 const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
-
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:22, renderWorldCopies: false,attributionControl:false });
-
+const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:25,renderWorldCopies:false,attributionControl:false });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
 
@@ -282,17 +280,15 @@ map.on('load', async ()=>{
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
-
-  // Drone ortofoto kutucukları (16–19 seviyeleri)
+  // DRONE ortofoto tiles (16–21)
 map.addSource('drone', {
   type: 'raster',
-  tiles: ['./{z}/{x}/{y}.png'], // Proje kökündeki 16,17,18,19 klasörlerini kullanır
+  tiles: ['./{z}/{x}/{y}.png'],  // kökte 16,17,18,19,(20,21) klasörleri
   tileSize: 256,
   minzoom: 16,
   maxzoom: 21,
   scheme: 'xyz',
   bounds: HOTEL_BBOX
-  
 });
 map.addLayer({
   id: 'drone-layer',
@@ -309,8 +305,31 @@ map.addLayer({
   });
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
     paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
+
+ const img = await fetch('poi-red.png').then(r => r.arrayBuffer());
+  const bitmap = await createImageBitmap(new Blob([img]));
+  if (!map.hasImage('poi-marker')) {
+    map.addImage('poi-marker', bitmap);
+  }
+// Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
+  const icons = {
+  restaurant: 'poi-red.png', //bu icon yolunu değiştirdiğinde değişecek
+  bar:        'poi-red.png',//bu icon yolunu değiştirdiğinde değişecek
+  spa:        'poi-red.png'//bu icon yolunu değiştirdiğinde değişecek
+  // ... eklediğiniz diğer kategoriler
+};
+for (const [key, path] of Object.entries(icons)) {
+  const buf = await fetch(path).then(r => r.arrayBuffer());
+  const bmp = await createImageBitmap(new Blob([buf]));
+  if (!map.hasImage(`poi-${key}`)) {
+    map.addImage(`poi-${key}`, bmp);
+  }
+}
+
+
     // DEBUG kaynak
 map.addSource('debug', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+
 // Bileşenleri renklendirilmiş edge’ler
 map.addLayer({id:'dbg-comps', type:'line', source:'debug',
   filter:['==',['get','kind'],'edge'],
@@ -398,15 +417,37 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   await loadJSONs();
   applyLang();
   applyBasemap();
-  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:22,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
+  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:25,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
 });
 
 /* Katman yardımcıları */
 function addFeatureLayers(src){
   map.addLayer({id:`${src}-fill`,type:'fill',source:src,paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}});
+
   map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}});
+
   map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
-  map.addLayer({id:`${src}-pts`,type:'circle',source:src,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['coalesce',['get','icon_sz'],6],'circle-color':['coalesce',['get','stroke'],'#e53935'],'circle-stroke-color':'#fff','circle-stroke-width':1.6}});
+
+  map.addLayer({
+  id: `${src}-pts`,
+  type: 'symbol',
+  source: src,
+  filter: ['==', ['geometry-type'], 'Point'],
+  layout: {
+    // Kategoriye göre farklı ikon atamak için match ifadesi:
+    'icon-image': [
+      'match',
+      ['get', 'category'],
+      'restaurant', 'poi-restaurant',
+      'bar',        'poi-bar',
+      'spa',        'poi-spa',
+      // ... diğer kategoriler
+      'poi-marker'  // eşleşmeyenler için varsayılan yeşil damla
+    ],
+    'icon-size': 0.1,     // ikonların boyutunu ayarlayın
+    'icon-allow-overlap': true
+  }
+});
 }
 
 /* JSON yükleme */
@@ -456,7 +497,7 @@ function autoZoomToRoutes(fc){
   if(!isFinite(minX)) return;
   const curr = map.getBounds();
   const intersects = !(maxX<curr.getWest() || minX>curr.getEast() || maxY<curr.getSouth() || minY>curr.getNorth());
-  if(!intersects) map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:22});
+  if(!intersects) map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:25});
 }
 function safeJson(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 function errLog(tag){ return e=>{ console.error(`[${tag}.json] yüklenemedi:`, e?.message||e); return emptyFC(); } }
@@ -816,7 +857,7 @@ dirList.style.display = 'none';      // listeyi kapat
 collapseDir.textContent = '▼';       // buton oku aşağı olsun
 // <<< BURAYA EKLE
   const bb = bboxFromCoords(nodeCoords.concat(usedStart?[usedStart]:[], usedDest?[usedDest]:[]));
-  if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:22});
+  if(bb) map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], {padding:PADDING, maxZoom:25});
   showRouteUI();
 };
 
@@ -1098,7 +1139,7 @@ resetBtn.onclick=()=>{
   q.value=''; results.style.display='none'; pickMode='none';
   pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active');
   document.getElementById('sheet').style.setProperty('--panel-ty','0px');
-  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:22,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
+  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:25,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
 };
 
 /* ================== BLUEDOT (BENİM KONUMUM) ================== */
