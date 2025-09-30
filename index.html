@@ -168,6 +168,8 @@ const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
+
+const HOTEL_BOUNDS = [[HOTEL_BBOX[0], HOTEL_BBOX[1]], [HOTEL_BBOX[2], HOTEL_BBOX[3]]]; // 👈 EKLE
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
@@ -233,7 +235,10 @@ let CURRENT_PROFILE = 'walk';
 
 /* ================== MAP ================== */
 const baseStyle = {version:8, glyphs:`https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`, sources:{}, layers:[{id:"bg",type:"background",paint:{"background-color":"#dfe7e7"}}]};
-const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:25,renderWorldCopies:false,attributionControl:false });
+const map = new maplibregl.Map({ container:'map', style:baseStyle, center:[(HOTEL_BBOX[0]+HOTEL_BBOX[2])/2,(HOTEL_BBOX[1]+HOTEL_BBOX[3])/2], zoom:16, pitch:DEFAULT_PITCH, bearing:DEFAULT_BEARING, maxZoom:25,renderWorldCopies:false,attributionControl:false,maxBounds: HOTEL_BOUNDS });
+
+
+
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 map.addControl(new maplibregl.AttributionControl({customAttribution:'© aihotelstech'}));
 
@@ -417,8 +422,22 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   await loadJSONs();
   applyLang();
   applyBasemap();
-  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:25,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
-});
+  lockToHotel();
+
+  function lockToHotel() {
+  map.fitBounds(HOTEL_BOUNDS, {
+    padding: PADDING,
+    maxZoom: 25,
+    pitch: DEFAULT_PITCH,
+    bearing: DEFAULT_BEARING
+  });
+  // fit'ten hemen sonraki frame'de mevcut zoom'u minZoom yap → daha fazla zoom-out olamasın İpucu: Haritayı tekrar serbest bırakmak istersen map.setMinZoom(0) diyebilirsin.
+  requestAnimationFrame(() => {
+    map.setMinZoom(map.getZoom());
+  });
+}
+
+
 
 /* Katman yardımcıları */
 function addFeatureLayers(src){
@@ -497,6 +516,7 @@ function autoZoomToRoutes(fc){
   if(!isFinite(minX)) return;
   const curr = map.getBounds();
   const intersects = !(maxX<curr.getWest() || minX>curr.getEast() || maxY<curr.getSouth() || minY>curr.getNorth());
+
   if(!intersects) map.fitBounds([[minX,minY],[maxX,maxY]], {padding:PADDING, maxZoom:25});
 }
 function safeJson(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
@@ -1139,8 +1159,8 @@ resetBtn.onclick=()=>{
   q.value=''; results.style.display='none'; pickMode='none';
   pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active');
   document.getElementById('sheet').style.setProperty('--panel-ty','0px');
-  map.fitBounds([[HOTEL_BBOX[0],HOTEL_BBOX[1]],[HOTEL_BBOX[2],HOTEL_BBOX[3]]],{padding:PADDING,maxZoom:25,pitch:DEFAULT_PITCH,bearing:DEFAULT_BEARING});
-};
+  lockToHotel();
+
 
 /* ================== BLUEDOT (BENİM KONUMUM) ================== */
 function setMe(xy, accM=5){
