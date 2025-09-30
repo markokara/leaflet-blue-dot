@@ -126,13 +126,15 @@
 
   <div class="row" style="align-items:center">
     <select id="layerSel">
-      <button id="undoBtn" title="Geri al (Ctrl+Z)">↶ Geri Al</button>
-    <button id="redoBtn" title="İleri (Ctrl+Y)">↷ İleri</button>
       <option value="outdoor">Hedef: OUTDOOR</option>
       <option value="indoor">Hedef: INDOOR</option>
       <option value="buildings">Hedef: 3D BİNA</option>
       <option value="routes">Hedef: YOLLAR</option>
     </select>
+    <!-- UNDO/REDO burada, select dışında -->
+  <button id="undoBtn" title="Geri al (Ctrl+Z)">↶ Geri Al</button>
+  <button id="redoBtn" title="İleri (Ctrl+Y)">↷ İleri</button>
+  
     <input id="levelFilter" placeholder="Kat filtresi (ör: 1) – boş=hepsi" />
     <button id="follow" class="primary" title="Konumumu izle">🎯 Takip: Kapalı</button>
     <span class="pill small">Aktif katman vurgulu</span>
@@ -351,8 +353,7 @@ function redo(){
   setStatus("İleri alındı.");
 }
 
-/* İlk snapshot: sayfa açılışında her katman için */
-["indoor","outdoor","buildings","routes"].forEach(n=> pushSnapshot(n));
+
 
 /* Olaylardan sonra snapshot al: çizim/modify/translate/sil/kopya/yükleme */
 function snapshotActive(){ pushSnapshot(activeLayerName()); }
@@ -529,12 +530,13 @@ const lyrBaseMB = new ol.layer.Tile({
   }),
   opacity:1, zIndex:0, visible:true
 });
+
 /* ====== DRONE XYZ (yerel ./z/x/y.png) ====== */
 const lyrDrone = new ol.layer.Tile({
   source: new ol.source.XYZ({
     url: './{z}/{x}/{y}.png',   // tiles klasörün kökteyse böyle
     minZoom: 17,
-    maxZoom: 19,
+    maxZoom: 22,
     tileSize: 256,
     crossOrigin: 'anonymous',
     attributions: '© aihotelstech',
@@ -645,6 +647,8 @@ map.getView().on(['change:center','change:resolution'], syncMLView);
   readGJToLayer(outdoorLayer,   loadLocal("outdoor")   || {"type":"FeatureCollection","features":[]});
   readGJToLayer(buildingsLayer, loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
   readGJToLayer(routesLayer,    loadLocal("routes")    || {"type":"FeatureCollection","features":[]});
+  /* İlk snapshot: sayfa açılışında her katman için */
+["indoor","outdoor","buildings","routes"].forEach(n=> pushSnapshot(n));
 })();
 
 /* ====== konum + takip ====== */
