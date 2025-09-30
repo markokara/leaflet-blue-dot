@@ -282,8 +282,6 @@ map.on('load', async ()=>{
   });
   map.addLayer({id:'sat-lyr', type:'raster', source:'sat'});
 
-  // Ortofoto’nun gerçek BBOX’u (senin daha önce yazdığın alan)
-const DRONE_BOUNDS = [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902];
 
   // Drone ortofoto kutucukları (16–19 seviyeleri)
 map.addSource('drone', {
@@ -292,7 +290,6 @@ map.addSource('drone', {
   tileSize: 256,
   minzoom: 16,
   maxzoom: 21,
-  bounds: DRONE_BOUNDS, 
   scheme: 'xyz'
   
 });
