@@ -167,7 +167,7 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGx
 const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 
 /* ================== AYARLAR ================== */
-const HOTEL_BBOX = [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902];
+const HOTEL_BBOX =  [31.806184, 36.598498, 31.807716, 36.599750]; 
 const PADDING = {top:120,right:16,bottom:160,left:16};
 const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 
@@ -290,7 +290,8 @@ map.addSource('drone', {
   tileSize: 256,
   minzoom: 16,
   maxzoom: 21,
-  scheme: 'xyz'
+  scheme: 'xyz',
+  bounds: HOTEL_BBOX
   
 });
 map.addLayer({
