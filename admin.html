@@ -109,6 +109,27 @@
       <span id="osmOverlayOpacityVal" class="small">0.40</span>
     </div>
 
+    <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
+  <input id="droneToggle" type="checkbox" checked> Drone ortofoto (üstte)
+</label>
+<div style="display:flex;align-items:center;gap:8px; min-width:220px">
+  <span class="small">Drone opaklık</span>
+  <input id="droneOpacity" type="range" min="0" max="1" step="0.05" value="1.00" style="flex:1">
+  <span id="droneOpacityVal" class="small">1.00</span>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+    
+
     <label id="lbl3d" style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
       <input id="ml3dToggle" type="checkbox"> 3D (MapLibre üstte)
     </label>
@@ -249,6 +270,11 @@
 <script>
 /* ====== TOKEN ====== */
 const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
+
+/* ====== HOTEL BOUNDS (WGS84 & WebMercator) ====== */
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // [minX,minY,maxX,maxY]
+const HOTEL_BOUNDS_3857 = ol.proj.transformExtent(HOTEL_BBOX, 'EPSG:4326', 'EPSG:3857');
+
 
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
@@ -414,6 +440,25 @@ const lyrBaseMB = new ol.layer.Tile({
   }),
   opacity:1, zIndex:0, visible:true
 });
+/* ====== DRONE XYZ (yerel ./z/x/y.png) ====== */
+const lyrDrone = new ol.layer.Tile({
+  source: new ol.source.XYZ({
+    url: './{z}/{x}/{y}.png',   // tiles klasörün kökteyse böyle
+    minZoom: 17,
+    maxZoom: 19,
+    tileSize: 256,
+    crossOrigin: 'anonymous',
+    attributions: '© aihotelstech',
+    transition: 0
+  }),
+  extent: HOTEL_BOUNDS_3857, // otel alanıyla sınırlı çiz
+  zIndex: 1,                 // base=0, drone=1, OSM=2
+  visible: true,
+  opacity: 1
+});
+
+
+
 const lyrOSMOverlay = new ol.layer.Tile({
   source:new ol.source.OSM({attributions:'© OpenStreetMap'}), opacity:0.40, zIndex:2, visible:true
 });
@@ -421,9 +466,17 @@ const lyrOSMOverlay = new ol.layer.Tile({
 /* ====== HARİTA ====== */
 const map = new ol.Map({
   target:"map",
-  layers:[lyrBaseMB, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
+  layers:[lyrBaseMB, lyrDrone, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
+  view:new ol.View({
+    center: ol.proj.fromLonLat([31.805, 36.599]),
+    zoom: 18,
+    constrainOnlyCenter: true,
+    extent: HOTEL_BOUNDS_3857
+  })
 });
+
+
+
 map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addInteraction(new ol.interaction.DragRotateAndZoom());
 
@@ -432,6 +485,20 @@ $("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
 $("mbBaseOpacity").oninput=()=>{ const v=parseFloat($("mbBaseOpacity").value); lyrBaseMB.setOpacity(v); $("mbBaseOpacityVal").textContent=v.toFixed(2); };
 $("osmOverlayToggle").onchange=()=> lyrOSMOverlay.setVisible($("osmOverlayToggle").checked);
 $("osmOverlayOpacity").oninput=()=>{ const v=parseFloat($("osmOverlayOpacity").value); lyrOSMOverlay.setOpacity(v); $("osmOverlayOpacityVal").textContent=v.toFixed(2); };
+
+// DRONE UI
+$("droneToggle").onchange = () => lyrDrone.setVisible($("droneToggle").checked);
+$("droneOpacity").oninput = () => {
+  const v = parseFloat($("droneOpacity").value);
+  lyrDrone.setOpacity(v);
+  $("droneOpacityVal").textContent = v.toFixed(2);
+};
+
+// (İsteğe bağlı) Misafir paneli gibi OSM’yi hafif yap
+$("osmOverlayOpacity").value = "0.05";
+$("osmOverlayOpacityVal").textContent = "0.05";
+lyrOSMOverlay.setOpacity(0.05);
+
 
 /* ====== 3D MapLibre OVERLAY (şeffaf) ====== */
 let mlMap=null, mlPitch=55, mlBearing=20;
