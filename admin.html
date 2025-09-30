@@ -18,7 +18,7 @@
 
   /* Sıralama: Mapbox (OL) altta → OSM overlay (OL) → 3D overlay (MapLibre) → vektörler (OL) → UI */
   #map{position:fixed; inset:0; z-index:1; touch-action:none}
-  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:auto} /* üstte şeffaf 3D katman */
+  #ml3d{position:fixed; inset:0; z-index:3; display:none; pointer-events:none} /* üstte şeffaf 3D katman */
   .ol-attribution{font-size:10px; opacity:.85}
   .ol-attribution button{display:none}
 
@@ -54,15 +54,6 @@
   textarea{min-height:72px}
   .actions{display:flex; gap:8px; justify-content:space-between; margin-top:10px}
   .actions .left{display:flex; gap:8px}
-
-  #ml3d {
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  display: none;
-  pointer-events: auto; /* önceki değer pointer-events:none idi */
-}
-
 
   @media (max-width: 640px){
     .panel{padding:8px}
@@ -418,14 +409,42 @@ const lyrOSMOverlay = new ol.layer.Tile({
   source:new ol.source.OSM({attributions:'© OpenStreetMap'}), opacity:0.40, zIndex:2, visible:true
 });
 
-/* ====== HARİTA ====== */
-const map = new ol.Map({
-  target:"map",
-  layers:[lyrBaseMB, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
+/* ====== BASE: Kendi drone kutucuklarınız ====== */
+const lyrDrone = new ol.layer.Tile({
+  source: new ol.source.XYZ({
+    url: './{z}/{x}/{y}.png',    // Klasör yapınız farklıysa değiştirin; örn. 'tiles/{z}/{x}/{y}.png'
+    minZoom: 16,
+    maxZoom: 21,
+    crossOrigin: 'anonymous'
+    // extent tanımlayarak gereksiz 404 isteklerini engelleyebilirsiniz:
+    // extent: ol.proj.transformExtent(
+    //   [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902],
+    //   'EPSG:4326','EPSG:3857')
+  }),
+  opacity: 1,
+  zIndex: 0,
+  visible: true
 });
+
+
+/* ====== HARİTA ====== */
+const ORTHO_BBOX = [39.13710445451708, 23.57468831349931, 39.1409541038188, 23.578998311345902]; // [minLon,minLat,maxLon,maxLat]
+
+const map = new ol.Map({
+  target: "map",
+  layers: [lyrDrone, /* diğer katmanlar */],
+  view: new ol.View({
+    center: ol.proj.fromLonLat([
+      (ORTHO_BBOX[0] + ORTHO_BBOX[2]) / 2,
+      (ORTHO_BBOX[1] + ORTHO_BBOX[3]) / 2
+    ]),
+    zoom: 18,
+    maxZoom: 19
+  })
+});
+
+
 map.addControl(new ol.control.Attribution({collapsible:false}));
-map.addInteraction(new ol.interaction.DragRotateAndZoom());
 
 /* ====== OSM/Mapbox UI ====== */
 $("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
@@ -458,17 +477,14 @@ function ensureML(){
   mlMap = new maplibregl.Map({
     container:"ml3d",
     style,
-    interactive:true,
-    center:[31.801445, 36.597411],
+    interactive:false,
+    center:[31.005,36.861],
     zoom:17,
     pitch:mlPitch,
     bearing:mlBearing,
     antialias:true,
     attributionControl:false
   });
-  mlMap.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
-
-  
 }
 function syncMLView(){
   if(!mlMap) return;
