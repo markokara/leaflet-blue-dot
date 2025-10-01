@@ -441,6 +441,10 @@
       "properties": {
         "len_m": 88,
         "name": "yeni yol"
+        "category": "path",
+        "level": "0",
+        "way": "foot",
+        "width": 2
       },
       "id": "b09dabe8-25c0-4942-8a60-b3d5b67a17fe"
     },
