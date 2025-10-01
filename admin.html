@@ -708,18 +708,24 @@ let activeDraw = null;
 let drawKeyHandler = null;
 
 function resetInteractions(){
-  if(draw){map.removeInteraction(draw);draw=null;}
-  if(select){map.removeInteraction(select);select=null;}
-  if(modify){map.removeInteraction(modify);modify=null;}
-  if(snap){map.removeInteraction(snap);snap=null;}
-  if(translate){map.removeInteraction(translate);translate=null; $("tbTranslate").classList.remove("active");}
-  selected=null; mode=null;
-  ["addPoint","addLine","addPoly","selectBtn"].forEach(id=>$(id).classList.remove("active"));
-
-  showDrawControls(false); 
-  map.getTargetElement().style.cursor=""; 
-  $("toolbox").style.display="none";
+  // ... diğer etkileşimleri temizleme ...
+  if (activeDraw) {
+    if (activeDraw.abortDrawing) activeDraw.abortDrawing();
+    map.removeInteraction(activeDraw);
+    activeDraw = null;
+  }
+  if(draw){ map.removeInteraction(draw); draw = null; }
+  if(select){ map.removeInteraction(select); select = null; }
+  if(modify){ map.removeInteraction(modify); modify = null; }
+  if(snap){ map.removeInteraction(snap); snap = null; }
+  if(translate){ map.removeInteraction(translate); translate = null; $("tbTranslate").classList.remove("active"); }
+  selected = null; mode = null;
+  ["addPoint","addLine","addPoly","selectBtn"].forEach(id => $(id).classList.remove("active"));
+  showDrawControls(false);
+  map.getTargetElement().style.cursor = "";
+  $("toolbox").style.display = "none";
 }
+
 function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
 
 // Çizim-step UI göster/gizle
@@ -771,7 +777,10 @@ function startDraw(type){ // "LineString" | "Polygon"
 }
 
 function abortDraw(){
-  if(activeDraw){ map.removeInteraction(activeDraw); activeDraw = null; }
+  if(activeDraw)
+  // Aktif skeçi tamamen iptal et
+    if (activeDraw.abortDrawing) activeDraw.abortDrawing();
+  { map.removeInteraction(activeDraw); activeDraw = null; }
   cleanupDrawMode();
   setStatus("Çizim iptal edildi.");
 }
