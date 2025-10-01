@@ -715,7 +715,10 @@ function resetInteractions(){
   if(translate){map.removeInteraction(translate);translate=null; $("tbTranslate").classList.remove("active");}
   selected=null; mode=null;
   ["addPoint","addLine","addPoly","selectBtn"].forEach(id=>$(id).classList.remove("active"));
-  $("finishDraw").style.display="none"; map.getTargetElement().style.cursor=""; $("toolbox").style.display="none";
+
+  showDrawControls(false); 
+  map.getTargetElement().style.cursor=""; 
+  $("toolbox").style.display="none";
 }
 function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
 
@@ -973,4 +976,3 @@ $("clearLocal").onclick=()=>{
 </script>
 </body>
 </html>
-
