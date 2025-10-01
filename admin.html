@@ -798,7 +798,9 @@ function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.se
 
 /* kaldır / çiz / seç */
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
-$("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
+$("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); 
+
+map.getTargetElement().style.cursor="crosshair"; };
 
 $("addLine").onclick = (e)=>{
   e.preventDefault();
@@ -806,9 +808,6 @@ $("addLine").onclick = (e)=>{
   startDraw("LineString");
 };
 
-map.getTargetElement().style.cursor="crosshair";
-  const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
-  draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
 $("addPoly").onclick = (e)=>{
   e.preventDefault();
   $("addPoly").classList.add("active");
