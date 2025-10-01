@@ -46,8 +46,62 @@
   .toolbox button{width:36px; height:36px; display:grid; place-items:center; border:1px solid #e5e7eb; border-radius:10px; background:#fff; cursor:pointer}
   .toolbox button:active{transform:translateY(1px)}
 
-  .modal{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:12}
-  .panel2{background:#fff; width:min(780px,92vw); border-radius:14px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:12;
+  overscroll-behavior:contain; /* arka sayfa kaymasın */
+}
+
+  .panel2{
+  background:#fff;
+  width:min(780px,92vw);
+  max-height:92vh;           /* ekrana sığdır */
+  display:flex;              /* başlık + gövde + actions dikey istif */
+  flex-direction:column;
+  border-radius:14px;
+  padding:14px;
+  box-shadow:0 10px 28px rgba(0,0,0,.35);
+}
+
+/* Kaydırılan içerik alanı (başlık ile butonlar arasındaki gövde) */
+.panel2 .sheet-body{
+  overflow:auto;
+  flex:1 1 auto;
+  padding-bottom:8px;
+}
+
+/* Alttaki buton satırı hep görünür kalsın */
+.panel2 .actions{
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  padding-top:10px;
+  margin-top:10px;
+  border-top:1px solid #eee;
+  z-index:1;
+}
+
+/* Modal açıkken sayfa kaymasın */
+body.noscroll{ overflow:hidden; }
+
+/* Mobilde tam ekran sheet davranışı */
+@media (max-width: 640px){
+  .modal{ align-items:flex-end; justify-content:stretch; }
+  .panel2{
+    width:100vw;
+    height:100dvh;
+    max-height:100dvh;
+    border-radius:14px 14px 0 0;
+    padding:12px;
+  }
+  .panel2 .sheet-body{ flex:1 1 auto; }
+}
+
   .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
   .grid label{font-size:12px; color:#555}
   .grid input,.grid textarea,.grid select{width:100%; padding:10px; border:1px solid #ddd; border-radius:8px}
@@ -219,7 +273,10 @@ body.compact .row>*{ min-width:96px }
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
+        <!-- KAYDIRILAN GÖVDE BAŞI -->
+    <div class="sheet-body">
     <div class="grid">
+       </div>
       <div><label>İsim (varsayılan)</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
       <div>
         <label>Kategori</label>
@@ -295,6 +352,7 @@ body.compact .row>*{ min-width:96px }
       <div style="grid-column:1/-1"><label>Açıklama (seçili dil)</label><textarea id="l_desc"></textarea></div>
       <div style="grid-column:1/-1"><label>Fotoğraf URL (seçili dil)</label><input id="l_image" placeholder="https://.../foto.jpg"></div>
     </div>
+    </div> <!-- /sheet-body --> <!-- EKLENDİ -->
 
     <div class="actions">
       <div class="left">
@@ -939,7 +997,13 @@ function openForm(f){
   catSel.onchange=()=>{ if(catSel.value==="_other") otherWrap.style.display="block"; else {otherWrap.style.display="none"; other.value="";} };
   $('f_lang').value=i18nLang; loadLangFields(p); $('f_lang').onchange=()=>{ i18nLang=$('f_lang').value; loadLangFields(editFeature.getProperties()); };
 
-  modal.style.display="flex"; modal.setAttribute("aria-hidden","false");
+  modal.style.display="flex"; 
+  modal.setAttribute("aria-hidden","false");
+  document.body.classList.add('noscroll');              // arka kaydırmayı kilitle
+const body = modal.querySelector('.sheet-body');       // gövdeyi tepeye al
+if (body) body.scrollTop = 0;
+setTimeout(()=> $('f_name')?.focus(), 50);             // ilk alana odak
+
 
   $('propSave').onclick=()=>{
     const img=$('f_image').value.trim(); if(img && !validateImg(img)){ alert("Fotoğraf URL geçersiz."); return; }
@@ -970,7 +1034,12 @@ function openForm(f){
     saveLocal(layerName(L), L);
     setStatus("Kaydedildi."); $('propClose').click();
   };
-  $('propClose').onclick=()=>{ modal.style.display="none"; modal.setAttribute("aria-hidden","true"); };
+  $('propClose').onclick=()=>{
+  modal.style.display="none";
+  modal.setAttribute("aria-hidden","true");
+  document.body.classList.remove('noscroll');  // kilidi kaldır
+};
+
   $('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify);
     modify=new ol.interaction.Modify({ features:new ol.Collection([f]) });
     map.addInteraction(modify); enableSnap(tgtLayer()); setStatus("DÜZENLEME: vertex taşı. 'Düzenlemeyi Kapat' ile çık.");
@@ -1095,3 +1164,4 @@ if (window.matchMedia('(max-width: 640px)').matches && !localStorage.getItem(PAN
 </script>
 </body>
 </html>
+
