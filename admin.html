@@ -57,10 +57,10 @@
   overscroll-behavior:contain; /* arka sayfa kaymasın */
 }
 
-  .panel2{
+.panel2{
   background:#fff;
   width:min(780px,92vw);
-  max-height:92vh;           /* ekrana sığdır */
+  max-height: calc(100dvh - 32px); /* daima ekrana sığsın */
   display:flex;              /* başlık + gövde + actions dikey istif */
   flex-direction:column;
   border-radius:14px;
@@ -68,12 +68,16 @@
   box-shadow:0 10px 28px rgba(0,0,0,.35);
 }
 
-/* Kaydırılan içerik alanı (başlık ile butonlar arasındaki gövde) */
+
+/* Kaydırılan içerik: butonlar için yer bırak */
 .panel2 .sheet-body{
   overflow:auto;
   flex:1 1 auto;
   padding-bottom:8px;
+  /* YENİ: yüksekliği ekrana göre sınırla (başlık+actions düşülerek) */
+  max-height: calc(100dvh - 160px);
 }
+
 
 /* Alttaki buton satırı hep görünür kalsın */
 .panel2 .actions{
@@ -89,20 +93,9 @@
 /* Modal açıkken sayfa kaymasın */
 body.noscroll{ overflow:hidden; }
 
-/* Mobilde tam ekran sheet davranışı */
-@media (max-width: 640px){
-  .modal{ align-items:flex-end; justify-content:stretch; }
-  .panel2{
-    width:100vw;
-    height:100dvh;
-    max-height:100dvh;
-    border-radius:14px 14px 0 0;
-    padding:12px;
-  }
-  .panel2 .sheet-body{ flex:1 1 auto; }
-}
 
   .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+
   .grid label{font-size:12px; color:#555}
   .grid input,.grid textarea,.grid select{width:100%; padding:10px; border:1px solid #ddd; border-radius:8px}
   textarea{min-height:72px}
@@ -116,13 +109,6 @@ body.noscroll{ overflow:hidden; }
   display: none;
   pointer-events: auto; /* önceki değer pointer-events:none idi */
 }
-
-
-  @media (max-width: 640px){
-    .panel{padding:8px}
-    button,select,input[type="file"],input[type="text"],input[type="number"]{padding:9px; font-size:14px}
-    .row>*{min-width:100px}
-  }
 
   /* Panel başlığı + daraltma */
 .panel-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
@@ -155,15 +141,43 @@ body.compact .row>*{ min-width:96px }
 .more-wrap{ display:none }
 .more-wrap.open{ display:block }
 
-/* Mobil: varsayılan dar gel (kullanıcı açar) */
+/* Mobilde tam ekran sheet + tek sütun form + küçük paddings */
 @media (max-width: 640px){
-  .panel{padding:8px}
-  button,select,input[type="file"],input[type="text"],input[type="number"]{padding:9px; font-size:14px}
-  .row>*{min-width:100px}
 
-  /* EKLE → mobilde formları tek sütun yap */
-  .grid{ grid-template-columns: 1fr; }
+  /* Modal sayfa sonundan açılan alt-sheet gibi davransın */
+  .modal{
+    align-items:flex-end;
+    justify-content:stretch;
+  }
+
+  .panel2{
+    width:100vw;
+    height:100dvh;
+    max-height:100dvh;
+    border-radius:14px 14px 0 0;
+    padding:12px;
+  }
+
+  /* İç gövde (form listesi) ekrana sığsın; alt buton hep görünür */
+  .panel2 .sheet-body{
+    flex:1 1 auto;
+    max-height: calc(100dvh - 150px); /* başlık+padding+buton payı */
+  }
+
+  /* Formu tek sütun yap */
+  .grid{
+    grid-template-columns: 1fr;
+  }
+
+  /* Kontrol paneli ve inputlar daha kompakt */
+  .panel{ padding:8px; }
+  button,select,
+  input[type="file"],input[type="text"],input[type="number"]{
+    padding:9px; font-size:14px;
+  }
+  .row>*{ min-width:100px; }
 }
+
 
 
 </style>
