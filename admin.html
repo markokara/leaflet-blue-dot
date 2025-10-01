@@ -592,7 +592,7 @@ const map = new ol.Map({
   layers:[lyrBaseMB, lyrDrone, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
   view:new ol.View({
     center: ol.proj.fromLonLat([31.805, 36.599]),
-    zoom: 18, constrainOnlyCenter: false, extent: HOTEL_BOUNDS_3857 // sadece otel sınırında istersen true yap
+    zoom: 18, constrainOnlyCenter: false, //extent: HOTEL_BOUNDS_3857 // sadece otel sınırında istersen true yap
   })
 });
 map.addControl(new ol.control.Attribution({collapsible:false}));
