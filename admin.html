@@ -371,9 +371,23 @@ function redo(){
 /* Olaylardan sonra snapshot al: çizim/modify/translate/sil/kopya/yükleme */
 function snapshotActive(){ pushSnapshot(activeLayerName()); }
 
-/* Mevcut handler'ların sonuna ek: */
-document.getElementById("undoBtn").onclick = ()=> undo();
-document.getElementById("redoBtn").onclick = ()=> redo();
+// Geri Al butonu: çizim sürüyorsa son noktayı sil, değilse global geri al
+document.getElementById("undoBtn").onclick = () => {
+  if (activeDraw) {
+    // OL çizim aracındaki son noktayı geri al
+    activeDraw.removeLastPoint();
+  } else {
+    // Çizim yoksa katman geçmişinden geri al
+    undo();
+  }
+};
+
+// İleri Al butonu: çizim sürerken bir şey yapma, çizim yoksa global ileri al
+document.getElementById("redoBtn").onclick = () => {
+  if (!activeDraw) {
+    redo();
+  }
+};
 
 /* Kısayollar: Ctrl+Z / Ctrl+Y */
 document.addEventListener("keydown",(e)=>{
@@ -813,8 +827,6 @@ $("addPoly").onclick = (e)=>{
   $("addPoly").classList.add("active");
   startDraw("Polygon");
 };
-  const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
-  draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
 
 $("selectBtn").onclick=(e)=>{
   e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active");
@@ -961,3 +973,4 @@ $("clearLocal").onclick=()=>{
 </script>
 </body>
 </html>
+
