@@ -109,6 +109,16 @@
       <span id="osmOverlayOpacityVal" class="small">0.40</span>
     </div>
 
+    <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
+  <input id="droneToggle" type="checkbox" checked> Drone ortofoto (üstte)
+</label>
+<div style="display:flex;align-items:center;gap:8px; min-width:220px">
+  <span class="small">Drone opaklık</span>
+  <input id="droneOpacity" type="range" min="0" max="1" step="0.05" value="1.00" style="flex:1">
+  <span id="droneOpacityVal" class="small">1.00</span>
+</div>
+
+
     <label id="lbl3d" style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
       <input id="ml3dToggle" type="checkbox"> 3D (MapLibre üstte)
     </label>
@@ -121,6 +131,10 @@
       <option value="buildings">Hedef: 3D BİNA</option>
       <option value="routes">Hedef: YOLLAR</option>
     </select>
+    <!-- UNDO/REDO burada, select dışında -->
+  <button id="undoBtn" title="Geri al (Ctrl+Z)">↶ Geri Al</button>
+  <button id="redoBtn" title="İleri (Ctrl+Y)">↷ İleri</button>
+
     <input id="levelFilter" placeholder="Kat filtresi (ör: 1) – boş=hepsi" />
     <button id="follow" class="primary" title="Konumumu izle">🎯 Takip: Kapalı</button>
     <span class="pill small">Aktif katman vurgulu</span>
@@ -130,7 +144,12 @@
     <button id="addPoint"  class="primary">➕ Nokta</button>
     <button id="addLine"   class="primary">〰️ Çizgi</button>
     <button id="addPoly"   class="primary">⬛ Poligon</button>
-    <button id="finishDraw" style="display:none">✔ Bitir</button>
+    
+  <!-- YENİ: çizim esnası ileri/geri kontrol butonları -->
+  <button id="drawUndo"   style="display:none">↶ Noktayı Geri Al</button>
+  <button id="drawFinish" style="display:none">✔ Bitir</button>
+  <button id="drawCancel" style="display:none">✖ İptal</button>
+
     <button id="selectBtn">☑ Seç / Özellik</button>
     <button id="duplicateBtn" title="Seçili öğeyi kopyala (Ctrl+D)">📄 Kopyala</button>
     <label style="display:flex;align-items:center;gap:6px">
@@ -250,10 +269,23 @@
 /* ====== TOKEN ====== */
 const MAPBOX_TOKEN = "pk.eyJ1IjoiaWxnYXJpc2lrIiwiYSI6ImNtZTYyejdkYjBxMDQya3F0ZGxlbDEwcHYifQ.nGPeU6QDAVFW7MGF_i9-ug";
 
+/* ====== HOTEL BOUNDS (WGS84 & WebMercator) ====== */
+const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // [minX,minY,maxX,maxY]
+const HOTEL_BOUNDS_3857 = ol.proj.transformExtent(HOTEL_BBOX, 'EPSG:4326', 'EPSG:3857');
+
+
 /* ====== yardımcılar ====== */
 const $ = id => document.getElementById(id);
 const statusEl = $("status");
 const setStatus = (msg, ms=2200)=>{ if(!msg){statusEl.style.display="none";return;} statusEl.textContent=msg; statusEl.style.display="block"; if(ms>0) setTimeout(()=>statusEl.style.display="none", ms); };
+
+// Çizim-step UI göster/gizle
+function showDrawControls(on){
+  $("drawUndo").style.display   = on ? "inline-block" : "none";
+  $("drawFinish").style.display = on ? "inline-block" : "none";
+  $("drawCancel").style.display = on ? "inline-block" : "none";
+}
+
 
 const fmt = new ol.format.GeoJSON();
 function isFC(gj){ return gj && gj.type==="FeatureCollection" && Array.isArray(gj.features); }
@@ -269,9 +301,106 @@ const writeGJ = layer =>
 const readGJToLayer = (layer, gj) => { if(!isFC(gj)) throw new Error("FeatureCollection bekleniyor"); const fs=fmt.readFeatures(gj,{featureProjection:"EPSG:3857",dataProjection:"EPSG:4326"}); layer.getSource().clear(); layer.getSource().addFeatures(fs); };
 
 function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+
 const saveLocalRaw = (k,d)=>{ try{ localStorage.setItem(k, JSON.stringify(d)); }catch(e){ alert("Yerel depolama dolu olabilir."); } };
 const saveLocal = debounce((k,layer)=>{ saveLocalRaw(k, writeGJ(layer)); update3DBuildings(); }, 200);
 const loadLocal = k => { const s=localStorage.getItem(k); try{return s?JSON.parse(s):null;}catch{return null;} };
+/* ====== UNDO/REDO (aktif katman üzerinden) ====== */
+const historyByLayer = {
+  indoor: {undo:[], redo:[]},
+  outdoor:{undo:[], redo:[]},
+  buildings:{undo:[], redo:[]},
+  routes:{undo:[], redo:[]}
+};
+
+function activeLayerName(){ return $("layerSel").value; }
+function layerByName(name){
+  return name==="indoor" ? indoorLayer :
+         name==="outdoor"? outdoorLayer :
+         name==="buildings"? buildingsLayer : routesLayer;
+}
+
+/* Katmanın tam GeoJSON'ını stack'e at */
+function pushSnapshot(name){
+  const layer = layerByName(name);
+  const snap = writeGJ(layer); // {type:"FeatureCollection", features:[...]}
+  historyByLayer[name].undo.push(JSON.stringify(snap));
+  // yeni adım geldiğinde ileri yığını temizlenir
+  historyByLayer[name].redo.length = 0;
+  // çok büyümesin
+  if(historyByLayer[name].undo.length > 50) historyByLayer[name].undo.shift();
+}
+function restoreFromJSON(name, jsonStr){
+  try{
+    const gj = JSON.parse(jsonStr);
+    const layer = layerByName(name);
+    readGJToLayer(layer, gj);
+    // 3D binalar güncellensin
+    if(name==="buildings") update3DBuildings();
+  }catch(e){ console.warn("restoreFromJSON hata:", e); }
+}
+function undo(){
+  const name = activeLayerName();
+  const stacks = historyByLayer[name];
+  if(!stacks.undo.length) return;
+  // mevcut durumu redo'ya it
+  const layer = layerByName(name);
+  const current = JSON.stringify(writeGJ(layer));
+  stacks.redo.push(current);
+  // undo'dan son state'i çek ve uygula
+  const prev = stacks.undo.pop();
+  restoreFromJSON(name, prev);
+  setStatus("Geri alındı.");
+}
+function redo(){
+  const name = activeLayerName();
+  const stacks = historyByLayer[name];
+  if(!stacks.redo.length) return;
+  // mevcut durumu undo'ya it
+  const layer = layerByName(name);
+  const current = JSON.stringify(writeGJ(layer));
+  stacks.undo.push(current);
+  // redo'dan al ve uygula
+  const nxt = stacks.redo.pop();
+  restoreFromJSON(name, nxt);
+  setStatus("İleri alındı.");
+}
+
+
+
+/* Olaylardan sonra snapshot al: çizim/modify/translate/sil/kopya/yükleme */
+function snapshotActive(){ pushSnapshot(activeLayerName()); }
+
+/* Mevcut handler'ların sonuna ek: */
+document.getElementById("undoBtn").onclick = ()=> undo();
+document.getElementById("redoBtn").onclick = ()=> redo();
+
+/* Kısayollar: Ctrl+Z / Ctrl+Y */
+document.addEventListener("keydown",(e)=>{
+  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  const meta = isMac ? e.metaKey : e.ctrlKey;
+  if(meta && !e.shiftKey && e.key.toLowerCase()==="z"){ e.preventDefault(); undo(); }
+  if(meta && (e.key.toLowerCase()==="y" || (e.shiftKey && e.key.toLowerCase()==="z"))){ e.preventDefault(); redo(); }
+});
+
+/* Çeşitli aksiyonlardan sonra snapshot tetikle */
+function hookSnapshotting(){
+  // Çizim bittiğinde
+  ["addLine","addPoly"].forEach(id=>{
+    const btn = $(id);
+    if(!btn._snapHooked){
+      btn._snapHooked = true;
+      map.once("pointerup", ()=> setTimeout(snapshotActive, 0));
+    }
+  });
+
+  // select/modify/translate/copy/sil işlemlerinden sonra
+  // ZATEN mevcut kodunda bu aksiyonlar sonrası saveLocal çağırıyorsun.
+  // Aşağıdaki çağrıları ilgili yerlere ekle:
+}
+
+
+
 
 function to4326(g){ return g.clone().transform('EPSG:3857','EPSG:4326'); }
 function centerOf(g){ const e=g.getExtent(); return [(e[0]+e[2])/2,(e[1]+e[3])/2]; }
@@ -414,6 +543,26 @@ const lyrBaseMB = new ol.layer.Tile({
   }),
   opacity:1, zIndex:0, visible:true
 });
+
+/* ====== DRONE XYZ (yerel ./z/x/y.png) ====== */
+const lyrDrone = new ol.layer.Tile({
+  source: new ol.source.XYZ({
+    url: './{z}/{x}/{y}.png',   // tiles klasörün kökteyse böyle
+    minZoom: 17,
+    maxZoom: 22,
+    tileSize: 256,
+    crossOrigin: 'anonymous',
+    attributions: '© aihotelstech',
+    transition: 0
+  }),
+  extent: HOTEL_BOUNDS_3857, // otel alanıyla sınırlı çiz
+  zIndex: 1,                 // base=0, drone=1, OSM=2
+  visible: true,
+  opacity: 1
+});
+
+
+
 const lyrOSMOverlay = new ol.layer.Tile({
   source:new ol.source.OSM({attributions:'© OpenStreetMap'}), opacity:0.40, zIndex:2, visible:true
 });
@@ -421,9 +570,17 @@ const lyrOSMOverlay = new ol.layer.Tile({
 /* ====== HARİTA ====== */
 const map = new ol.Map({
   target:"map",
-  layers:[lyrBaseMB, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
-  view:new ol.View({center: ol.proj.fromLonLat([31.005,36.861]), zoom:18})
+  layers:[lyrBaseMB, lyrDrone, lyrOSMOverlay, indoorLayer, outdoorLayer, buildingsLayer, routesLayer],
+  view:new ol.View({
+    center: ol.proj.fromLonLat([31.805, 36.599]),
+    zoom: 18,
+    constrainOnlyCenter: true,
+    extent: HOTEL_BOUNDS_3857
+  })
 });
+
+
+
 map.addControl(new ol.control.Attribution({collapsible:false}));
 map.addInteraction(new ol.interaction.DragRotateAndZoom());
 
@@ -432,6 +589,20 @@ $("mbBaseToggle").onchange=()=> lyrBaseMB.setVisible($("mbBaseToggle").checked);
 $("mbBaseOpacity").oninput=()=>{ const v=parseFloat($("mbBaseOpacity").value); lyrBaseMB.setOpacity(v); $("mbBaseOpacityVal").textContent=v.toFixed(2); };
 $("osmOverlayToggle").onchange=()=> lyrOSMOverlay.setVisible($("osmOverlayToggle").checked);
 $("osmOverlayOpacity").oninput=()=>{ const v=parseFloat($("osmOverlayOpacity").value); lyrOSMOverlay.setOpacity(v); $("osmOverlayOpacityVal").textContent=v.toFixed(2); };
+
+// DRONE UI
+$("droneToggle").onchange = () => lyrDrone.setVisible($("droneToggle").checked);
+$("droneOpacity").oninput = () => {
+  const v = parseFloat($("droneOpacity").value);
+  lyrDrone.setOpacity(v);
+  $("droneOpacityVal").textContent = v.toFixed(2);
+};
+
+// (İsteğe bağlı) Misafir paneli gibi OSM’yi hafif yap
+$("osmOverlayOpacity").value = "0.05";
+$("osmOverlayOpacityVal").textContent = "0.05";
+lyrOSMOverlay.setOpacity(0.05);
+
 
 /* ====== 3D MapLibre OVERLAY (şeffaf) ====== */
 let mlMap=null, mlPitch=55, mlBearing=20;
@@ -489,6 +660,8 @@ map.getView().on(['change:center','change:resolution'], syncMLView);
   readGJToLayer(outdoorLayer,   loadLocal("outdoor")   || {"type":"FeatureCollection","features":[]});
   readGJToLayer(buildingsLayer, loadLocal("buildings") || {"type":"FeatureCollection","features":[]});
   readGJToLayer(routesLayer,    loadLocal("routes")    || {"type":"FeatureCollection","features":[]});
+  /* İlk snapshot: sayfa açılışında her katman için */
+["indoor","outdoor","buildings","routes"].forEach(n=> pushSnapshot(n));
 })();
 
 /* ====== konum + takip ====== */
@@ -516,6 +689,10 @@ $("follow").onclick=()=>{ follow=!follow; $("follow").textContent = follow ? "�
 
 /* ====== etkileşimler & toolbox ====== */
 let mode=null, draw=null, select=null, selected=null, modify=null, snap=null, translate=null;
+// ÇİZİM-ANLIK kontrol değişkenleri
+let activeDraw = null;
+let drawKeyHandler = null;
+
 function resetInteractions(){
   if(draw){map.removeInteraction(draw);draw=null;}
   if(select){map.removeInteraction(select);select=null;}
@@ -527,6 +704,68 @@ function resetInteractions(){
   $("finishDraw").style.display="none"; map.getTargetElement().style.cursor=""; $("toolbox").style.display="none";
 }
 function enableSnap(layer){ if(snap) map.removeInteraction(snap); snap=new ol.interaction.Snap({source:layer.getSource()}); map.addInteraction(snap); }
+
+// Çizim-step UI göster/gizle
+function showDrawControls(on){
+  $("drawUndo").style.display   = on ? "inline-block" : "none";
+  $("drawFinish").style.display = on ? "inline-block" : "none";
+  $("drawCancel").style.display = on ? "inline-block" : "none";
+}
+
+function startDraw(type){ // "LineString" | "Polygon"
+  resetInteractions();               // mevcut modları kapat
+  map.getTargetElement().style.cursor = "crosshair";
+
+  const layer = tgtLayer();
+  activeDraw = new ol.interaction.Draw({ source: layer.getSource(), type });
+  map.addInteraction(activeDraw);
+  enableSnap(layer);
+
+  showDrawControls(true);
+  setStatus(`${type==="LineString" ? "ÇİZGİ" : "POLİGON"}: tıkla → nokta ekle. (↶ Geri: Ctrl+Z/Backspace, ✔ Bitir: Enter/Çift tık, ✖ İptal: Esc)`);
+
+  // Butonlar
+  $("drawUndo").onclick   = ()=> activeDraw && activeDraw.removeLastPoint();
+  $("drawFinish").onclick = ()=> activeDraw && activeDraw.finishDrawing();
+  $("drawCancel").onclick = ()=> abortDraw();
+
+  // Kısayollar (çizim sürerken)
+  drawKeyHandler = (e)=>{
+    const k = e.key.toLowerCase();
+    if(k==="escape"){ e.preventDefault(); abortDraw(); return; }            // iptal
+    if(k==="enter"){ e.preventDefault(); $("drawFinish").click(); return; } // bitir
+    if(k==="backspace" || k==="delete" || ((e.ctrlKey||e.metaKey) && k==="z")){
+      e.preventDefault(); if(activeDraw) activeDraw.removeLastPoint();      // geri al (son vertex)
+    }
+  };
+  document.addEventListener("keydown", drawKeyHandler);
+
+  // Bitiş → feature eklendi
+  activeDraw.once("drawend",(ev)=>{
+    cleanupDrawMode();
+    enrich(ev.feature);
+    openForm(ev.feature);
+    saveLocal($("layerSel").value, layer);
+    snapshotActive(); // global undo/redo
+  });
+
+  // OL nadiren drawabort atar
+  activeDraw.once("drawabort", cleanupDrawMode);
+}
+
+function abortDraw(){
+  if(activeDraw){ map.removeInteraction(activeDraw); activeDraw = null; }
+  cleanupDrawMode();
+  setStatus("Çizim iptal edildi.");
+}
+
+function cleanupDrawMode(){
+  document.removeEventListener("keydown", drawKeyHandler);
+  drawKeyHandler = null;
+  showDrawControls(false);
+  map.getTargetElement().style.cursor = "";
+}
+
 
 function enrich(f){
   try{ if(!f.getId() && crypto?.randomUUID) f.setId(crypto.randomUUID()); }catch{ }
@@ -561,14 +800,22 @@ function copyFeature(feature, layer){ const clone=feature.clone(); try{ clone.se
 map.on("singleclick",(evt)=>{ if(mode!=="point") return; const f=new ol.Feature(new ol.geom.Point(evt.coordinate)); enrich(f); tgtLayer().getSource().addFeature(f); openForm(f); saveLocal($("layerSel").value, tgtLayer()); });
 $("addPoint").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="point"; $("addPoint").classList.add("active"); setStatus("NOKTA: haritaya tıkla"); map.getTargetElement().style.cursor="crosshair"; };
 
-$("addLine").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="line"; $("addLine").classList.add("active"); setStatus("ÇİZGİ: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
+$("addLine").onclick = (e)=>{
+  e.preventDefault();
+  $("addLine").classList.add("active");
+  startDraw("LineString");
+};
+
+map.getTargetElement().style.cursor="crosshair";
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
+$("addPoly").onclick = (e)=>{
+  e.preventDefault();
+  $("addPoly").classList.add("active");
+  startDraw("Polygon");
 };
-$("addPoly").onclick=(e)=>{ e.preventDefault(); resetInteractions(); mode="polygon"; $("addPoly").classList.add("active"); setStatus("POLİGON: noktaları yerleştir; çift tıkla bitir ya da ✔ Bitir"); map.getTargetElement().style.cursor="crosshair";
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
-};
 
 $("selectBtn").onclick=(e)=>{
   e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active");
@@ -658,6 +905,8 @@ function openForm(f){
   $('propGeom').onclick=()=>{ if(modify) map.removeInteraction(modify);
     modify=new ol.interaction.Modify({ features:new ol.Collection([f]) });
     map.addInteraction(modify); enableSnap(tgtLayer()); setStatus("DÜZENLEME: vertex taşı. 'Düzenlemeyi Kapat' ile çık.");
+    snapshotActive();
+
     modify.on("modifyend",()=>{ enrich(f); const L=featureLayer(f) || tgtLayer(); saveLocal(layerName(L), L); $('f_metric').value=summarizeGeom(f); });
   };
   $('geomReset').onclick=()=>{ if(modify){ map.removeInteraction(modify); modify=null; } if(snap){ map.removeInteraction(snap); snap=null; } setStatus("Geometri düzenleme kapatıldı."); };
