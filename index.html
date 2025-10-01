@@ -417,22 +417,37 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
 
   map.addSource('route',{type:'geojson',data:emptyFC()});
 
-  
-  // Ana rota (TURUNCU)
-  map.addLayer({id:'route-line',type:'line',source:'route',
-  paint:{
-    'line-color':'#ff7a00',          // TURUNCU
-    'line-opacity': 0.95,
-    'line-width': [
-      'interpolate', ['linear'], ['zoom'],
-      14, 3,
-      18, 7,
-      22, 16
-    ]
-  },
-  layout:{'line-cap':'round','line-join':'round'},
-  filter:['==',['get','role'],'main']
-});
+
+  // Ana rota turuncu ve kalın
+map.setPaintProperty('route-line', 'line-color', '#ff7a00');
+map.setPaintProperty('route-line', 'line-opacity', 0.95);
+map.setPaintProperty('route-line', 'line-width', [
+  'interpolate', ['linear'], ['zoom'],
+  14, 6,
+  18, 12,
+  22, 22
+]);
+
+// Altına casing katmanı ekle (sadece bir kere load sırasında)
+if (!map.getLayer('route-casing')) {
+  map.addLayer({
+    id: 'route-casing',
+    type: 'line',
+    source: 'route',
+    filter: ['==',['get','role'],'main'],
+    layout: { 'line-cap':'round','line-join':'round' },
+    paint: {
+      'line-color': '#000000',   // siyah gölge
+      'line-width': [
+        'interpolate',['linear'],['zoom'],
+        14, 10,
+        18, 16,
+        22, 26
+      ],
+      'line-opacity': 0.4
+    }
+  }, 'route-line'); // route-line’ın altına ekle
+}
 
   // Bağlayıcılar (kesik)
   map.addLayer({id:'route-connector',type:'line',source:'route',
