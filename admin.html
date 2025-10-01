@@ -809,7 +809,6 @@ $("addLine").onclick = (e)=>{
 map.getTargetElement().style.cursor="crosshair";
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"LineString"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
-};
 $("addPoly").onclick = (e)=>{
   e.preventDefault();
   $("addPoly").classList.add("active");
@@ -817,7 +816,6 @@ $("addPoly").onclick = (e)=>{
 };
   const layer=tgtLayer(); draw=new ol.interaction.Draw({source:layer.getSource(),type:"Polygon"}); map.addInteraction(draw); enableSnap(layer); $("finishDraw").style.display="inline-block"; $("finishDraw").onclick=()=>{ if(draw) draw.finishDrawing(); };
   draw.once("drawend",(ev)=>{ $("finishDraw").style.display="none"; enrich(ev.feature); openForm(ev.feature); saveLocal($("layerSel").value, layer); });
-};
 
 $("selectBtn").onclick=(e)=>{
   e.preventDefault(); resetInteractions(); mode="select"; $("selectBtn").classList.add("active");
