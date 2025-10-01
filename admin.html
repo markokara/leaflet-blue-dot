@@ -69,6 +69,43 @@
     button,select,input[type="file"],input[type="text"],input[type="number"]{padding:9px; font-size:14px}
     .row>*{min-width:100px}
   }
+
+  /* Panel başlığı + daraltma */
+.panel-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#panelToggle{margin-left:auto}
+
+/* Daraltılmış panel: sadece başlık şeridi görünür */
+.panel.collapsed{
+  transform:translateX(-50%) translateY(calc(100% - 44px)); /* 44px şerit */
+}
+.panel { transition: transform .24s ease }
+.panel:hover{ box-shadow:0 12px 30px rgba(0,0,0,.28) }
+
+/* Compact mod: butonları sadeleştir, paddings düşür */
+body.compact button,
+body.compact select,
+body.compact input[type="text"],
+body.compact input[type="number"],
+body.compact input[type="range"]{
+  padding:8px;
+}
+body.compact .small,
+body.compact .pill{ font-size:11px }
+body.compact .row>*{ min-width:96px }
+
+/* Sık kullanılan satırları ufukî kaydırılabilir yap (overflow) */
+.row.scrollx{ overflow:auto; white-space:nowrap; gap:6px }
+.row.scrollx > *{ flex:0 0 auto }
+
+/* “Daha fazla” içeriği aç/kapa */
+.more-wrap{ display:none }
+.more-wrap.open{ display:block }
+
+/* Mobil: varsayılan dar gel (kullanıcı açar) */
+@media (max-width: 640px){
+  .panel{ max-width:none; width:100vw; left:50%; bottom:0 }
+}
+
 </style>
 </head>
 <body>
@@ -90,6 +127,12 @@
 
 <!-- KONTROLLER -->
 <div class="panel">
+  <div class="panel-head">
+  <strong>Harita Kontrolleri</strong>
+  <button id="compactToggle" class="pill" title="Compact mod">⤢ Compact</button>
+  <button id="moreToggle" class="pill" title="Daha fazla eylem">⋯ Daha fazla</button>
+  <button id="panelToggle" class="pill" title="Paneli daralt/aç">⬇︎ Daralt</button>
+</div>
   <div class="row" style="align-items:center">
     <label style="display:flex;align-items:center;gap:8px; flex:0 0 auto">
       <input id="mbBaseToggle" type="checkbox" checked> Mapbox uydu (altta)
@@ -157,6 +200,8 @@
     </label>
   </div>
 
+  <!-- DAHA FAZLA (aç/kapa) -->
+<div id="moreWrap" class="more-wrap">
   <div class="row">
     <button id="expIndoor">⤓ indoor.json</button>
     <button id="expOutdoor">⤓ outdoor.json</button>
@@ -168,6 +213,7 @@
     <button id="clearLocal" class="danger">🧹 Yerel Veriyi Temizle</button>
   </div>
 </div>
+
 
 <!-- ÖZELLİK FORMU -->
 <div id="propModal" class="modal" aria-hidden="true">
@@ -982,6 +1028,70 @@ $("clearLocal").onclick=()=>{
   update3DBuildings();
   setStatus("Yerel veri temizlendi.");
 };
+
+
+
+// ==== Panel kontrol ====
+const panel = document.querySelector('.panel');
+const panelToggle = $('panelToggle');
+const compactToggle = $('compactToggle');
+const moreToggle = $('moreToggle');
+const moreWrap = $('moreWrap');
+
+// Son durumları hatırla
+const PANEL_KEY = 'ui.panel.collapsed';
+const COMPACT_KEY = 'ui.panel.compact';
+if(localStorage.getItem(COMPACT_KEY)==='1') document.body.classList.add('compact');
+if(localStorage.getItem(PANEL_KEY)==='1') panel.classList.add('collapsed');
+
+function setPanelCollapsed(on){
+  panel.classList.toggle('collapsed', !!on);
+  localStorage.setItem(PANEL_KEY, on?'1':'0');
+  panelToggle.textContent = on ? '⬆︎ Aç' : '⬇︎ Daralt';
+}
+panelToggle.onclick = ()=> setPanelCollapsed(!panel.classList.contains('collapsed'));
+
+compactToggle.onclick = ()=>{
+  const on = !document.body.classList.contains('compact');
+  document.body.classList.toggle('compact', on);
+  localStorage.setItem(COMPACT_KEY, on?'1':'0');
+  compactToggle.classList.toggle('active', on);
+};
+
+moreToggle.onclick = ()=>{
+  const open = !moreWrap.classList.contains('open');
+  moreWrap.classList.toggle('open', open);
+  moreToggle.classList.toggle('active', open);
+};
+
+// ==== Otomatik daraltma (mobilde rahatlık için):
+let hideT;
+function scheduleAutoHide(){
+  if (window.matchMedia('(max-width: 640px)').matches){
+    clearTimeout(hideT);
+    hideT = setTimeout(()=> setPanelCollapsed(true), 2500);
+  }
+}
+// Panel üstünde iken saklama; haritada gezinince zamanla kapat
+panel.addEventListener('mouseenter', ()=> clearTimeout(hideT));
+panel.addEventListener('mouseleave', scheduleAutoHide);
+map.on('movestart', scheduleAutoHide);
+
+// Çizim/Seçim başlarken paneli daralt → harita alanı artsın
+function collapseForFocus(){ setPanelCollapsed(true); }
+['addLine','addPoly','addPoint','selectBtn'].forEach(id=>{
+  const el = $(id);
+  if(!el) return;
+  el.addEventListener('click', collapseForFocus);
+});
+
+// Form/işlem biterken tekrar açmak istersen:
+// setPanelCollapsed(false);
+
+// Başlangıçta küçük ekran ise bir kere sakla (kullanıcı açar)
+if (window.matchMedia('(max-width: 640px)').matches && !localStorage.getItem(PANEL_KEY)){
+  setPanelCollapsed(true);
+}
 </script>
 </body>
 </html>
