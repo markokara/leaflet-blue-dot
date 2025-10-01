@@ -157,8 +157,14 @@ body.compact .row>*{ min-width:96px }
 
 /* Mobil: varsayılan dar gel (kullanıcı açar) */
 @media (max-width: 640px){
-  .panel{ max-width:none; width:100vw; left:50%; bottom:0 }
+  .panel{padding:8px}
+  button,select,input[type="file"],input[type="text"],input[type="number"]{padding:9px; font-size:14px}
+  .row>*{min-width:100px}
+
+  /* EKLE → mobilde formları tek sütun yap */
+  .grid{ grid-template-columns: 1fr; }
 }
+
 
 </style>
 </head>
@@ -273,101 +279,107 @@ body.compact .row>*{ min-width:96px }
 <div id="propModal" class="modal" aria-hidden="true">
   <div class="panel2">
     <h3>Özellikler</h3>
-        <!-- KAYDIRILAN GÖVDE BAŞI -->
+
+    <!-- KAYDIRILAN GÖVDE -->
     <div class="sheet-body">
-    <div class="grid">
-       </div>
-      <div><label>İsim (varsayılan)</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
-      <div>
-        <label>Kategori</label>
-        <select id="f_category">
-          <option value="">Seçiniz…</option>
-          <option>restaurant</option><option>bar</option><option>spa</option><option>pool</option>
-          <option>wc</option><option>elevator</option><option>stair</option><option>kidsclub</option>
-          <option>reception</option><option>shop</option><option>gym</option><option>beach</option>
-          <option>shuttle</option><option>parking</option><option>gate</option><option>info</option>
-          <option>building</option>
-          <option>green</option><option>forest</option><option>garden</option><option>trees</option>
-          <option>aquapark</option><option>waterslide</option><option>playground</option>
-          <option>tennis</option><option>football</option><option>basketball</option><option>volleyball</option>
-          <option>pier</option><option>beachbar</option><option>amphitheatre</option>
-          <option>path</option><option>bike</option><option>service</option><option>noentry</option><option>oneway</option>
-          <option value="_other">Diğer…</option>
-        </select>
+      <!-- ANA ALANLAR: 2 kolon grid -->
+      <div class="grid">
+        <div><label>İsim (varsayılan)</label><input id="f_name" placeholder="Örn: Ana Restoran"></div>
+        <div>
+          <label>Kategori</label>
+          <select id="f_category">
+            <option value="">Seçiniz…</option>
+            <option>restaurant</option><option>bar</option><option>spa</option><option>pool</option>
+            <option>wc</option><option>elevator</option><option>stair</option><option>kidsclub</option>
+            <option>reception</option><option>shop</option><option>gym</option><option>beach</option>
+            <option>shuttle</option><option>parking</option><option>gate</option><option>info</option>
+            <option>building</option>
+            <option>green</option><option>forest</option><option>garden</option><option>trees</option>
+            <option>aquapark</option><option>waterslide</option><option>playground</option>
+            <option>tennis</option><option>football</option><option>basketball</option><option>volleyball</option>
+            <option>pier</option><option>beachbar</option><option>amphitheatre</option>
+            <option>path</option><option>bike</option><option>service</option><option>noentry</option><option>oneway</option>
+            <option value="_other">Diğer…</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1; display:none" id="catOtherWrap">
+          <label>Diğer Kategori</label><input id="f_category_other" placeholder="ör. lounge">
+        </div>
+
+        <div><label>Dolgu Rengi (fill)</label><input id="f_fill" type="text" placeholder="#09DCE4 veya 09DCE4"></div>
+        <div><label>Çizgi Rengi (stroke)</label><input id="f_stroke" type="text" placeholder="#1f2937 veya 1f2937"></div>
+        <div><label>Dolgu Opaklığı (0–1)</label><input id="f_fill_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.25"></div>
+        <div><label>Çizgi Opaklığı (0–1)</label><input id="f_stroke_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.8"></div>
+
+        <div><label>Çizgi Kalınlığı (px)</label><input id="f_width" type="number" step="0.5" min="0" placeholder="2"></div>
+        <div>
+          <label>Yol Tipi</label>
+          <select id="f_way">
+            <option value="">(yok)</option>
+            <option value="foot">Yaya</option>
+            <option value="run">Koşu</option>
+            <option value="indoor">Indoor koridor</option>
+            <option value="bike">Bisiklet</option>
+            <option value="shuttle">Shuttle</option>
+            <option value="service">Servis/araç</option>
+            <option value="no_entry">Girilmez</option>
+            <option value="oneway_fwd">Tek yön (→)</option>
+            <option value="oneway_rev">Tek yön (←)</option>
+          </select>
+        </div>
+
+        <div style="grid-column:1/-1"><label>Emoji/İkon Metni</label><input id="f_icon_text" placeholder="ör. 🏊‍♂️"></div>
+
+        <div><label>Seviye/Kat (varsayılan)</label><input id="f_level" placeholder="1"></div>
+        <div><label>Saatler (varsayılan)</label><input id="f_hours" placeholder="09:00-22:00"></div>
+        <div style="grid-column:1/-1"><label>Açıklama (varsayılan)</label><textarea id="f_desc" placeholder="Kısa açıklama veya https://... linkleri yaz; tıklanabilir."></textarea></div>
+        <div style="grid-column:1/-1"><label>Fotoğraf/İkon URL</label><input id="f_image" placeholder="https://.../foto.png"></div>
+
+        <div><label>Yükseklik (metre)</label><input id="f_height" type="number" min="0" step="0.5" placeholder="örn: 18"></div>
+        <div><label>Kat Sayısı</label><input id="f_levels" type="number" min="0" step="1" placeholder="örn: 6"></div>
+
+        <div><label>Öğe ID (otomatik)</label><input id="f_id" disabled></div>
+        <div><label>Özet</label><input id="f_metric" disabled></div>
+      </div><!-- /grid -->
+
+      <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+
+      <!-- Çok dilli -->
+      <div class="grid">
+        <div>
+          <label>Dil</label>
+          <select id="f_lang">
+            <option value="tr">Türkçe</option><option value="en">English</option>
+            <option value="ru">Русский</option><option value="de">Deutsch</option><option value="pl">Polski</option>
+          </select>
+        </div>
+        <div class="pill small" style="align-self:end">Bu bölüm <b>name_XX / hours_XX / level_XX / desc_XX / image_XX</b> alanlarını yazar.</div>
       </div>
-      <div style="grid-column:1/-1; display:none" id="catOtherWrap"><label>Diğer Kategori</label><input id="f_category_other" placeholder="ör. lounge"></div>
-
-      <div><label>Dolgu Rengi (fill)</label><input id="f_fill" type="text" placeholder="#09DCE4 veya 09DCE4"></div>
-      <div><label>Çizgi Rengi (stroke)</label><input id="f_stroke" type="text" placeholder="#1f2937 veya 1f2937"></div>
-      <div><label>Dolgu Opaklığı (0–1)</label><input id="f_fill_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.25"></div>
-      <div><label>Çizgi Opaklığı (0–1)</label><input id="f_stroke_op" type="number" min="0" max="1" step="0.01" placeholder="örn: 0.8"></div>
-
-      <div><label>Çizgi Kalınlığı (px)</label><input id="f_width" type="number" step="0.5" min="0" placeholder="2"></div>
-      <div><label>Yol Tipi</label>
-        <select id="f_way">
-          <option value="">(yok)</option>
-          <option value="foot">Yaya</option>
-          <option value="run">Koşu</option>
-          <option value="indoor">Indoor koridor</option>
-          <option value="bike">Bisiklet</option>
-          <option value="shuttle">Shuttle</option>
-          <option value="service">Servis/araç</option>
-          <option value="no_entry">Girilmez</option>
-          <option value="oneway_fwd">Tek yön (→)</option>
-          <option value="oneway_rev">Tek yön (←)</option>
-        </select>
+      <div class="grid">
+        <div><label>İsim (seçili dil)</label><input id="l_name"></div>
+        <div><label>Saatler (seçili dil)</label><input id="l_hours"></div>
+        <div><label>Seviye/Kat (seçili dil)</label><input id="l_level"></div>
+        <div style="grid-column:1/-1"><label>Açıklama (seçili dil)</label><textarea id="l_desc"></textarea></div>
+        <div style="grid-column:1/-1"><label>Fotoğraf URL (seçili dil)</label><input id="l_image" placeholder="https://.../foto.jpg"></div>
       </div>
 
-      <div style="grid-column:1/-1"><label>Emoji/İkon Metni</label><input id="f_icon_text" placeholder="ör. 🏊‍♂️"></div>
-
-      <div><label>Seviye/Kat (varsayılan)</label><input id="f_level" placeholder="1"></div>
-      <div><label>Saatler (varsayılan)</label><input id="f_hours" placeholder="09:00-22:00"></div>
-      <div style="grid-column:1/-1"><label>Açıklama (varsayılan)</label><textarea id="f_desc" placeholder="Kısa açıklama veya https://... linkleri yaz; tıklanabilir."></textarea></div>
-      <div style="grid-column:1/-1"><label>Fotoğraf/İkon URL</label><input id="f_image" placeholder="https://.../foto.png"></div>
-
-      <div><label>Yükseklik (metre)</label><input id="f_height" type="number" min="0" step="0.5" placeholder="örn: 18"></div>
-      <div><label>Kat Sayısı</label><input id="f_levels" type="number" min="0" step="1" placeholder="örn: 6"></div>
-
-      <div><label>Öğe ID (otomatik)</label><input id="f_id" disabled></div>
-      <div><label>Özet</label><input id="f_metric" disabled></div>
-    </div>
-
-    <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
-
-    <!-- Çok dilli -->
-    <div class="grid">
-      <div>
-        <label>Dil</label>
-        <select id="f_lang">
-          <option value="tr">Türkçe</option><option value="en">English</option>
-          <option value="ru">Русский</option><option value="de">Deutsch</option><option value="pl">Polski</option>
-        </select>
+      <!-- STICKY BUTONLAR: sheet-body'nin İÇİNDE -->
+      <div class="actions">
+        <div class="left">
+          <button id="propGeom" class="pill">Geometriyi Düzenle</button>
+          <button id="geomReset" class="pill">Düzenlemeyi Kapat</button>
+          <button id="moveLayer" class="pill" style="display:none">Aktif katmana taşı</button>
+          <button id="propDelete" class="danger">Sil</button>
+        </div>
+        <div>
+          <button class="primary" id="propSave">Kaydet</button>
+          <button class="primary" id="propClose">Kapat</button>
+        </div>
       </div>
-      <div class="pill small" style="align-self:end">Bu bölüm <b>name_XX / hours_XX / level_XX / desc_XX / image_XX</b> alanlarını yazar.</div>
-    </div>
-    <div class="grid">
-      <div><label>İsim (seçili dil)</label><input id="l_name"></div>
-      <div><label>Saatler (seçili dil)</label><input id="l_hours"></div>
-      <div><label>Seviye/Kat (seçili dil)</label><input id="l_level"></div>
-      <div style="grid-column:1/-1"><label>Açıklama (seçili dil)</label><textarea id="l_desc"></textarea></div>
-      <div style="grid-column:1/-1"><label>Fotoğraf URL (seçili dil)</label><input id="l_image" placeholder="https://.../foto.jpg"></div>
-    </div>
-    </div> <!-- /sheet-body --> <!-- EKLENDİ -->
-
-    <div class="actions">
-      <div class="left">
-        <button id="propGeom" class="pill">Geometriyi Düzenle</button>
-        <button id="geomReset" class="pill">Düzenlemeyi Kapat</button>
-        <button id="moveLayer" class="pill" style="display:none">Aktif katmana taşı</button>
-        <button id="propDelete" class="danger">Sil</button>
-      </div>
-      <div>
-        <button class="primary" id="propSave">Kaydet</button>
-        <button class="primary" id="propClose">Kapat</button>
-      </div>
-    </div>
+    </div><!-- /sheet-body -->
   </div>
 </div>
+
 
 <script>
 /* ====== TOKEN ====== */
@@ -1164,4 +1176,3 @@ if (window.matchMedia('(max-width: 640px)').matches && !localStorage.getItem(PAN
 </script>
 </body>
 </html>
-
