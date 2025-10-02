@@ -280,7 +280,7 @@ function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a
 
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 
-unction applyPoiCategoryFilter(cat){
+function applyPoiCategoryFilter(cat){
   const base = ['==',['geometry-type'],'Point']; // sadece Point'ler kalsın
   const filt = cat ? ['all', base, ['==',['get','category'], cat]] : base;
   if (map.getLayer('indoor-pts'))  map.setFilter('indoor-pts',  filt);
