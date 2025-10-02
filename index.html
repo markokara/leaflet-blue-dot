@@ -277,7 +277,15 @@ document.querySelectorAll('input[name="profile"]').forEach(r=>{
 /* Helpers */
 function emptyFC(){return {type:'FeatureCollection',features:[]};}
 function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
+
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
+
+unction applyPoiCategoryFilter(cat){
+  const base = ['==',['geometry-type'],'Point']; // sadece Point'ler kalsın
+  const filt = cat ? ['all', base, ['==',['get','category'], cat]] : base;
+  if (map.getLayer('indoor-pts'))  map.setFilter('indoor-pts',  filt);
+  if (map.getLayer('outdoor-pts')) map.setFilter('outdoor-pts', filt);
+}
 
 function lockToHotel(){
   map.fitBounds(HOTEL_BOUNDS, {
@@ -621,8 +629,10 @@ function detectCategory(qs){
 }
 q.addEventListener('input', ()=>{
   const val=(q.value||'').trim();
-  if(!val){ results.style.display='none'; return; }
+  if(!val){results.style.display='none'; applyPoiCategoryFilter(null); return;}
+
   const qn=norm(val), maybeCat=detectCategory(val);
+
   const hits = allFeats.filter(f=>{
     const p=f.properties||{}; const cat=(p.category||'').toLowerCase();
     if(maybeCat && cat===maybeCat) return true;
@@ -632,6 +642,7 @@ q.addEventListener('input', ()=>{
     return ex.some(d=>d.includes(qn));
   });
   renderResults(hits, maybeCat);
+  applyPoiCategoryFilter(maybeCat || null);
 });
 function renderResults(list, cat){
   results.innerHTML='';
@@ -1204,7 +1215,7 @@ resetBtn.onclick=()=>{
   q.value=''; results.style.display='none'; pickMode='none';
   pickStartBtn.classList.remove('active'); pickDestBtn.classList.remove('active');
   document.getElementById('sheet').style.setProperty('--panel-ty','0px');
-  lockToHotel();
+  lockToHotel();applyPoiCategoryFilter(null);
 };
 
 /* ================== BLUEDOT (BENİM KONUMUM) ================== */
