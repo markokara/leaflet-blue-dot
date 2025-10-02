@@ -329,39 +329,25 @@ map.addLayer({
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
     paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
 
- const img = await fetch('icons/marker-default.png').then(r => r.arrayBuffer());
+ const img = await fetch('marker-default.png').then(r => r.arrayBuffer());
   const bitmap = await createImageBitmap(new Blob([img]));
   if (!map.hasImage('poi-marker')) {
     map.addImage('poi-marker', bitmap);
   }
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
-  restaurant: 'icons/restaurant.png',
-  bar:        'icons/bar.png',
-  spa:        'icons/spa.png',
-  cafe:       'icons/cafe.png',
-  shop:       'icons/shop.png',
-  toilet:     'icons/toilet.png',
-  reception:  'icons/reception.png',
-  beach:      'icons/beach.png',
-  kidsclub:   'icons/kidsclub.png',
-  elevator:   'icons/elevator.png',
-  gate:       'icons/gate.png',
-  parking:    'icons/parking.png',
-  shuttle:    'icons/shuttle.png',
-  gym:        'icons/gym.png',
-  pool:       'icons/pool.png',
-  _default:   'icons/marker-default.png'
+  restaurant: 'restaurant.png', //bu icon yolunu değiştirdiğinde değişecek
+  bar:        'poi-green.png',//bu icon yolunu değiştirdiğinde değişecek
+  spa:        'poi-red.png'//bu icon yolunu değiştirdiğinde değişecek
+  // ... eklediğiniz diğer kategoriler
 };
 for (const [key, path] of Object.entries(icons)) {
-  if (key === '_default') continue; // ← sadece bu satırı ekle
   const buf = await fetch(path).then(r => r.arrayBuffer());
   const bmp = await createImageBitmap(new Blob([buf]));
   if (!map.hasImage(`poi-${key}`)) {
     map.addImage(`poi-${key}`, bmp);
   }
 }
-
 
 
     // DEBUG kaynak
@@ -472,7 +458,7 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   await loadJSONs();
   applyLang();
   applyBasemap();
-  lockToHotel();
+  mlockToHotel();
 });
 
 /* Katman yardımcıları */
@@ -491,31 +477,19 @@ function addFeatureLayers(src){
   layout: {
     // Kategoriye göre farklı ikon atamak için match ifadesi:
     'icon-image': [
-      'match', ['get', 'category'],
-      'restaurant','poi-restaurant',
-      'bar','poi-bar',
-      'spa','poi-spa',
-      'cafe','poi-cafe',
-      'shop','poi-shop',
-      'toilet','poi-toilet',
-      'reception','poi-reception',
-      'beach','poi-beach',
-      'kidsclub','poi-kidsclub',
-      'elevator','poi-elevator',
-      'gate','poi-gate',
-      'parking','poi-parking',
-      'shuttle','poi-shuttle',
-      'gym','poi-gym',
-      'pool','poi-pool',
-      'poi-marker' // fallback
+      'match',
+      ['get', 'category'],
+      'restaurant', 'poi-restaurant',
+      'bar',        'poi-bar',
+      'spa',        'poi-spa',
+      
+      // ... diğer kategoriler
+      'poi-marker'  // eşleşmeyenler için varsayılan yeşil damla
     ],
-    'icon-size': 1,              // HEPSİ ARTIK STANDART
-    'icon-anchor': 'bottom',
+    'icon-size': 1.0,     // ikonların boyutunu ayarlayın
     'icon-allow-overlap': true
-    // gerekirse: 'icon-offset': [0, -1]
   }
 });
-
 }
 
 /* JSON yükleme */
