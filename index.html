@@ -337,9 +337,9 @@ map.addLayer({
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
   restaurant: 'poi-red.png', //bu icon yolunu değiştirdiğinde değişecek
-  bar:        'poi-green.png',//bu icon yolunu değiştirdiğinde değişecek
+  bar:        'map-pin.svg',//bu icon yolunu değiştirdiğinde değişecek
   spa:        'poi-red.png'//bu icon yolunu değiştirdiğinde değişecek
-  // ... eklediğiniz diğer kategoriler
+  // ... eklediğiniz diğer kategorilmer
 };
 for (const [key, path] of Object.entries(icons)) {
   const buf = await fetch(path).then(r => r.arrayBuffer());
