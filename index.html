@@ -329,7 +329,7 @@ map.addLayer({
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
     paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
 
- const img = await fetch('poi-red.png').then(r => r.arrayBuffer());
+ const img = await fetch('icons._default').then(r => r.arrayBuffer());
   const bitmap = await createImageBitmap(new Blob([img]));
   if (!map.hasImage('poi-marker')) {
     map.addImage('poi-marker', bitmap);
