@@ -329,16 +329,16 @@ map.addLayer({
   map.addLayer({id:'osm-raster', type:'raster', source:'osmRaster',
     paint:{'raster-opacity': OSM_VISIBLE ? OSM_OPACITY : 0}});
 
- const img = await fetch('poi-red.png').then(r => r.arrayBuffer());
+ const img = await fetch('poi-blue.png').then(r => r.arrayBuffer());
   const bitmap = await createImageBitmap(new Blob([img]));
   if (!map.hasImage('poi-marker')) {
     map.addImage('poi-marker', bitmap);
   }
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
-  restaurant: 'poi-red.png', //bu icon yolunu değiştirdiğinde değişecek
+  restaurant: 'poi-green.png', //bu icon yolunu değiştirdiğinde değişecek
   bar:        'poi-blue.png',//bu icon yolunu değiştirdiğinde değişecek
-  spa:        'poi-red.png'//bu icon yolunu değiştirdiğinde değişecek
+  spa:        'poi-green.png'//bu icon yolunu değiştirdiğinde değişecek
   // ... eklediğiniz diğer kategorilmer
 };
 for (const [key, path] of Object.entries(icons)) {
