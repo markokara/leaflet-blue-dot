@@ -337,8 +337,8 @@ map.addLayer({
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
   restaurant: 'poi-restaurant.png',
-  bar:        'poi-marker-default.png',
-  spa:        'poi-marker-default.png',
+  bar:        'poi-bar.png',
+  spa:        'poi-spa.png',
   cafe:       'poi-marker-default.png',
   shop:       'poi-marker-default.png',
   toilet:     'poi-marker-default.png',
@@ -433,7 +433,7 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   map.addLayer({id:'route-line',type:'line',source:'route',
   paint:{
     'line-color':'#ff7a00',          // TURUNCU
-    'line-opacity': 0.95,
+    'line-opacity': 0.85,
     'line-width': [
       'interpolate', ['linear'], ['zoom'],
       14, 6,
@@ -493,11 +493,29 @@ function addFeatureLayers(src){
       'restaurant', 'poi-restaurant',
       'bar',        'poi-bar',
       'spa',        'poi-spa',
-      
+      'cafe',       'poi-cafe',
+      'shop',       'poi-shop', 
+      'toilet',     'poi-toilet',
+      'reception',  'poi-reception',
+      'beach',      'poi-beach',
+      'kidsclub',   'poi-kidsclub',
+      'elevator',   'poi-elevator',
+      'gate',       'poi-gate',
+      'parking',    'poi-parking',
+      'shuttle',    'poi-shuttle',
+      'gym',        'poi-gym',
+      'pool',       'poi-pool',
+
       // ... diğer kategoriler
       'poi-marker'  // eşleşmeyenler için varsayılan yeşil damla
     ],
     'icon-size': 1.0,     // ikonların boyutunu ayarlayın
+    
+     // >>> KAYMAMASI İÇİN KRİTİKLER <<<
+    'icon-anchor': 'bottom',            // iğne ucu altta sabitlensin
+    'icon-pitch-alignment': 'map',      // eğimde yerle aynı düzlem
+    'icon-rotation-alignment': 'map',   // yön haritaya göre
+
     'icon-allow-overlap': true
   }
 });
