@@ -336,10 +336,21 @@ map.addLayer({
   }
 // Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
   const icons = {
-  restaurant: 'poi-restaurant.png', //bu icon yolunu değiştirdiğinde değişecek
-  bar:        'poi-marker-default.png',//bu icon yolunu değiştirdiğinde değişecek
-  spa:        'poi-marker-default.png'//bu icon yolunu değiştirdiğinde değişecek
-  // ... eklediğiniz diğer kategoriler
+  restaurant: 'poi-restaurant.png',
+  bar:        'poi-bar.png',
+  spa:        'poi-spa.png',
+  cafe:       'poi-cafe.png',
+  shop:       'poi-shop.png',
+  toilet:     'poi-toilet.png',
+  reception:  'poi-reception.png',
+  beach:      'poi-beach.png',
+  kidsclub:   'poi-marker-default.png',
+  elevator:   'poi-marker-default.png',
+  gate:       'poi-marker-default.png',
+  parking:    'poi-marker-default.png',
+  shuttle:    'poi-marker-default.png',
+  gym:        'poi-marker-default.png',
+  pool:       'poi-marker-default.png',
 };
 for (const [key, path] of Object.entries(icons)) {
   const buf = await fetch(path).then(r => r.arrayBuffer());
