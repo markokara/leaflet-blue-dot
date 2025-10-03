@@ -361,38 +361,31 @@ map.addLayer({
   if (!map.hasImage('poi-marker')) {
     map.addImage('poi-marker', bitmap);
   }
-const files = {
-  marker:     'icons/poi-marker-default.png', // varsayılan (daireli pin)
-  restaurant: 'icons/poi-restaurant.png',
-  bar:        'icons/poi-bar.png',
-  spa:        'icons/poi-spa.png',
-  cafe:       'icons/poi-cafe.png',
-  shop:       'icons/poi-marker-default.png',
-  toilet:     'icons/poi-marker-default.png',
-  reception:  'icons/poi-marker-default.png',
-  beach:      'icons/poi-marker-default.png',
-  kidsclub:   'icons/poi-marker-default.png',
-  elevator:   'icons/poi-marker-default.png',
-  gate:       'icons/poi-marker-default.png',
-  parking:    'icons/poi-marker-default.png',
-  shuttle:    'icons/poi-marker-default.png',
-  gym:        'icons/poi-marker-default.png',
-  pool:       'icons/poi-marker-default.png'
+// Eğer kategori bazlı farklı renklerde ikonlarınız varsa:
+  const icons = {
+  restaurant: 'poi-restaurant.png',
+  bar:        'poi-bar.png',
+  spa:        'poi-spa.png',
+  cafe:       'poi-marker-default.png',
+  shop:       'poi-marker-default.png',
+  toilet:     'poi-marker-default.png',
+  reception:  'poi-marker-default.png',
+  beach:      'poi-marker-default.png',
+  kidsclub:   'poi-marker-default.png',
+  elevator:   'poi-marker-default.png',
+  gate:       'poi-marker-default.png',
+  parking:    'poi-marker-default.png',
+  shuttle:    'poi-marker-default.png',
+  gym:        'poi-marker-default.png',
+  pool:       'poi-marker-default.png',
 };
-
-async function loadPoiIcons(map){
-  for (const [key, url] of Object.entries(files)){
-    try{
-      const buf = await fetch(url).then(r => r.arrayBuffer());
-      const bmp = await createImageBitmap(new Blob([buf]));
-      const id  = key === 'marker' ? 'poi-marker' : `poi-${key}`;
-      if (!map.hasImage(id)) map.addImage(id, bmp, { pixelRatio: 2 });
-    }catch(e){
-      console.warn('Icon yüklenemedi:', key, url, e?.message||e);
-    }
+for (const [key, path] of Object.entries(icons)) {
+  const buf = await fetch(path).then(r => r.arrayBuffer());
+  const bmp = await createImageBitmap(new Blob([buf]));
+  if (!map.hasImage(`poi-${key}`)) {
+    map.addImage(`poi-${key}`, bmp);
   }
 }
-
 
 
     // DEBUG kaynak
