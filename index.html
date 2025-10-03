@@ -175,7 +175,7 @@ const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
 const OSM_OPACITY = 0.05;
 const OSM_VISIBLE = true;
 // Ne kadar ekstra zoom-out? (kademeler)
-const EXTRA_ZOOMOUT = 0.2;   // 0.3–1.2 arası genelde ideal
+const EXTRA_ZOOMOUT = 0.6;   // 0.3–1.2 arası genelde ideal
 
 
 /* ===== SİMÜLASYON: sabit bluedot ===== */
@@ -187,7 +187,13 @@ const SIM_ME_ACC_M  = 5;
 const MAX_CONNECTOR_M     = 50; // >50 m ise rota yapma ve uyar
 const HIDE_CONNECTOR_LT_M = 5;  // <5 m ise connector’ı çizme (gizle)
 
-
+function expandBoundsMeters(bounds, m=300){
+  const [[w,s],[e,n]] = bounds;
+  const lat = (s+n)/2;
+  const dLat = m / 110540; // ~1° lat ≈ 110.54 km
+  const dLon = m / (111320 * Math.cos(lat * Math.PI/180));
+  return [[w - dLon, s - dLat],[e + dLon, n + dLat]];
+}
 /* ================== i18n ================== */
 const I18N = {
   tr:{searchPH:"Ara: restoran, spa, havuz…", go:"Git",
@@ -496,6 +502,8 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   await loadJSONs();
   applyLang();
   applyBasemap();
+  const padded = expandBoundsMeters(HOTEL_BOUNDS, 300); // 300 m pay
+  map.setMaxBounds(padded);
   lockToHotel();
 });
 
