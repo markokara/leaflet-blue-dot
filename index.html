@@ -170,7 +170,7 @@ const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
 const HOTEL_BOUNDS = [[HOTEL_BBOX[0], HOTEL_BBOX[1]], [HOTEL_BBOX[2], HOTEL_BBOX[3]]];
 const PADDING = {top:120,right:16,bottom:160,left:16};
-const DEFAULT_PITCH = 45, DEFAULT_BEARING = 10;
+const DEFAULT_PITCH = 0, DEFAULT_BEARING = 0;
 
 const OSM_OPACITY = 0.05;
 const OSM_VISIBLE = true;
@@ -306,11 +306,23 @@ function linkify(text){ return (text||'').replace(/(https?:\/\/[^\s<>"']+)/g,'<a
 function nameInAnyLang(p){ return p['name_'+LANG] || p.name || p.name_tr || p.name_en || p.name_ru || p.name_de || p.name_pl || ''; }
 
 function applyPoiCategoryFilter(cat){
-  const base = ['==',['geometry-type'],'Point']; // sadece Point'ler kalsın
-  const filt = cat ? ['all', base, ['==',['get','category'], cat]] : base;
-  if (map.getLayer('indoor-pts'))  map.setFilter('indoor-pts',  filt);
-  if (map.getLayer('outdoor-pts')) map.setFilter('outdoor-pts', filt);
+  // Sadece Point geometri kalsın
+  const base = ['==', ['geometry-type'], 'Point'];
+  // Kategori seçildiyse onu da ekle, yoksa tüm Point'ler
+  const filt = cat ? ['all', base, ['==', ['get','category'], cat]] : base;
+
+  // Nokta ile ilgili TÜM katmanlara aynı filtreyi uygula
+  const pointLayers = [
+    'indoor-pts', 'outdoor-pts',                 // ikonlar (symbol)
+    'indoor-pts-badge','outdoor-pts-badge',      // renkli daireler (circle)
+    'indoor-pts-shadow','outdoor-pts-shadow'     // gölgeler (circle)
+  ];
+
+  pointLayers.forEach(id => {
+    if (map.getLayer(id)) map.setFilter(id, filt);
+  });
 }
+
 
 function lockToHotel(){
   const isLandscape = window.innerWidth > window.innerHeight;
