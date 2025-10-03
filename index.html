@@ -187,7 +187,7 @@ const SIM_ME_ACC_M  = 5;
 const MAX_CONNECTOR_M     = 50; // >50 m ise rota yapma ve uyar
 const HIDE_CONNECTOR_LT_M = 5;  // <5 m ise connector’ı çizme (gizle)
 
-function expandBoundsMeters(bounds, m=300){
+function expandBoundsMeters(bounds, m=100){
   const [[w,s],[e,n]] = bounds;
   const lat = (s+n)/2;
   const dLat = m / 110540; // ~1° lat ≈ 110.54 km
