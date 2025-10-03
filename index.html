@@ -367,17 +367,17 @@ const files = {
   bar:        'icons/poi-bar.png',
   spa:        'icons/poi-spa.png',
   cafe:       'icons/poi-cafe.png',
-  shop:       'icons/poi-shop.png',
-  toilet:     'icons/poi-toilet.png',
-  reception:  'icons/poi-reception.png',
-  beach:      'icons/poi-beach.png',
-  kidsclub:   'icons/poi-kidsclub.png',
-  elevator:   'icons/poi-elevator.png',
-  gate:       'icons/poi-gate.png',
-  parking:    'icons/poi-parking.png',
-  shuttle:    'icons/poi-shuttle.png',
-  gym:        'icons/poi-gym.png',
-  pool:       'icons/poi-pool.png'
+  shop:       'icons/poi-marker-default.png',
+  toilet:     'icons/poi-marker-default.png',
+  reception:  'icons/poi-marker-default.png',
+  beach:      'icons/poi-marker-default.png',
+  kidsclub:   'icons/poi-marker-default.png',
+  elevator:   'icons/poi-marker-default.png',
+  gate:       'icons/poi-marker-default.png',
+  parking:    'icons/poi-marker-default.png',
+  shuttle:    'icons/poi-marker-default.png',
+  gym:        'icons/poi-marker-default.png',
+  pool:       'icons/poi-marker-default.png'
 };
 
 async function loadPoiIcons(map){
@@ -393,8 +393,6 @@ async function loadPoiIcons(map){
   }
 }
 
-// …diğer kaynak ve katmanların ardından:
-await loadPoiIcons(map);
 
 
     // DEBUG kaynak
