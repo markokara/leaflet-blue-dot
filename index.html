@@ -221,6 +221,25 @@ const I18N = {
       nav:{depart:"Start", arrive:"Meta", turn_left:"Skręć w lewo", turn_right:"Skręć w prawo", straight:"Jedź prosto", roundabout:"Na rondzie zjedź zjazdem nr %n", onto:" na %s"}
   }
 };
+const CAT_COLORS = {
+  restaurant:'#FF6B2C',
+  bar:'#A855F7',
+  spa:'#14B8A6',
+  cafe:'#F59E0B',
+  shop:'#0EA5E9',
+  toilet:'#64748B',
+  reception:'#22C55E',
+  beach:'#FB923C',
+  kidsclub:'#EF4444',
+  elevator:'#9CA3AF',
+  gate:'#6D28D9',
+  parking:'#2563EB',
+  shuttle:'#10B981',
+  gym:'#DC2626',
+  pool:'#22D3EE',
+  default:'#0EA5E9'
+};
+
 const SUP_LANGS = ['tr','en','ru','de','pl'];
 let LANG = localStorage.getItem("lang");
 if (!LANG) {
@@ -477,7 +496,7 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   await loadJSONs();
   applyLang();
   applyBasemap();
-  mlockToHotel();
+  lockToHotel();
 });
 
 /* Katman yardımcıları */
@@ -488,40 +507,119 @@ function addFeatureLayers(src){
 
   map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
 
+ function addFeatureLayers(src){
+  // Poligonlar
   map.addLayer({
-  id: `${src}-pts`,
-  type: 'symbol',
-  source: src,
-  filter: ['==', ['geometry-type'], 'Point'],
-  layout: {
-    // Kategoriye göre farklı ikon atamak için match ifadesi:
-    'icon-image': [
-      'match',
-      ['get', 'category'],
-      'restaurant', 'poi-restaurant',
-      'bar',        'poi-bar',
-      'spa',        'poi-spa',
-      'cafe',       'poi-cafe',
-      'shop',       'poi-shop', 
-      'toilet',     'poi-toilet',
-      'reception',  'poi-reception',
-      'beach',      'poi-beach',
-      'kidsclub',   'poi-kidsclub',
-      'elevator',   'poi-elevator',
-      'gate',       'poi-gate',
-      'parking',    'poi-parking',
-      'shuttle',    'poi-shuttle',
-      'gym',        'poi-gym',
-      'pool',       'poi-pool',
+    id:`${src}-fill`, type:'fill', source:src,
+    paint:{
+      'fill-color':['coalesce',['get','fill'],'#2563eb'],
+      'fill-opacity':['coalesce',['get','fill_op'],0.35]
+    }
+  });
 
-      // ... diğer kategoriler
-      'poi-marker'  // eşleşmeyenler için varsayılan yeşil damla
-    ],
-    'icon-size': 1.0,     // ikonların boyutunu ayarlayın
-    'icon-allow-overlap': true
-  }
-});
+  // Poligon kenar
+  map.addLayer({
+    id:`${src}-fill-outline`, type:'line', source:src,
+    filter:['==',['geometry-type'],'Polygon'],
+    paint:{
+      'line-color':['coalesce',['get','stroke'],'#2563eb'],
+      'line-width':['coalesce',['get','stroke_w'],1.6]
+    }
+  });
+
+  // Çizgiler
+  map.addLayer({
+    id:`${src}-line`, type:'line', source:src,
+    filter:['==',['geometry-type'],'LineString'],
+    paint:{
+      'line-color':['coalesce',['get','stroke'],'#2563eb'],
+      'line-width':['coalesce',['get','stroke_w'],2.5]
+    }
+  });
+
+  // ---------- NOKTALAR: önce gölge ----------
+  map.addLayer({
+    id: `${src}-pts-shadow`,
+    type: 'circle',
+    source: src,
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: {
+      'circle-radius': ['interpolate',['linear'],['zoom'], 14, 9, 18, 13, 22, 18],
+      'circle-color': 'rgba(0,0,0,0.28)',
+      'circle-translate': [0, 2],
+      'circle-blur': 0.6
+    }
+  });
+
+  // ---------- NOKTALAR: renkli rozet ----------
+  map.addLayer({
+    id: `${src}-pts-badge`,
+    type: 'circle',
+    source: src,
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: {
+      'circle-radius': ['interpolate',['linear'],['zoom'], 14, 9, 18, 13, 22, 18],
+      'circle-color': [
+        'match',['get','category'],
+        'restaurant', CAT_COLORS.restaurant,
+        'bar',        CAT_COLORS.bar,
+        'spa',        CAT_COLORS.spa,
+        'cafe',       CAT_COLORS.cafe,
+        'shop',       CAT_COLORS.shop,
+        'toilet',     CAT_COLORS.toilet,
+        'reception',  CAT_COLORS.reception,
+        'beach',      CAT_COLORS.beach,
+        'kidsclub',   CAT_COLORS.kidsclub,
+        'elevator',   CAT_COLORS.elevator,
+        'gate',       CAT_COLORS.gate,
+        'parking',    CAT_COLORS.parking,
+        'shuttle',    CAT_COLORS.shuttle,
+        'gym',        CAT_COLORS.gym,
+        'pool',       CAT_COLORS.pool,
+        CAT_COLORS.default
+      ],
+      'circle-stroke-color':'#FFFFFF',
+      'circle-stroke-width':2
+    }
+  });
+
+  // ---------- NOKTALAR: ikon (senin PNG’lerin) ----------
+  map.addLayer({
+    id: `${src}-pts`,
+    type: 'symbol',
+    source: src,
+    filter: ['==', ['geometry-type'], 'Point'],
+    layout: {
+      'icon-image': [
+        'match', ['get','category'],
+        'restaurant','poi-restaurant',
+        'bar','poi-bar',
+        'spa','poi-spa',
+        'cafe','poi-cafe',
+        'shop','poi-shop',
+        'toilet','poi-toilet',
+        'reception','poi-reception',
+        'beach','poi-beach',
+        'kidsclub','poi-kidsclub',
+        'elevator','poi-elevator',
+        'gate','poi-gate',
+        'parking','poi-parking',
+        'shuttle','poi-shuttle',
+        'gym','poi-gym',
+        'pool','poi-pool',
+        /* default */ 'poi-marker'
+      ],
+      'icon-size': ['interpolate',['linear'],['zoom'], 14, 0.9, 18, 1.1, 22, 1.25],
+      'icon-allow-overlap': true,
+      'icon-anchor': 'center',
+      'icon-offset': [0,0]
+    }
+  });
+
+  // (İstersen zoom yüksekken isim etiketi)
+  // map.addLayer({...}) // labels için sonra ekleriz
 }
+
 
 /* JSON yükleme */
 async function loadJSONs(){
