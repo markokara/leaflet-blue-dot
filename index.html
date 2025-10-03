@@ -501,13 +501,6 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
 
 /* Katman yardımcıları */
 function addFeatureLayers(src){
-  map.addLayer({id:`${src}-fill`,type:'fill',source:src,paint:{'fill-color':['coalesce',['get','fill'],'#2563eb'],'fill-opacity':['coalesce',['get','fill_op'],0.35]}});
-
-  map.addLayer({id:`${src}-fill-outline`,type:'line',source:src,filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],1.6]}});
-
-  map.addLayer({id:`${src}-line`,type:'line',source:src,filter:['==',['geometry-type'],'LineString'],paint:{'line-color':['coalesce',['get','stroke'],'#2563eb'],'line-width':['coalesce',['get','stroke_w'],2.5]}});
-
- function addFeatureLayers(src){
   // Poligonlar
   map.addLayer({
     id:`${src}-fill`, type:'fill', source:src,
@@ -537,7 +530,7 @@ function addFeatureLayers(src){
     }
   });
 
-  // ---------- NOKTALAR: önce gölge ----------
+  // --------- NOKTALAR: gölge
   map.addLayer({
     id: `${src}-pts-shadow`,
     type: 'circle',
@@ -551,7 +544,7 @@ function addFeatureLayers(src){
     }
   });
 
-  // ---------- NOKTALAR: renkli rozet ----------
+  // --------- NOKTALAR: renkli rozet
   map.addLayer({
     id: `${src}-pts-badge`,
     type: 'circle',
@@ -583,7 +576,7 @@ function addFeatureLayers(src){
     }
   });
 
-  // ---------- NOKTALAR: ikon (senin PNG’lerin) ----------
+  // --------- NOKTALAR: ikon (YÜKLENEN ID'LERİ kullan!)
   map.addLayer({
     id: `${src}-pts`,
     type: 'symbol',
@@ -611,13 +604,9 @@ function addFeatureLayers(src){
       ],
       'icon-size': ['interpolate',['linear'],['zoom'], 14, 0.9, 18, 1.1, 22, 1.25],
       'icon-allow-overlap': true,
-      'icon-anchor': 'center',
-      'icon-offset': [0,0]
+      'icon-anchor': 'center'
     }
   });
-
-  // (İstersen zoom yüksekken isim etiketi)
-  // map.addLayer({...}) // labels için sonra ekleriz
 }
 
 
