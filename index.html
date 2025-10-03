@@ -170,7 +170,7 @@ const MAPTILER_KEY = "ym4UWHwsNK61YUsmqi5C";
 const HOTEL_BBOX = [31.801445, 36.597411, 31.808467, 36.600917]; // Long Beach
 const HOTEL_BOUNDS = [[HOTEL_BBOX[0], HOTEL_BBOX[1]], [HOTEL_BBOX[2], HOTEL_BBOX[3]]];
 const PADDING = {top:120,right:16,bottom:160,left:16};
-const DEFAULT_PITCH = 45, DEFAULT_BEARING = 0;
+const DEFAULT_PITCH = 0, DEFAULT_BEARING = 0;
 
 const OSM_OPACITY = 0.05;
 const OSM_VISIBLE = true;
@@ -313,18 +313,27 @@ function applyPoiCategoryFilter(cat){
 }
 
 function lockToHotel(){
+  const isLandscape = window.innerWidth > window.innerHeight;
+
+  // Yatayda dikey padding’i azalt, her yeri gör
+  const PAD_LAND = { top: 20, right: 20, bottom: 20, left: 20 };
+  // Dikeyde altta panel olabileceği için daha cömert padding
+  const PAD_PORT = { top: 120, right: 16, bottom: 160, left: 16 };
+
   map.fitBounds(HOTEL_BOUNDS, {
-    padding: PADDING,
+    padding: isLandscape ? PAD_LAND : PAD_PORT,
     maxZoom: 25,
-    pitch: DEFAULT_PITCH,
-    bearing: DEFAULT_BEARING
+    pitch: 0,        // üstten bakış
+    bearing: 0
   });
-  // Bir sonraki frame'de mevcut zoom'u minZoom yap → daha fazla zoom-out olmasın
+
+  // Biraz daha zoom-out’a izin verme (kullanıcı alan dışına kaçmasın)
   requestAnimationFrame(() => {
-    const fitZ = map.getZoom();                 // fit sonrası zoom
+    const fitZ = map.getZoom();
     map.setMinZoom(Math.max(0, fitZ - EXTRA_ZOOMOUT));
   });
 }
+
 
 
 /* LOAD */
@@ -505,6 +514,22 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   const padded = expandBoundsMeters(HOTEL_BOUNDS, 300); // 300 m pay
   map.setMaxBounds(padded);
   lockToHotel();
+  // Ekran dönünce veya boyut değişince yeniden oteli kadraja al
+window.addEventListener('resize', () => {
+  // MapLibre boyutu güncelle
+  map.resize();
+  lockToHotel();
+});
+
+// (Opsiyonel) orientation API destekliyorsa değişimde de fit et
+const mq = window.matchMedia('(orientation: landscape)');
+if (mq?.addEventListener) {
+  mq.addEventListener('change', () => {
+    map.resize();
+    lockToHotel();
+  });
+}
+
 });
 
 /* Katman yardımcıları */
