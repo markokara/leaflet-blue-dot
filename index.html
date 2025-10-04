@@ -520,12 +520,14 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   map.addSource('me',{type:'geojson',data:emptyFC()});
   map.addLayer({id:'me-pt',type:'circle',source:'me',paint:{'circle-radius':6,'circle-color':'#1d4ed8','circle-stroke-color':'#fff','circle-stroke-width':1.6}});
 
-  await loadJSONs();
-  applyLang();
-  applyBasemap();
-  const padded = expandBoundsMeters(HOTEL_BOUNDS, 300); // 300 m pay
-  map.setMaxBounds(padded);
-  lockToHotel();
+await loadJSONs();
+applyLang();
+applyBasemap();
+
+const padded = expandBoundsMeters(HOTEL_BOUNDS, 300);
+map.setMaxBounds(padded);
+
+lockToHotel();
 
 // <<< BURAYA EKLE >>>  — maskeyi POI’lerin altına yerleştirmek için
 addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow');
@@ -534,16 +536,7 @@ addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow');
 window.addEventListener('resize', () => { map.resize(); lockToHotel(); });
 const mq = window.matchMedia('(orientation: landscape)');
 mq?.addEventListener?.('change', () => { map.resize(); lockToHotel(); });
-});
 
-// (Opsiyonel) orientation API destekliyorsa değişimde de fit et
-const mq = window.matchMedia('(orientation: landscape)');
-if (mq?.addEventListener) {
-  mq.addEventListener('change', () => {
-    map.resize();
-    lockToHotel();
-  });
-}
 
 });
 
