@@ -526,11 +526,14 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   const padded = expandBoundsMeters(HOTEL_BOUNDS, 300); // 300 m pay
   map.setMaxBounds(padded);
   lockToHotel();
-  // Ekran dönünce veya boyut değişince yeniden oteli kadraja al
-window.addEventListener('resize', () => {
-  // MapLibre boyutu güncelle
-  map.resize();
-  lockToHotel();
+
+// <<< BURAYA EKLE >>>  — maskeyi POI’lerin altına yerleştirmek için
+addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow');
+// (eğer 'indoor-pts-shadow' yoksa, 'indoor-fill' veya null da verebilirsiniz)
+
+window.addEventListener('resize', () => { map.resize(); lockToHotel(); });
+const mq = window.matchMedia('(orientation: landscape)');
+mq?.addEventListener?.('change', () => { map.resize(); lockToHotel(); });
 });
 
 // (Opsiyonel) orientation API destekliyorsa değişimde de fit et
@@ -1161,6 +1164,47 @@ document.addEventListener('click', (e)=>{
 });
 
 /* ================== YARDIMCILAR ================== */
+// ==== OTEL DIŞINI KARARTMA YARDIMCILARI ====
+// Dünya kutusu: dış halka
+function worldRing() {
+  return [
+    [-179.99, -85], [179.99, -85],
+    [179.99,  85],  [-179.99,  85],
+    [-179.99, -85]
+  ];
+}
+// HOTEL_BOUNDS -> iç halka (otel dikdörtgeni)
+function hotelRingFromBounds(bounds) {
+  const [[w,s],[e,n]] = bounds;
+  return [[w,s],[e,s],[e,n],[w,n],[w,s]];
+}
+/** Otel dışını karartan maske (otel içi açık kalır) */
+function addOutsideDimMask(bounds, opacity=0.55, color='#000000', beforeLayer=null){
+  const mask = {
+    type:'FeatureCollection',
+    features:[{
+      type:'Feature',
+      properties:{},
+      geometry:{ type:'Polygon', coordinates:[ worldRing(), hotelRingFromBounds(bounds) ] }
+    }]
+  };
+  if (!map.getSource('outside-dim')) {
+    map.addSource('outside-dim', { type:'geojson', data:mask });
+  } else {
+    map.getSource('outside-dim').setData(mask);
+  }
+  if (!map.getLayer('outside-dim')) {
+    const def = { id:'outside-dim', type:'fill', source:'outside-dim',
+      paint:{ 'fill-color': color, 'fill-opacity': opacity }
+    };
+    if (beforeLayer && map.getLayer(beforeLayer)) map.addLayer(def, beforeLayer);
+    else map.addLayer(def);
+  } else {
+    map.setPaintProperty('outside-dim','fill-color',color);
+    map.setPaintProperty('outside-dim','fill-opacity',opacity);
+  }
+}
+
 // Metre bazlı mesafe (Turf haversine)
 function meters(a, b){
   return turf.distance(turf.point(a), turf.point(b), {units:'meters'});
