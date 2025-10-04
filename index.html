@@ -458,6 +458,9 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
   map.addSource('routes',{type:'geojson', data:emptyFC(), promoteId:'fid'}); // ROUTES ağı
 
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
+  // örnek: -12° sola döndürülmüş maske, POI gölgelerinin altına yerleştir
+addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow', -1);
+
 
   // ROUTES görünümü
   map.addLayer({id:'routes-casing', type:'line', source:'routes',
@@ -1171,32 +1174,44 @@ function hotelRingFromBounds(bounds) {
   const [[w,s],[e,n]] = bounds;
   return [[w,s],[e,s],[e,n],[w,n],[w,s]];
 }
-/** Otel dışını karartan maske (otel içi açık kalır) */
-function addOutsideDimMask(bounds, opacity=0.55, color='#000000', beforeLayer=null){
-  const mask = {
+// Otel dışını karartan maske (angleDeg ile döndür)
+function addOutsideDimMask(bounds, opacity=0.55, color='#000', beforeLayer=null, angleDeg=0){
+  // merkez
+  const [[w,s],[e,n]] = bounds;
+  const center = [(w+e)/2, (s+n)/2];
+
+  // iç halka: bbox -> halka -> açı kadar döndür
+  const innerRaw = hotelRingFromBounds(bounds);
+  const inner    = angleDeg ? rotateRing(innerRaw, center, angleDeg) : innerRaw;
+
+  const fc = {
     type:'FeatureCollection',
     features:[{
       type:'Feature',
       properties:{},
-      geometry:{ type:'Polygon', coordinates:[ worldRing(), hotelRingFromBounds(bounds) ] }
+      geometry:{ type:'Polygon', coordinates:[ worldRing(), inner ] }
     }]
   };
+
   if (!map.getSource('outside-dim')) {
-    map.addSource('outside-dim', { type:'geojson', data:mask });
+    map.addSource('outside-dim', { type:'geojson', data: fc });
   } else {
-    map.getSource('outside-dim').setData(mask);
+    map.getSource('outside-dim').setData(fc);
   }
+
   if (!map.getLayer('outside-dim')) {
-    const def = { id:'outside-dim', type:'fill', source:'outside-dim',
+    const layer = { id:'outside-dim', type:'fill', source:'outside-dim',
       paint:{ 'fill-color': color, 'fill-opacity': opacity }
     };
-    if (beforeLayer && map.getLayer(beforeLayer)) map.addLayer(def, beforeLayer);
-    else map.addLayer(def);
+    // POI'lerin altında / üstünde konumlamak için beforeLayer kullan
+    if (beforeLayer && map.getLayer(beforeLayer)) map.addLayer(layer, beforeLayer);
+    else map.addLayer(layer);
   } else {
     map.setPaintProperty('outside-dim','fill-color',color);
     map.setPaintProperty('outside-dim','fill-opacity',opacity);
   }
 }
+
 
 // Metre bazlı mesafe (Turf haversine)
 function meters(a, b){
