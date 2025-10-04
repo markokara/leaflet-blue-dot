@@ -532,10 +532,6 @@ map.setMaxBounds(padded);
 
 lockToHotel();
 
-// <<< BURAYA EKLE >>>  — maskeyi POI’lerin altına yerleştirmek için
-addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow');
-// (eğer 'indoor-pts-shadow' yoksa, 'indoor-fill' veya null da verebilirsiniz)
-
 window.addEventListener('resize', () => { map.resize(); lockToHotel(); });
 const mq = window.matchMedia('(orientation: landscape)');
 mq?.addEventListener?.('change', () => { map.resize(); lockToHotel(); });
@@ -1173,6 +1169,25 @@ function worldRing() {
 function hotelRingFromBounds(bounds) {
   const [[w,s],[e,n]] = bounds;
   return [[w,s],[e,s],[e,n],[w,n],[w,s]];
+}
+// Halkayı (ring) merkez etrafında angleDeg kadar döndürür.
+// İlk-sonsuz noktanın aynı olmasını garanti eder (kapalı ring).
+function rotateRing(ring, center, angleDeg){
+  const [cx, cy] = center;
+  const a = angleDeg * Math.PI / 180;
+  const cos = Math.cos(a), sin = Math.sin(a);
+
+  const rotated = ring.map(([x,y])=>{
+    const dx = x - cx, dy = y - cy;
+    const rx = cx + dx*cos - dy*sin;
+    const ry = cy + dx*sin + dy*cos;
+    return [rx, ry];
+  });
+
+  // ring kapalı değilse kapat
+  const f = rotated[0], l = rotated[rotated.length-1];
+  if (f[0] !== l[0] || f[1] !== l[1]) rotated.push([...f]);
+  return rotated;
 }
 // Otel dışını karartan maske (angleDeg ile döndür)
 function addOutsideDimMask(bounds, opacity=0.55, color='#000', beforeLayer=null, angleDeg=0){
