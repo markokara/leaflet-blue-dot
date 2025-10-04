@@ -459,7 +459,7 @@ map.addLayer({id:'dbg-dead', type:'circle', source:'debug',
 
   addFeatureLayers('indoor'); addFeatureLayers('outdoor');
   // örnek: -12° sola döndürülmüş maske, POI gölgelerinin altına yerleştir
-addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow', +15);
+addOutsideDimMask(HOTEL_BOUNDS, 0.55, '#000000', 'indoor-pts-shadow', -5);
 
 
   // ROUTES görünümü
