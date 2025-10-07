@@ -592,9 +592,9 @@ function addFeatureLayers(src){
     filter: ['==', ['geometry-type'], 'Point'],
     paint: {
       'circle-radius': ['interpolate',['linear'],['zoom'],
-        14, 11,   // zoom≈14 iken 9 → 12 px
-        18, 17,   // zoom≈18 iken 13 → 18 px
-        22, 25    // zoom≈22 iken 18 → 26 px
+        14, 10,   // zoom≈14 iken 9 → 12 px
+        18, 15,   // zoom≈18 iken 13 → 18 px
+        22, 20    // zoom≈22 iken 18 → 26 px
       ],
       'circle-color': [
         'match',['get','category'],
